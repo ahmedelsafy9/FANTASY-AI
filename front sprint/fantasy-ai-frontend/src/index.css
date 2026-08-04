@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border-soft;
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background-color: #0b0d10;
+  }
+  ::selection {
+    background-color: rgba(232, 184, 92, 0.25);
+    color: #f5f6f8;
+  }
+  :focus-visible {
+    outline: 2px solid #7c86ff;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(24, 28, 34, 0.6);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+
+  .numeral {
+    @apply font-mono tabular-nums;
+  }
+
+  /* Signature ambient texture: a broadcast-angle pitch grid, used sparingly
+     behind the hero only. Perspective lines evoke a football pitch viewed
+     from a TV camera, not a generic cyberpunk grid. */
+  .pitch-grid {
+    background-image:
+      linear-gradient(rgba(124, 134, 255, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124, 134, 255, 0.08) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 40%, transparent 80%);
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 40%, transparent 80%);
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #f5cb7c 0%, #e8b85c 60%, #c99640 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
