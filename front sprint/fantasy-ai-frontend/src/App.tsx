@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import type { ReactNode } from "react";
+import { AuthProvider } from "@/context/AuthContext";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { MockBanner } from "@/components/MockBanner";
+import { LoginModal } from "@/components/LoginModal";
+import { AuthToast } from "@/components/Toast";
 import Home from "@/pages/Home";
 import Dashboard from "@/pages/Dashboard";
 import Predictions from "@/pages/Predictions";
@@ -18,22 +21,26 @@ function Layout({ children }: { children: ReactNode }) {
       <Navigation />
       <main className="flex-1">{children}</main>
       <Footer />
+      <LoginModal />
+      <AuthToast />
     </div>
   );
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout><Home /></Layout>} />
-        <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
-        <Route path="/predictions" element={<Layout><Predictions /></Layout>} />
-        <Route path="/players" element={<Layout><Players /></Layout>} />
-        <Route path="/players/:id" element={<Layout><PlayerDetails /></Layout>} />
-        <Route path="/fixtures" element={<Layout><Fixtures /></Layout>} />
-        <Route path="/about" element={<Layout><About /></Layout>} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout><Home /></Layout>} />
+          <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
+          <Route path="/predictions" element={<Layout><Predictions /></Layout>} />
+          <Route path="/players" element={<Layout><Players /></Layout>} />
+          <Route path="/players/:id" element={<Layout><PlayerDetails /></Layout>} />
+          <Route path="/fixtures" element={<Layout><Fixtures /></Layout>} />
+          <Route path="/about" element={<Layout><About /></Layout>} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
