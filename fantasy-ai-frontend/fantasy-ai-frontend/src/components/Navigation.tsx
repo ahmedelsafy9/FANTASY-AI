@@ -10,8 +10,10 @@ import {
   Shield,
   Crown,
   Home,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
 
 type LucideIcon = typeof Home;
 
@@ -42,6 +44,7 @@ const SECONDARY_LINKS: SecondaryLinkItem[] = [
 export function Navigation() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { user, logout, openLoginModal } = useAuth();
 
   return (
     <>
@@ -104,7 +107,38 @@ export function Navigation() {
             ))}
           </ul>
 
-          {/* Mobile hamburger (only for the slide-down menu, bottom nav handles main routes) */}
+          {/* Desktop Right Auth Widget */}
+          <div className="hidden items-center gap-3 md:flex">
+            {user ? (
+              <div className="flex items-center gap-2.5 rounded-full border border-border-medium bg-surface px-3 py-1 shadow-sm">
+                <img
+                  src={user.picture}
+                  alt={user.name}
+                  className="h-6 w-6 rounded-full object-cover ring-2 ring-emerald/40"
+                />
+                <span className="text-xs font-semibold leading-tight text-ink">
+                  {user.name}
+                </span>
+                <button
+                  onClick={logout}
+                  title="Sign out"
+                  aria-label="Sign out"
+                  className="ml-1 rounded-full p-1 text-ink-tertiary transition-colors hover:bg-coral/10 hover:text-coral"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={openLoginModal}
+                className="rounded-full bg-emerald px-4 py-1.5 text-xs font-semibold text-void transition-opacity hover:opacity-90 shadow-sm"
+              >
+                Sign In with Gmail
+              </button>
+            )}
+          </div>
+
+          {/* Mobile hamburger */}
           <button
             className="rounded-lg p-2 text-ink md:hidden"
             onClick={() => setMobileOpen((o) => !o)}
@@ -115,7 +149,7 @@ export function Navigation() {
           </button>
         </nav>
 
-        {/* Mobile slide-down menu (secondary links + all links for completeness) */}
+        {/* Mobile slide-down menu */}
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
@@ -149,6 +183,32 @@ export function Navigation() {
                     </li>
                   );
                 })}
+                <li className="pt-2 border-t border-border-soft">
+                  {user ? (
+                    <div className="flex items-center justify-between py-2">
+                      <div className="flex items-center gap-2">
+                        <img src={user.picture} alt={user.name} className="h-8 w-8 rounded-full object-cover" />
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-ink">{user.name}</span>
+                          <span className="text-xs text-ink-tertiary">{user.email}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { logout(); setMobileOpen(false); }}
+                        className="rounded-lg p-2 text-coral hover:bg-coral/10"
+                      >
+                        <LogOut size={18} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { openLoginModal(); setMobileOpen(false); }}
+                      className="w-full rounded-lg bg-emerald py-2 text-center text-sm font-semibold text-void"
+                    >
+                      Sign In with Gmail
+                    </button>
+                  )}
+                </li>
               </ul>
             </motion.div>
           )}
