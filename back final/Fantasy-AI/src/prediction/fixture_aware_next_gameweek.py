@@ -107,6 +107,143 @@ def resolve_team_fixtures(
     return by_team
 
 
+@dataclass(frozen=True)
+class UpcomingFixture:
+    """An upcoming fixture record for a team.
+
+    Attributes:
+        fixture_id: Official FPL fixture numeric ID.
+        code: Premier League match code.
+        event: Gameweek event number (or None if unassigned/rescheduled).
+        is_home: True if team plays at home, False if away.
+        opponent_team_id: Numeric FPL team ID of opponent.
+        opponent_name: Opponent team full name.
+        opponent_short_name: Opponent team short name (e.g. 'ARS').
+        opponent_logo_url: Opponent team badge logo URL.
+        difficulty: Official FPL 1-5 FDR rating.
+        kickoff_time: ISO 8601 kickoff timestamp (or None).
+    """
+
+    fixture_id: int | None
+    code: int | None
+    event: int | None
+    is_home: bool
+    opponent_team_id: int | None
+    opponent_name: str
+    opponent_short_name: str | None
+    opponent_logo_url: str | None
+    difficulty: int | None
+    kickoff_time: str | None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert fixture record to JSON-serializable dictionary."""
+        return {
+            "fixture_id": self.fixture_id,
+            "code": self.code,
+            "event": self.event,
+            "is_home": self.is_home,
+            "opponent_team_id": self.opponent_team_id,
+            "opponent_name": self.opponent_name,
+            "opponent_short_name": self.opponent_short_name,
+            "opponent_logo_url": self.opponent_logo_url,
+            "difficulty": self.difficulty,
+            "kickoff_time": self.kickoff_time,
+        }
+
+
+def resolve_team_upcoming_fixtures(
+    fixtures: list[dict[str, Any]],
+    team_id_to_name: dict[int, str],
+    team_metadata: dict[int, Any] | None = None,
+    max_fixtures: int = 5,
+) -> dict[str, list[UpcomingFixture]]:
+    """Resolve a sequence of upcoming fixtures per team from raw fixture data.
+
+    Args:
+        fixtures: Raw fixture records from FPLApiDataSource.get_fixtures.
+        team_id_to_name: Numeric team ID -> full team name dictionary.
+        team_metadata: Optional dict of team ID -> TeamMetadata objects.
+        max_fixtures: Maximum number of upcoming fixtures to retain per team.
+
+    Returns:
+        dict[str, list[UpcomingFixture]]: Team name -> list of upcoming fixtures.
+    """
+    by_team: dict[str, list[UpcomingFixture]] = {}
+
+    # Filter unplayed fixtures and sort defensively by (event, kickoff_time)
+    unplayed = [f for f in fixtures if not f.get("finished", False)]
+    unplayed.sort(
+        key=lambda f: (
+            f.get("event") if f.get("event") is not None else 999,
+            f.get("kickoff_time") or "9999-99-99",
+        )
+    )
+
+    for fixture in unplayed:
+        home_id = fixture.get("team_h")
+        away_id = fixture.get("team_a")
+        if home_id is None or away_id is None:
+            continue
+
+        home_name = team_id_to_name.get(home_id) or f"Team {home_id}"
+        away_name = team_id_to_name.get(away_id) or f"Team {away_id}"
+
+        event = fixture.get("event")
+        event_int = int(event) if event is not None else None
+        fixture_id = fixture.get("id")
+        code = fixture.get("code")
+        kickoff = fixture.get("kickoff_time")
+
+        home_meta = team_metadata.get(home_id) if team_metadata and home_id in team_metadata else None
+        away_meta = team_metadata.get(away_id) if team_metadata and away_id in team_metadata else None
+
+        home_short = home_meta.short_name if home_meta else None
+        home_badge = home_meta.badge_url if home_meta else None
+        away_short = away_meta.short_name if away_meta else None
+        away_badge = away_meta.badge_url if away_meta else None
+
+        # Add home team perspective
+        if home_name not in by_team:
+            by_team[home_name] = []
+        if len(by_team[home_name]) < max_fixtures:
+            by_team[home_name].append(
+                UpcomingFixture(
+                    fixture_id=int(fixture_id) if fixture_id is not None else None,
+                    code=int(code) if code is not None else None,
+                    event=event_int,
+                    is_home=True,
+                    opponent_team_id=int(away_id),
+                    opponent_name=away_name,
+                    opponent_short_name=away_short,
+                    opponent_logo_url=away_badge,
+                    difficulty=fixture.get("team_h_difficulty"),
+                    kickoff_time=str(kickoff) if kickoff else None,
+                )
+            )
+
+        # Add away team perspective
+        if away_name not in by_team:
+            by_team[away_name] = []
+        if len(by_team[away_name]) < max_fixtures:
+            by_team[away_name].append(
+                UpcomingFixture(
+                    fixture_id=int(fixture_id) if fixture_id is not None else None,
+                    code=int(code) if code is not None else None,
+                    event=event_int,
+                    is_home=False,
+                    opponent_team_id=int(home_id),
+                    opponent_name=home_name,
+                    opponent_short_name=home_short,
+                    opponent_logo_url=home_badge,
+                    difficulty=fixture.get("team_a_difficulty"),
+                    kickoff_time=str(kickoff) if kickoff else None,
+                )
+            )
+
+    logger.info("Resolved upcoming fixture lists for %d team(s).", len(by_team))
+    return by_team
+
+
 def build_fixture_aware_next_gameweek_rows(
     data: pd.DataFrame,
     player_id_columns: tuple[str, ...],

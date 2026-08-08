@@ -6,23 +6,25 @@ import { cn } from "@/lib/utils";
 /* -------------------------------------------------------------------------- */
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "gold" | "ghost";
   size?: "sm" | "md" | "lg";
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", children, ...props }, ref) => {
     const base =
-      "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.98]";
+      "inline-flex items-center justify-center gap-2 rounded-xl font-black transition-all duration-150 disabled:bg-[#F1F5F9] disabled:text-[#94A3B8] disabled:border-transparent disabled:shadow-none disabled:pointer-events-none active:translate-y-0.5 active:shadow-btn-pressed cursor-pointer";
     const variants: Record<string, string> = {
       primary:
-        "bg-gold text-void hover:bg-gold-bright shadow-glow hover:shadow-[0_0_48px_-6px_rgba(232,184,92,0.4)]",
+        "bg-[#10B981] text-white border border-[#059669] shadow-btn-raised hover:bg-[#059669] hover:shadow-glow",
       secondary:
-        "bg-surface-elevated text-ink border border-border-medium hover:bg-surface-hover",
-      ghost: "bg-transparent text-ink-secondary hover:text-ink hover:bg-surface",
+        "bg-white text-[#0F172A] border-2 border-[#10B981] shadow-btn-raised hover:bg-[#ECFDF5] hover:border-[#059669]",
+      gold:
+        "bg-[#F59E0B] text-[#0F172A] border border-[#D97706] shadow-btn-raised hover:bg-[#D97706] hover:text-white hover:shadow-glow-gold",
+      ghost: "bg-transparent text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] rounded-xl",
     };
     const sizes: Record<string, string> = {
-      sm: "text-sm px-3 py-1.5",
+      sm: "text-xs px-3.5 py-2",
       md: "text-sm px-5 py-2.5",
       lg: "text-base px-7 py-3.5",
     };
@@ -51,16 +53,16 @@ interface BadgeProps {
 
 export function Badge({ children, tone = "neutral", className }: BadgeProps) {
   const tones: Record<string, string> = {
-    gold: "bg-gold/10 text-gold border-gold/25",
-    signal: "bg-signal/10 text-signal-bright border-signal/25",
-    teal: "bg-teal/10 text-teal border-teal/25",
-    coral: "bg-coral/10 text-coral border-coral/25",
-    neutral: "bg-white/5 text-ink-secondary border-border-medium",
+    gold: "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]",
+    signal: "bg-[#EEF2FF] text-[#3730A3] border-indigo-200",
+    teal: "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]",
+    coral: "bg-[#FEF2F2] text-[#991B1B] border-red-200",
+    neutral: "bg-[#F1F5F9] text-[#334155] border-[#CBD5E1]",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium leading-none",
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black leading-none shadow-sm",
         tones[tone],
         className,
       )}
@@ -86,9 +88,9 @@ export function Card({ children, className, interactive, as = "div" }: CardProps
   return (
     <Comp
       className={cn(
-        "rounded-2xl border border-border-soft bg-surface shadow-card",
+        "rounded-chunky-lg border border-[#E2E8F0] bg-white text-[#0F172A] shadow-card",
         interactive &&
-          "transition-all duration-200 hover:border-border-medium hover:bg-surface-hover cursor-pointer",
+          "transition-all duration-200 hover:border-[#10B981] hover:shadow-card-playful cursor-pointer hover:-translate-y-0.5",
         className,
       )}
     >
@@ -104,7 +106,7 @@ export function Card({ children, className, interactive, as = "div" }: CardProps
 export function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("animate-pulse-soft rounded-md bg-white/[0.06]", className)}
+      className={cn("animate-pulse-soft rounded-xl bg-[#E2E8F0]", className)}
       aria-hidden="true"
     />
   );
@@ -128,7 +130,7 @@ export function Tooltip({ label, children }: { label: string; children: ReactNod
       {open && (
         <span
           role="tooltip"
-          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-border-medium bg-surface-elevated px-2.5 py-1.5 text-xs text-ink shadow-card"
+          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-[#CBD5E1] bg-[#0F172A] px-3 py-1.5 text-xs font-extrabold text-white shadow-card"
         >
           {label}
         </span>

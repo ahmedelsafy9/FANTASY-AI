@@ -55,7 +55,6 @@ export default function Predictions() {
       });
   }, [predictions, query, team, position, sortKey]);
 
-  // Derive summary stats from real data
   const summaryStats = useMemo(() => {
     if (predictions.length === 0) return null;
     const topPlayer = predictions.reduce<PlayerRecord | null>((best, p) => {
@@ -76,79 +75,79 @@ export default function Predictions() {
   }, [predictions]);
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-6 pb-safe-bottom lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 pb-safe-bottom sm:px-6 lg:px-8">
       {/* Page header */}
       <div className="mb-6 flex flex-col gap-1">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald/10 text-emerald">
-            <BarChart3 size={18} />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] shadow-sm">
+            <BarChart3 size={20} />
           </div>
           <div>
-            <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">
-              AI Predictions
+            <h1 className="font-display text-2xl font-black text-[#0F172A] sm:text-3xl">
+              AI Points Predictions
               {typeof gameweek === "number" && (
-                <span className="ml-2 text-emerald">GW {gameweek}</span>
+                <span className="ml-2.5 text-[#10B981] font-black">GW {gameweek}</span>
               )}
             </h1>
           </div>
         </div>
-        <p className="mt-1 text-sm text-ink-tertiary">
+        <p className="mt-1 text-sm font-semibold text-[#475569]">
           {data ? data.predicted_for_gw_note : "AI-projected points for every tracked player."}
         </p>
       </div>
 
-      {/* Summary strip — derived from real data only */}
+      {/* Summary strip */}
       {!loading && !error && summaryStats && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3"
+          className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3"
         >
           {summaryStats.topPlayer && (
-            <div className="flex items-center gap-3 rounded-xl border border-gold/15 bg-gold/[0.04] px-4 py-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gold/15 text-gold">
-                <Sparkles size={15} />
+            <div className="flex items-center gap-3.5 rounded-chunky-lg border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3.5 shadow-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F59E0B] text-[#0F172A] shadow-sm">
+                <Sparkles size={18} />
               </div>
               <div className="min-w-0">
-                <div className="text-[10px] font-medium uppercase tracking-wider text-ink-tertiary">
-                  Top Prediction
+                <div className="text-[10px] font-black uppercase text-[#92400E]">
+                  Top AI Prediction
                 </div>
-                <div className="truncate text-sm font-semibold text-ink">
+                <div className="truncate text-sm font-black text-[#0F172A]">
                   {summaryStats.topPlayer.name ?? "N/A"}{" "}
-                  <span className="numeral text-gold">
-                    {formatStat(summaryStats.topPlayer.predicted_total_points)}
+                  <span className="numeral text-[#92400E] font-black">
+                    {formatStat(summaryStats.topPlayer.predicted_total_points)} xPts
                   </span>
                 </div>
               </div>
             </div>
           )}
           {summaryStats.favorableFixtures > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-emerald/15 bg-emerald/[0.04] px-4 py-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald/15 text-emerald">
-                <Shield size={15} />
+            <div className="flex items-center gap-3.5 rounded-chunky-lg border border-[#A7F3D0] bg-[#ECFDF5] px-4 py-3.5 shadow-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#10B981] text-white shadow-sm">
+                <Shield size={18} />
               </div>
               <div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-ink-tertiary">
+                <div className="text-[10px] font-black uppercase text-[#059669]">
                   Favorable Fixtures
                 </div>
-                <div className="text-sm font-semibold text-ink">
-                  {summaryStats.favorableFixtures} players
+                <div className="text-sm font-black text-[#0F172A]">
+                  {summaryStats.favorableFixtures} Players
                 </div>
               </div>
             </div>
           )}
           {summaryStats.inForm > 0 && (
-            <div className="flex items-center gap-3 rounded-xl border border-signal/15 bg-signal/[0.04] px-4 py-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-signal/15 text-signal">
-                <TrendingUp size={15} />
+            <div className="flex items-center gap-3.5 rounded-chunky-lg border border-indigo-200 bg-indigo-50 px-4 py-3.5 shadow-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+                <TrendingUp size={18} />
               </div>
               <div>
-                <div className="text-[10px] font-medium uppercase tracking-wider text-ink-tertiary">
+                <div className="text-[10px] font-black uppercase text-indigo-700">
                   Players In Form
                 </div>
-                <div className="text-sm font-semibold text-ink">
-                  {summaryStats.inForm} improving
+                <div className="text-sm font-black text-[#0F172A]">
+                  {summaryStats.inForm} Improving
                 </div>
               </div>
             </div>
@@ -174,14 +173,14 @@ export default function Predictions() {
 
       {/* Results count */}
       {!loading && !error && filtered.length > 0 && (
-        <div className="mb-4 text-xs text-ink-tertiary">
+        <div className="mb-4 text-xs font-bold text-[#64748B]">
           Showing {filtered.length} of {predictions.length} players
         </div>
       )}
 
       {/* Loading skeleton */}
       {loading && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 9 }).map((_, i) => (
             <PlayerCardSkeleton key={i} />
           ))}
@@ -199,7 +198,7 @@ export default function Predictions() {
 
       {/* Player grid */}
       {!loading && !error && filtered.length > 0 && (
-        <motion.div layout className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <motion.div layout className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p, i) => (
             <PlayerCard
               key={p.element ?? p.name}

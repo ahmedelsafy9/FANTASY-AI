@@ -8,17 +8,12 @@ interface PredictionScoreProps {
 }
 
 const SIZE_MAP = {
-  sm: "text-lg",
+  sm: "text-xl",
   md: "text-3xl",
   lg: "text-5xl",
   xl: "text-7xl",
 };
 
-/**
- * Standalone predicted points display — the signature numeral of
- * Fantasy-AI. Large gold monospace number with "xPts" label.
- * Optional glow effect for high-value predictions (>7.0).
- */
 export function PredictionScore({ points, size = "md", className }: PredictionScoreProps) {
   const value = typeof points === "number" ? points : null;
   const isHigh = value !== null && value >= 7;
@@ -26,14 +21,14 @@ export function PredictionScore({ points, size = "md", className }: PredictionSc
 
   return (
     <div className={cn("flex flex-col", className)}>
-      <span className="text-[10px] font-medium uppercase tracking-widest text-ink-tertiary">
+      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
         Expected Pts
       </span>
       <span
         className={cn(
-          "numeral text-gradient-gold font-bold leading-none",
+          "numeral font-black leading-none text-amber-600",
           SIZE_MAP[size],
-          isHigh && "drop-shadow-[0_0_20px_rgba(232,184,92,0.3)]",
+          isHigh && "text-amber-700",
         )}
       >
         {formatted}

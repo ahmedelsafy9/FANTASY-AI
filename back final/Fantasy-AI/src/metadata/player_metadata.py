@@ -20,6 +20,9 @@ _PHOTO_URL_TEMPLATE = (
 )
 
 
+_POSITION_MAP: dict[int, str] = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+
+
 @dataclass(frozen=True)
 class PlayerMetadata:
     """Presentation metadata for one player.
@@ -30,6 +33,13 @@ class PlayerMetadata:
         team_id: The player's current team ID.
         photo_url: URL to the player's photo, or ``None`` if the
             source record didn't include a valid ``photo`` field.
+        first_name: The player's first name.
+        second_name: The player's surname.
+        element_type: The FPL position ID (1: GKP, 2: DEF, 3: MID, 4: FWD).
+        position: Short position string ("GKP", "DEF", "MID", "FWD").
+        now_cost: Price in 10ths of £M (e.g. 60 for £6.0m).
+        value: Price in £M (e.g. 6.0).
+        status: Player availability status (e.g. "a", "d", "i", "s", "u").
         full_name: The player's full name (first_name + second_name).
     """
 
@@ -37,6 +47,13 @@ class PlayerMetadata:
     web_name: str
     team_id: int | None
     photo_url: str | None
+    first_name: str | None = None
+    second_name: str | None = None
+    element_type: int | None = None
+    position: str | None = None
+    now_cost: int | None = None
+    value: float | None = None
+    status: str | None = None
     full_name: str | None = None
 
 
@@ -107,6 +124,23 @@ def build_player_metadata(
         except (TypeError, ValueError):
             continue
 
+        team_id = (
+            int(element["team"])
+            if element.get("team") is not None
+            else None
+        )
+        elem_type = (
+            int(element["element_type"])
+            if element.get("element_type") is not None
+            else None
+        )
+        pos = _POSITION_MAP.get(elem_type) if elem_type is not None else None
+        now_cost = (
+            int(element["now_cost"])
+            if element.get("now_cost") is not None
+            else None
+        )
+        val = now_cost
         fn = str(element.get("first_name", "")).strip()
         sn = str(element.get("second_name", "")).strip()
         full_name = f"{fn} {sn}".strip() if (fn or sn) else None
@@ -114,9 +148,24 @@ def build_player_metadata(
         result[numeric_player_id] = PlayerMetadata(
             player_id=numeric_player_id,
             web_name=str(element.get("web_name", "Unknown")),
-            team_id=(
-                int(element["team"])
-                if element.get("team") is not None
+            first_name=(
+                str(element["first_name"])
+                if element.get("first_name") is not None
+                else None
+            ),
+            second_name=(
+                str(element["second_name"])
+                if element.get("second_name") is not None
+                else None
+            ),
+            team_id=team_id,
+            element_type=elem_type,
+            position=pos,
+            now_cost=now_cost,
+            value=val,
+            status=(
+                str(element["status"])
+                if element.get("status") is not None
                 else None
             ),
             photo_url=player_photo_url(element.get("photo")),

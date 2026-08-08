@@ -75,39 +75,6 @@ def create_app() -> FastAPI:
     )
 
     # ------------------------------------------------------------------
-    # CORS
-    # ------------------------------------------------------------------
-    # The Vite frontend runs on localhost:5174 during local development.
-    #
-    # Without this middleware the browser blocks requests such as:
-    #
-    #   http://localhost:5174
-    #          ->
-    #   http://localhost:8000/top_players
-    #
-    # with:
-    #
-    #   No 'Access-Control-Allow-Origin' header...
-    #
-    # Keep localhost:5173 as well because Vite commonly uses that port.
-    # ------------------------------------------------------------------
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:5174",
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    # ------------------------------------------------------------------
     # Routers
     # ------------------------------------------------------------------
 
@@ -161,7 +128,8 @@ def create_app() -> FastAPI:
         )
 
         if (
-            request.url.path not in always_available_paths
+            request.method != "OPTIONS"
+            and request.url.path not in always_available_paths
             and getattr(app.state, "fantasy_ai_state", None) is None
         ):
             return JSONResponse(
@@ -175,6 +143,30 @@ def create_app() -> FastAPI:
             )
 
         return await call_next(request)
+
+    # ------------------------------------------------------------------
+    # CORS
+    # ------------------------------------------------------------------
+    # Note: CORSMiddleware is added LAST so that Starlette wraps it around
+    # all custom @app.middleware("http") handlers, ensuring CORS headers
+    # are attached to ALL responses (including 503 errors and OPTIONS preflights).
+    # ------------------------------------------------------------------
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
+        allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     return app
 

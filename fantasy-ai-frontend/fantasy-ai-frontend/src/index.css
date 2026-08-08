@@ -2,130 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-page: #F4F6F8;
+  --bg-card: #FFFFFF;
+  --bg-card-subtle: #F8FAFC;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
+  --text-disabled: #94A3B8;
+  --primary: #10B981;
+  --primary-dark: #059669;
+  --primary-light: #ECFDF5;
+  --primary-border: #A7F3D0;
+  --gold: #F59E0B;
+  --gold-light: #FFFBEB;
+  --gold-border: #FDE68A;
+  --gold-dark: #92400E;
+  --border: #E2E8F0;
+}
+
 @layer base {
   * {
-    @apply border-border-soft;
+    border-color: #E2E8F0;
   }
+
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
+
   body {
-    background-color: #0A0E13;
+    background-color: #F4F6F8;
+    color: #c5cad6;
+    font-family: 'Inter', sans-serif;
   }
+
   ::selection {
     background-color: rgba(16, 185, 129, 0.25);
-    color: #f0f2f5;
+    color: #ffffff;
   }
+
   :focus-visible {
     outline: 2px solid #10B981;
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
-  h1, h2, h3, h4 {
-    @apply font-display tracking-tight;
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: -0.02em;
+    color: #0F172A;
+    font-weight: 800;
   }
+
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
   ::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.10);
+    background-color: rgba(15, 23, 42, 0.18);
     border-radius: 8px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(15, 23, 42, 0.32);
   }
 }
 
 @layer utilities {
   .glass {
-    background: rgba(17, 22, 32, 0.7);
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
   .numeral {
-    @apply font-mono tabular-nums;
-  }
-
-  .pitch-grid {
-    background-image:
-      linear-gradient(rgba(16, 185, 129, 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(16, 185, 129, 0.06) 1px, transparent 1px);
-    background-size: 64px 64px;
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 40%, transparent 80%);
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, black 40%, transparent 80%);
-  }
-
-  .text-gradient-gold {
-    background: linear-gradient(135deg, #f5cb7c 0%, #e8b85c 60%, #c99640 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
   }
 
   .text-gradient-emerald {
-    background: linear-gradient(135deg, #34D399 0%, #10B981 60%, #065F46 100%);
+    background: linear-gradient(135deg, #059669 0%, #10B981 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
-  /* Football pitch background for squad builder */
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #92400E 0%, #D97706 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Football pitch surface */
   .pitch-surface {
-    background: linear-gradient(160deg, #0F3D24 0%, #1A5C38 30%, #163D28 70%, #0B2E1A 100%);
-  }
-
-  /* Subtle pitch line markings */
-  .pitch-lines {
-    position: relative;
-  }
-  .pitch-lines::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border: 2px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    pointer-events: none;
-  }
-  .pitch-lines::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background: rgba(255, 255, 255, 0.06);
-    pointer-events: none;
-  }
-
-  /* Center circle for pitch */
-  .pitch-center-circle {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 100px;
-    height: 100px;
-    transform: translate(-50%, -50%);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 50%;
-    pointer-events: none;
+    background: linear-gradient(160deg, #166534 0%, #15803D 40%, #166534 100%);
   }
 
   .scrollbar-none::-webkit-scrollbar {
     display: none;
   }
+
   .scrollbar-none {
     scrollbar-width: none;
   }
 
-  /* Mobile bottom nav safe area */
   .pb-safe-bottom {
     padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

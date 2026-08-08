@@ -31,7 +31,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-void/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-[#0F172A]/40 backdrop-blur-sm"
             onClick={onClose}
             aria-hidden="true"
           />
@@ -43,14 +43,14 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="glass relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border-medium p-6 shadow-card"
+            className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-chunky-xl border border-[#E2E8F0] bg-white p-6 text-[#0F172A] shadow-card-hover"
           >
             <div className="mb-4 flex items-center justify-between">
-              {title && <h3 className="text-lg font-semibold text-ink">{title}</h3>}
+              {title && <h3 className="text-lg font-black text-[#0F172A]">{title}</h3>}
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="ml-auto rounded-lg p-1.5 text-ink-secondary transition-colors hover:bg-white/5 hover:text-ink"
+                className="ml-auto rounded-xl p-1.5 text-[#64748B] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A] cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -64,7 +64,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Drawer (right-side panel — used for Player Spotlight detail)               */
+/* Drawer (right-side panel)                                                   */
 /* -------------------------------------------------------------------------- */
 
 interface DrawerProps {
@@ -90,7 +90,7 @@ export function Drawer({ open, onClose, children }: DrawerProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-void/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-[#0F172A]/40 backdrop-blur-sm"
             onClick={onClose}
             aria-hidden="true"
           />
@@ -101,12 +101,12 @@ export function Drawer({ open, onClose, children }: DrawerProps) {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-            className="glass relative z-10 h-full w-full max-w-md overflow-y-auto border-l border-border-medium p-6 shadow-card"
+            className="relative z-10 h-full w-full max-w-md overflow-y-auto border-l border-[#E2E8F0] bg-white p-6 text-[#0F172A] shadow-card-hover"
           >
             <button
               onClick={onClose}
               aria-label="Close"
-              className="absolute right-5 top-5 rounded-lg p-1.5 text-ink-secondary transition-colors hover:bg-white/5 hover:text-ink"
+              className="absolute right-5 top-5 rounded-xl p-1.5 text-[#64748B] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A] cursor-pointer"
             >
               <X size={18} />
             </button>
@@ -134,7 +134,7 @@ export function Tabs({ tabs, active, onChange, className }: TabsProps) {
     <div
       role="tablist"
       className={cn(
-        "inline-flex items-center gap-1 rounded-xl border border-border-soft bg-surface p-1",
+        "inline-flex items-center gap-1 rounded-chunky border border-[#E2E8F0] bg-white p-1 shadow-sm",
         className,
       )}
     >
@@ -145,18 +145,13 @@ export function Tabs({ tabs, active, onChange, className }: TabsProps) {
           aria-selected={active === tab.id}
           onClick={() => onChange(tab.id)}
           className={cn(
-            "relative rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors",
-            active === tab.id ? "text-void" : "text-ink-secondary hover:text-ink",
+            "relative rounded-xl px-4 py-2 text-xs font-black transition-all cursor-pointer",
+            active === tab.id
+              ? "bg-[#10B981] text-white shadow-sm"
+              : "text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9]",
           )}
         >
-          {active === tab.id && (
-            <motion.span
-              layoutId="tab-pill"
-              className="absolute inset-0 rounded-lg bg-gold"
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            />
-          )}
-          <span className="relative z-10">{tab.label}</span>
+          <span>{tab.label}</span>
         </button>
       ))}
     </div>
@@ -186,11 +181,11 @@ export function Dropdown({ label, options, value, onChange }: DropdownProps) {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
-        className="flex items-center gap-2 rounded-lg border border-border-soft bg-surface px-3.5 py-2 text-sm text-ink transition-colors hover:border-border-medium"
+        className="flex items-center gap-2 rounded-xl border-2 border-[#CBD5E1] bg-white px-3.5 py-2 text-xs font-black text-[#0F172A] shadow-sm transition-all hover:border-[#94A3B8] cursor-pointer"
       >
-        <span className="text-ink-tertiary">{label}:</span>
-        <span className="font-medium">{selected?.label ?? "All"}</span>
-        <ChevronDown size={14} className={cn("transition-transform", open && "rotate-180")} />
+        <span className="text-[#64748B] font-bold">{label}:</span>
+        <span className="font-black">{selected?.label ?? "All"}</span>
+        <ChevronDown size={14} className={cn("transition-transform text-[#64748B]", open && "rotate-180")} />
       </button>
       <AnimatePresence>
         {open && (
@@ -200,7 +195,7 @@ export function Dropdown({ label, options, value, onChange }: DropdownProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="glass absolute left-0 top-full z-20 mt-2 max-h-64 w-48 overflow-y-auto rounded-xl border border-border-medium p-1 shadow-card"
+            className="absolute left-0 top-full z-20 mt-2 max-h-64 w-48 overflow-y-auto rounded-chunky-lg border border-[#E2E8F0] bg-white p-1.5 shadow-card-hover"
           >
             {options.map((opt) => (
               <li key={opt.value}>
@@ -212,10 +207,10 @@ export function Dropdown({ label, options, value, onChange }: DropdownProps) {
                     setOpen(false);
                   }}
                   className={cn(
-                    "block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                    "block w-full rounded-xl px-3 py-2 text-left text-xs font-black transition-colors cursor-pointer",
                     value === opt.value
-                      ? "bg-gold/10 text-gold"
-                      : "text-ink-secondary hover:bg-white/5 hover:text-ink",
+                      ? "bg-[#ECFDF5] text-[#059669]"
+                      : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
                   )}
                 >
                   {opt.label}

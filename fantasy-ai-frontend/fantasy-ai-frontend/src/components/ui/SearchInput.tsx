@@ -8,7 +8,6 @@ interface SearchInputProps {
   autoFocusShortcut?: boolean;
 }
 
-/** A premium search field. Supports "/" to focus, matching common app conventions. */
 export function SearchInput({
   value,
   onChange,
@@ -33,7 +32,7 @@ export function SearchInput({
     <div className="group relative">
       <Search
         size={16}
-        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-tertiary transition-colors group-focus-within:text-gold"
+        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748B] transition-colors group-focus-within:text-[#10B981]"
       />
       <input
         ref={ref}
@@ -42,19 +41,19 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label="Search players"
-        className="w-full rounded-xl border border-border-soft bg-surface py-2.5 pl-10 pr-16 text-sm text-ink placeholder:text-ink-tertiary transition-colors focus:border-emerald/50 focus:outline-none"
+        className="w-full rounded-xl border-2 border-[#CBD5E1] bg-white py-2.5 pl-10 pr-16 text-sm font-black text-[#0F172A] placeholder:text-[#94A3B8] shadow-sm transition-all focus:border-[#10B981] focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
       />
       {value ? (
         <button
           onClick={() => onChange("")}
           aria-label="Clear search"
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-tertiary hover:text-ink"
+          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A] transition-colors cursor-pointer"
         >
           <X size={15} />
         </button>
       ) : (
         autoFocusShortcut && (
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-border-soft px-1.5 py-0.5 font-mono text-[10px] text-ink-tertiary">
+          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-[#CBD5E1] bg-[#F8FAFC] px-1.5 py-0.5 font-mono text-[10px] font-black text-[#475569] shadow-sm">
             /
           </kbd>
         )

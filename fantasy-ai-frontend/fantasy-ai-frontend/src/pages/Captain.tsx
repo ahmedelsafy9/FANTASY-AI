@@ -8,27 +8,22 @@ import { InsightTag } from "@/components/InsightTag";
 import { PlayerCardSkeleton, ErrorState, EmptyState } from "@/components/states";
 import { deriveInsights } from "@/lib/insights";
 
-/**
- * Dedicated Captain Pick page — uses the existing useCaptain() hook
- * which maps to GET /captain. Displays the AI recommendation with
- * maximum visual prominence. All data from the backend; nothing fabricated.
- */
 export default function Captain() {
   const { data, loading, error, refetch } = useCaptain();
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-8 pb-safe-bottom lg:px-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 pb-safe-bottom lg:px-8">
       {/* Header */}
       <div className="mb-8 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/10 text-gold">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] shadow-sm">
           <Crown size={20} />
         </div>
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink sm:text-3xl">
-            Captain Pick
+          <h1 className="font-display text-2xl font-black text-[#0F172A] sm:text-3xl">
+            AI Captain Recommendation
           </h1>
-          <p className="text-sm text-ink-tertiary">
-            AI-recommended captain for maximum points.
+          <p className="text-sm font-semibold text-[#475569]">
+            Top recommended captain choice for maximum 2× points boost.
           </p>
         </div>
       </div>
@@ -56,9 +51,9 @@ export default function Captain() {
           className="flex flex-col gap-6"
         >
           {/* Captain hero card */}
-          <div className="relative overflow-hidden rounded-2xl border border-gold/20 bg-gradient-to-br from-gold/[0.06] via-surface to-pitch-dark/30">
-            {/* Gold accent */}
-            <div className="h-1 w-full bg-gradient-to-r from-gold via-gold/60 to-transparent" />
+          <div className="relative overflow-hidden rounded-chunky-xl border border-[#FDE68A] bg-gradient-to-br from-[#FFFBEB] via-white to-[#ECFDF5] shadow-card">
+            {/* Top gold stripe */}
+            <div className="h-1.5 w-full bg-gradient-to-r from-[#F59E0B] via-[#FBBF24] to-[#10B981]" />
 
             <div className="flex flex-col items-center gap-6 p-8 text-center sm:p-10">
               {/* Crown icon */}
@@ -66,9 +61,9 @@ export default function Captain() {
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.4, delay: 0.1 }}
-                className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gold/15 text-gold shadow-glow"
+                className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F59E0B] text-[#0F172A] shadow-btn-raised border-2 border-white animate-bounce-sm"
               >
-                <Crown size={28} />
+                <Crown size={32} />
               </motion.div>
 
               {/* Player photo */}
@@ -81,7 +76,7 @@ export default function Captain() {
                   name={data.recommendation.name}
                   photoUrl={data.recommendation.photo_url}
                   size="xl"
-                  className="ring-4 ring-gold/25"
+                  className="ring-4 ring-[#F59E0B] shadow-card"
                 />
               </motion.div>
 
@@ -91,7 +86,7 @@ export default function Captain() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.2 }}
               >
-                <h2 className="font-display text-2xl font-bold text-ink sm:text-3xl">
+                <h2 className="font-display text-3xl font-black text-[#0F172A] sm:text-4xl">
                   {data.recommendation.name ?? "N/A"}
                 </h2>
                 <div className="mt-2 flex items-center justify-center gap-2">
@@ -102,7 +97,7 @@ export default function Captain() {
                     showName
                   />
                   {data.recommendation.position && (
-                    <span className="rounded bg-white/10 px-2 py-0.5 text-xs font-semibold uppercase text-ink-secondary">
+                    <span className="rounded-full bg-[#0F172A] px-3 py-0.5 text-xs font-black uppercase text-white shadow-sm">
                       {data.recommendation.position}
                     </span>
                   )}
@@ -138,18 +133,18 @@ export default function Captain() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.35 }}
-            className="rounded-xl border border-emerald/15 bg-emerald/[0.04] p-5"
+            className="rounded-chunky-lg border border-[#A7F3D0] bg-[#ECFDF5] p-5 shadow-sm"
           >
-            <h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-emerald">
-              <Sparkles size={13} />
-              AI Reasoning
+            <h3 className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-[#059669]">
+              <Sparkles size={14} />
+              AI Selection Reasoning
             </h3>
-            <p className="text-sm leading-relaxed text-ink-secondary">
+            <p className="text-sm font-semibold leading-relaxed text-[#334155]">
               {data.reasoning}
             </p>
-            <div className="mt-3 flex items-center gap-2 text-xs text-ink-tertiary">
-              <Users size={13} />
-              <span>{data.pool_size} players evaluated</span>
+            <div className="mt-3 flex items-center gap-2 text-xs font-extrabold text-[#64748B]">
+              <Users size={14} />
+              <span>{data.pool_size} total players evaluated</span>
             </div>
           </motion.div>
 
@@ -160,7 +155,7 @@ export default function Captain() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.4 }}
             >
-              <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-ink-tertiary">
+              <h3 className="mb-3 text-xs font-black uppercase text-[#64748B]">
                 Player Insights
               </h3>
               <div className="flex flex-wrap gap-2">

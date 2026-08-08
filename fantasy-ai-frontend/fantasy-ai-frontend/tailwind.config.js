@@ -4,67 +4,77 @@ export default {
   theme: {
     extend: {
       colors: {
-        void: {
-          DEFAULT: "#0A0E13",
-          soft: "#0E1218",
-        },
+        /* ── Page & Card Surfaces ── */
+        page: "#F4F6F8",
+        card: "#FFFFFF",
         surface: {
-          DEFAULT: "#111620",
-          elevated: "#171D29",
-          hover: "#1C2333",
+          DEFAULT: "#FFFFFF",
+          elevated: "#F8FAFC",
+          hover: "#F1F5F9",
         },
         border: {
-          soft: "rgba(255,255,255,0.07)",
-          medium: "rgba(255,255,255,0.13)",
+          DEFAULT: "#E2E8F0",
+          soft: "#E2E8F0",
+          medium: "#CBD5E1",
+          bold: "#94A3B8",
         },
+        /* ── Text Color Hierarchy (High Contrast) ── */
         ink: {
-          DEFAULT: "#F0F2F5",
-          secondary: "#8E99A8",
-          tertiary: "#5A6475",
+          DEFAULT: "#0F172A",
+          primary: "#0F172A",
+          secondary: "#475569",
+          muted: "#64748B",
+          disabled: "#94A3B8",
+          inverse: "#FFFFFF",
         },
-        gold: {
-          DEFAULT: "#E8B85C",
-          bright: "#F5CB7C",
-          dim: "#8A6B36",
+        navy: {
+          DEFAULT: "#0F172A",
+          light: "#1E293B",
+          dark: "#020617",
         },
-        signal: {
-          DEFAULT: "#7C86FF",
-          bright: "#9AA2FF",
-          dim: "#4A4F99",
-        },
-        teal: {
-          DEFAULT: "#34D1B8",
-          dim: "#1F7A6C",
-        },
-        coral: {
-          DEFAULT: "#E5695A",
-          dim: "#8A3D34",
-        },
-        /* Football-themed greens */
-        pitch: {
-          DEFAULT: "#1A5C38",
-          dark: "#0F3D24",
-          deep: "#0B2E1A",
-          light: "#22714A",
-          muted: "#163D28",
-        },
+        /* ── Primary Green Brand Colors ── */
         emerald: {
           DEFAULT: "#10B981",
+          dark: "#059669",
+          light: "#ECFDF5",
+          border: "#A7F3D0",
           bright: "#34D399",
-          dim: "#065F46",
         },
+        /* ── Secondary Gold/Yellow Accent ── */
+        gold: {
+          DEFAULT: "#F59E0B",
+          light: "#FFFBEB",
+          border: "#FDE68A",
+          dark: "#92400E",
+          bright: "#FBBF24",
+        },
+        /* ── Secondary Accent Colors ── */
         lime: {
           DEFAULT: "#84CC16",
-          bright: "#A3E635",
-          dim: "#4D7C0F",
+          light: "#F7FEE7",
+          dark: "#3F6212",
         },
-        /* FDR scale */
-        fdr: {
-          1: "#10B981",
-          2: "#34D399",
-          3: "#E8B85C",
-          4: "#E5695A",
-          5: "#DC2626",
+        signal: {
+          DEFAULT: "#6366F1",
+          light: "#EEF2FF",
+          dark: "#3730A3",
+        },
+        sky: {
+          DEFAULT: "#0EA5E9",
+          light: "#F0F9FF",
+          dark: "#075985",
+        },
+        coral: {
+          DEFAULT: "#EF4444",
+          light: "#FEF2F2",
+          dark: "#991B1B",
+        },
+        /* ── Football Pitch Surface ── */
+        pitch: {
+          DEFAULT: "#15803D",
+          dark: "#166534",
+          deep: "#14532D",
+          light: "#22C55E",
         },
       },
       fontFamily: {
@@ -72,48 +82,39 @@ export default {
         body: ["'Inter'", "sans-serif"],
         mono: ["'JetBrains Mono'", "monospace"],
       },
-      boxShadow: {
-        glow: "0 0 40px -8px rgba(232,184,92,0.25)",
-        "glow-signal": "0 0 40px -8px rgba(124,134,255,0.3)",
-        "glow-emerald": "0 0 40px -8px rgba(16,185,129,0.25)",
-        card: "0 1px 0 0 rgba(255,255,255,0.04) inset, 0 12px 32px -16px rgba(0,0,0,0.6)",
-        "card-hover": "0 1px 0 0 rgba(255,255,255,0.06) inset, 0 20px 48px -16px rgba(0,0,0,0.7)",
+      borderRadius: {
+        chunky: "0.875rem",
+        "chunky-lg": "1.25rem",
+        "chunky-xl": "1.75rem",
       },
-      backgroundImage: {
-        "grid-fade":
-          "linear-gradient(to bottom, rgba(10,14,19,0) 0%, rgba(10,14,19,1) 85%)",
-        "pitch-gradient":
-          "linear-gradient(160deg, #0F3D24 0%, #1A5C38 30%, #163D28 70%, #0B2E1A 100%)",
-        "pitch-gradient-subtle":
-          "linear-gradient(180deg, rgba(26,92,56,0.15) 0%, rgba(10,14,19,0) 100%)",
+      boxShadow: {
+        glow: "0 4px 20px -2px rgba(16,185,129,0.3)",
+        "glow-gold": "0 4px 20px -2px rgba(245,158,11,0.3)",
+        card: "0 2px 12px -2px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.04)",
+        "card-hover": "0 10px 28px -4px rgba(15,23,42,0.1), 0 2px 6px rgba(15,23,42,0.04)",
+        "card-playful": "0 6px 20px -4px rgba(16,185,129,0.15), 0 2px 4px rgba(0,0,0,0.04)",
+        "btn-raised": "0 2px 0 0 rgba(15,23,42,0.12), 0 2px 4px -1px rgba(15,23,42,0.08)",
+        "btn-pressed": "0 1px 0 0 rgba(15,23,42,0.12), 0 1px 2px -1px rgba(15,23,42,0.08)",
+        soft: "0 2px 6px -2px rgba(15,23,42,0.05)",
       },
       animation: {
-        "fade-up": "fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) both",
-        drift: "drift 18s ease-in-out infinite",
-        "pulse-soft": "pulseSoft 2.4s ease-in-out infinite",
-        "slide-up": "slideUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
-        "scale-in": "scaleIn 0.3s cubic-bezier(0.16,1,0.3,1) both",
+        "fade-up": "fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
+        "pulse-soft": "pulseSoft 2s ease-in-out infinite",
+        "bounce-sm": "bounceSm 0.4s cubic-bezier(0.34,1.56,0.64,1) both",
       },
       keyframes: {
         fadeUp: {
-          "0%": { opacity: "0", transform: "translateY(12px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        drift: {
-          "0%, 100%": { transform: "translate(0,0)" },
-          "50%": { transform: "translate(12px,-16px)" },
-        },
-        pulseSoft: {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.55" },
-        },
-        slideUp: {
           "0%": { opacity: "0", transform: "translateY(8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        scaleIn: {
-          "0%": { opacity: "0", transform: "scale(0.95)" },
-          "100%": { opacity: "1", transform: "scale(1)" },
+        pulseSoft: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.6" },
+        },
+        bounceSm: {
+          "0%": { transform: "scale(0.92)" },
+          "60%": { transform: "scale(1.06)" },
+          "100%": { transform: "scale(1)" },
         },
       },
     },
