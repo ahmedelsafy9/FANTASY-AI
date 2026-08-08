@@ -12,7 +12,6 @@ interface UpcomingFixturesProps {
   className?: string;
 }
 
-/** Formats ISO kickoff time into a short date string (e.g., "21 Aug") */
 function formatKickoffDate(isoString?: string | null): string | null {
   if (!isoString) return null;
   try {
@@ -24,10 +23,6 @@ function formatKickoffDate(isoString?: string | null): string | null {
   }
 }
 
-/**
- * Reusable UpcomingFixtures component displaying a sequence of upcoming matches
- * for a player or team, supporting full, compact, and inline representations.
- */
 export function UpcomingFixtures({
   player,
   fixtures,
@@ -35,10 +30,8 @@ export function UpcomingFixtures({
   maxFixtures = 5,
   className,
 }: UpcomingFixturesProps) {
-  // Extract upcoming_fixtures list from prop or player record
   let rawList: UpcomingFixture[] = fixtures ?? player?.upcoming_fixtures ?? [];
 
-  // Fallback to legacy single fixture if upcoming_fixtures list is empty
   if (rawList.length === 0 && player?.opponent_team) {
     rawList = [
       {
@@ -60,7 +53,7 @@ export function UpcomingFixtures({
     return (
       <div
         className={cn(
-          "inline-flex items-center rounded-lg border border-border-soft bg-white/[0.03] px-2.5 py-1 text-xs text-ink-tertiary",
+          "inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600",
           className,
         )}
       >
@@ -69,7 +62,7 @@ export function UpcomingFixtures({
     );
   }
 
-  // Inline variant (ultra-compact for tables & browser lists)
+  // Inline variant (for tables & lists)
   if (variant === "inline") {
     return (
       <div className={cn("inline-flex items-center flex-wrap gap-1.5", className)}>
@@ -79,10 +72,10 @@ export function UpcomingFixtures({
           return (
             <span
               key={fix.fixture_id ?? `${fix.opponent_name}-${idx}`}
-              className="inline-flex items-center gap-1 rounded bg-white/5 px-1.5 py-0.5 font-mono text-[11px]"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 font-mono text-[11px] shadow-sm"
             >
-              <span className="font-semibold text-ink">{code}</span>
-              <span className={isHome ? "text-emerald font-semibold" : "text-ink-tertiary"}>
+              <span className="font-black text-slate-900">{code}</span>
+              <span className={isHome ? "text-emerald-700 font-black" : "text-slate-600 font-bold"}>
                 {isHome ? "H" : "A"}
               </span>
               <FDRBadge difficulty={fix.difficulty} size="sm" />
@@ -102,7 +95,7 @@ export function UpcomingFixtures({
           return (
             <div
               key={fix.fixture_id ?? `${fix.opponent_name}-${idx}`}
-              className="flex shrink-0 items-center gap-1.5 rounded-md border border-border-soft bg-surface-elevated/40 px-2 py-1"
+              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 shadow-sm"
             >
               <TeamBadge
                 team={fix.opponent_name}
@@ -110,13 +103,13 @@ export function UpcomingFixtures({
                 size="sm"
               />
               <div className="flex flex-col">
-                <span className="font-display text-[11px] font-semibold leading-none text-ink">
+                <span className="font-display text-[11px] font-black leading-none text-slate-900">
                   {code}
                 </span>
                 <span
                   className={cn(
-                    "font-mono text-[9px] leading-none uppercase mt-0.5",
-                    fix.is_home ? "text-emerald font-semibold" : "text-ink-tertiary",
+                    "font-mono text-[9px] leading-none uppercase mt-0.5 font-black",
+                    fix.is_home ? "text-emerald-700" : "text-slate-600",
                   )}
                 >
                   {fix.is_home ? "HOME" : "AWAY"}
@@ -130,7 +123,7 @@ export function UpcomingFixtures({
     );
   }
 
-  // Full variant (used in PlayerDetailPanel, modal, and dedicated fixture cards)
+  // Full variant
   return (
     <div className={cn("flex items-center gap-3 overflow-x-auto no-scrollbar pb-1", className)}>
       {list.map((fix, idx) => {
@@ -140,14 +133,14 @@ export function UpcomingFixtures({
         return (
           <div
             key={fix.fixture_id ?? `${fix.opponent_name}-${idx}`}
-            className="flex shrink-0 min-w-[125px] flex-col gap-2 rounded-xl border border-border-soft bg-surface-elevated/60 p-3 transition-all hover:border-emerald/20"
+            className="flex shrink-0 min-w-[130px] flex-col gap-2 rounded-chunky-lg border border-slate-200 bg-white p-3.5 shadow-card transition-all hover:border-emerald-400"
           >
-            <div className="flex items-center justify-between text-[10px] font-medium text-ink-tertiary">
+            <div className="flex items-center justify-between text-[10px] font-black text-slate-500">
               <span>{typeof fix.event === "number" ? `GW ${fix.event}` : "GW -"}</span>
               <span
                 className={cn(
-                  "font-mono font-semibold uppercase text-[9px]",
-                  fix.is_home ? "text-emerald" : "text-ink-tertiary",
+                  "font-mono font-black uppercase text-[9px]",
+                  fix.is_home ? "text-emerald-700" : "text-slate-600",
                 )}
               >
                 {fix.is_home ? "HOME" : "AWAY"}
@@ -161,11 +154,11 @@ export function UpcomingFixtures({
                 size="md"
               />
               <div className="flex flex-col min-w-0">
-                <span className="font-display text-xs font-bold text-ink truncate" title={fix.opponent_name}>
+                <span className="font-display text-xs font-black text-slate-900 truncate" title={fix.opponent_name}>
                   {code}
                 </span>
                 {kickoffDate && (
-                  <span className="text-[9px] text-ink-tertiary truncate">{kickoffDate}</span>
+                  <span className="text-[10px] text-slate-600 font-bold truncate">{kickoffDate}</span>
                 )}
               </div>
             </div>

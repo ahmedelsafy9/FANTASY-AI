@@ -7,32 +7,31 @@ interface GameweekOverviewProps {
   gameweek: number | null | undefined;
 }
 
-/** A compact "command center" strip summarizing live system + Gameweek state. */
 export function GameweekOverview({ health, gameweek }: GameweekOverviewProps) {
   const items = [
     {
       icon: Activity,
       label: "Upcoming Gameweek",
       value: typeof gameweek === "number" ? `GW ${gameweek}` : "N/A",
-      color: "text-emerald bg-emerald/10",
+      color: "text-[#059669] bg-[#ECFDF5]",
     },
     {
       icon: Cpu,
-      label: "Active model",
+      label: "Active Model",
       value: health?.model_name ?? "N/A",
-      color: "text-gold bg-gold/10",
+      color: "text-[#92400E] bg-[#FFFBEB]",
     },
     {
       icon: Users,
-      label: "Players tracked",
+      label: "Players Tracked",
       value: typeof health?.player_count === "number" ? health.player_count.toLocaleString() : "N/A",
-      color: "text-signal bg-signal/10",
+      color: "text-indigo-600 bg-indigo-100",
     },
   ];
 
   return (
-    <section className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <section className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {items.map((item, i) => (
           <motion.div
             key={item.label}
@@ -40,16 +39,16 @@ export function GameweekOverview({ health, gameweek }: GameweekOverviewProps) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.06 }}
-            className="flex items-center gap-3 rounded-xl border border-border-soft bg-surface px-4 py-3"
+            className="flex items-center gap-3.5 rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-card"
           >
-            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${item.color}`}>
-              <item.icon size={16} />
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold ${item.color}`}>
+              <item.icon size={18} />
             </div>
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-wider text-ink-tertiary">
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">
                 {item.label}
               </div>
-              <div className="numeral text-base font-semibold text-ink">{item.value}</div>
+              <div className="numeral text-base font-black text-[#0F172A]">{item.value}</div>
             </div>
           </motion.div>
         ))}

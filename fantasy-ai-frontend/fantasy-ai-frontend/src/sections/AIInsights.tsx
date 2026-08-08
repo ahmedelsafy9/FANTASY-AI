@@ -10,12 +10,6 @@ interface AIInsightsProps {
   players: PlayerRecord[] | null;
 }
 
-/**
- * Every tag shown here comes from `deriveInsights()`, which only produces a
- * tag when the backing field is actually present on that player's record.
- * If a player has no derivable insights, they're simply skipped from the
- * list — nothing is invented to fill the space.
- */
 export function AIInsights({ players }: AIInsightsProps) {
   const withInsights = (players ?? [])
     .map((p) => ({ player: p, insights: deriveInsights(p) }))
@@ -23,15 +17,15 @@ export function AIInsights({ players }: AIInsightsProps) {
     .slice(0, 4);
 
   return (
-    <section className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
+    <section className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
       <div className="mb-6 flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald/10 text-emerald">
-          <Sparkles size={17} />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669]">
+          <Sparkles size={18} />
         </div>
         <div>
-          <h2 className="font-display text-xl font-bold text-ink sm:text-2xl">AI Insights</h2>
-          <p className="mt-0.5 text-sm text-ink-tertiary">
-            Signals derived directly from each player's underlying data.
+          <h2 className="font-display text-xl font-black text-[#0F172A] sm:text-2xl">Player AI Signals</h2>
+          <p className="mt-0.5 text-sm font-semibold text-[#64748B]">
+            Signals derived directly from underlying model metrics.
           </p>
         </div>
       </div>
@@ -39,10 +33,10 @@ export function AIInsights({ players }: AIInsightsProps) {
       {withInsights.length === 0 ? (
         <EmptyState
           title="Deeper insights aren't available yet"
-          description="Insights are derived from fields like form trend, fixture strength, and recent minutes — none were present in the current dataset for these players."
+          description="Insights are derived from form trends, fixture strength, and recent minutes."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {withInsights.map(({ player, insights }, i) => (
             <motion.div
               key={player.element ?? player.name ?? i}
@@ -50,16 +44,16 @@ export function AIInsights({ players }: AIInsightsProps) {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.05 }}
-              className="rounded-xl border border-border-soft bg-surface p-4"
+              className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-card"
             >
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-3">
                 <PlayerAvatar name={player.name} photoUrl={player.photo_url} size="md" />
                 <div className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-ink">
+                  <span className="block truncate text-sm font-black text-[#0F172A]">
                     {player.name ?? "N/A"}
                   </span>
                   {player.team && (
-                    <span className="text-xs text-ink-tertiary">{player.team}</span>
+                    <span className="text-xs font-semibold text-[#64748B]">{player.team}</span>
                   )}
                 </div>
               </div>

@@ -25,11 +25,11 @@ const INSIGHT_ICONS: Record<string, typeof TrendingUp> = {
 };
 
 const TONE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  gold: { bg: "bg-gold/10", text: "text-gold", border: "border-gold/20" },
-  signal: { bg: "bg-signal/10", text: "text-signal-bright", border: "border-signal/20" },
-  teal: { bg: "bg-emerald/10", text: "text-emerald", border: "border-emerald/20" },
-  coral: { bg: "bg-coral/10", text: "text-coral", border: "border-coral/20" },
-  neutral: { bg: "bg-white/5", text: "text-ink-secondary", border: "border-border-soft" },
+  gold: { bg: "bg-amber-100", text: "text-amber-950", border: "border-amber-300" },
+  signal: { bg: "bg-indigo-100", text: "text-indigo-950", border: "border-indigo-300" },
+  teal: { bg: "bg-emerald-100", text: "text-emerald-950", border: "border-emerald-300" },
+  coral: { bg: "bg-red-100", text: "text-red-950", border: "border-red-300" },
+  neutral: { bg: "bg-slate-100", text: "text-slate-900", border: "border-slate-300" },
 };
 
 interface InsightTagProps {
@@ -37,11 +37,6 @@ interface InsightTagProps {
   className?: string;
 }
 
-/**
- * A football-intelligence styled insight tag. Shows an icon + label
- * instead of a plain text badge, making insights feel like meaningful
- * scouting intelligence. Uses existing deriveInsights() data unchanged.
- */
 export function InsightTag({ insight, className }: InsightTagProps) {
   const Icon = INSIGHT_ICONS[insight.label] ?? Zap;
   const style = TONE_STYLES[insight.tone] ?? TONE_STYLES.neutral;
@@ -49,14 +44,14 @@ export function InsightTag({ insight, className }: InsightTagProps) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black shadow-sm",
         style.bg,
         style.text,
         style.border,
         className,
       )}
     >
-      <Icon size={13} className="shrink-0 opacity-80" />
+      <Icon size={13} className="shrink-0" />
       {insight.label}
     </div>
   );

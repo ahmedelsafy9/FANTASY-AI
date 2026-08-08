@@ -10,11 +10,6 @@ interface FixtureBadgeProps {
   className?: string;
 }
 
-/**
- * A proper fixture block showing opponent badge, short code, home/away
- * indicator, and FDR badge. All fields rendered defensively — if no
- * opponent is available, shows an honest "N/A" state.
- */
 export function FixtureBadge({ player, size = "sm", className }: FixtureBadgeProps) {
   const hasOpponent = Boolean(player.opponent_team);
   const isHome = player.is_home === 1;
@@ -25,12 +20,12 @@ export function FixtureBadge({ player, size = "sm", className }: FixtureBadgePro
     return (
       <div
         className={cn(
-          "flex items-center gap-2 rounded-lg border border-border-soft bg-white/[0.03] text-ink-tertiary",
+          "flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] font-bold",
           size === "sm" ? "px-2.5 py-1.5 text-xs" : size === "md" ? "px-3 py-2 text-sm" : "px-4 py-3 text-sm",
           className,
         )}
       >
-        <span className="text-ink-tertiary">Fixture N/A</span>
+        <span>Fixture N/A</span>
       </div>
     );
   }
@@ -38,7 +33,7 @@ export function FixtureBadge({ player, size = "sm", className }: FixtureBadgePro
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 rounded-lg border border-border-soft bg-white/[0.03]",
+        "flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-white shadow-sm",
         size === "sm" ? "px-2.5 py-1.5" : size === "md" ? "px-3 py-2" : "px-4 py-3",
         className,
       )}
@@ -48,16 +43,16 @@ export function FixtureBadge({ player, size = "sm", className }: FixtureBadgePro
         logoUrl={player.opponent_logo_url}
         size={size === "lg" ? "md" : "sm"}
       />
-      <div className="flex flex-col">
-        <span className={cn("font-display font-semibold text-ink", size === "lg" ? "text-sm" : "text-xs")}>
+      <div className="flex flex-col text-left">
+        <span className={cn("font-display font-black text-[#0F172A] leading-none", size === "lg" ? "text-base" : "text-xs")}>
           {opponentCode}
         </span>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 mt-1">
           {(isHome || isAway) && (
             <span
               className={cn(
-                "font-mono text-[10px] font-medium uppercase",
-                isHome ? "text-emerald" : "text-ink-tertiary",
+                "font-mono text-[10px] font-black uppercase",
+                isHome ? "text-[#059669]" : "text-[#94A3B8]",
               )}
             >
               {isHome ? "HOME" : "AWAY"}

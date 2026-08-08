@@ -2,15 +2,6 @@ import { useState } from "react";
 import { getInitials, getTeamCode, getTeamColor } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/**
- * Phase 5 update: the backend can now optionally provide real player photo
- * and team badge URLs (built server-side from live FPL API fields — see
- * the backend's `src/metadata/` package). When present, those are used;
- * when absent (or the image fails to load), both components fall back to
- * the original deterministic initials/color mark — never a fabricated
- * image, and the same honest behavior as before this update.
- */
-
 interface PlayerAvatarProps {
   name: string | null | undefined;
   photoUrl?: string | null;
@@ -35,7 +26,7 @@ export function PlayerAvatar({ name, photoUrl, size = "md", className }: PlayerA
         alt={name ?? "Player photo"}
         onError={() => setImgFailed(true)}
         className={cn(
-          "shrink-0 rounded-full border border-border-medium bg-surface-elevated object-cover",
+          "shrink-0 rounded-full border-2 border-white bg-[#F1F5F9] object-cover shadow-sm",
           AVATAR_SIZES[size],
           className,
         )}
@@ -46,7 +37,7 @@ export function PlayerAvatar({ name, photoUrl, size = "md", className }: PlayerA
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full border border-border-medium bg-gradient-to-br from-surface-elevated to-surface font-display font-semibold text-ink-secondary",
+        "flex shrink-0 items-center justify-center rounded-full border-2 border-[#A7F3D0] bg-[#ECFDF5] font-display font-black text-[#059669] shadow-sm",
         AVATAR_SIZES[size],
         className,
       )}
@@ -78,11 +69,11 @@ export function TeamBadge({ team, logoUrl, size = "sm", showName = false, classN
           src={logoUrl}
           alt={team ?? "Team badge"}
           onError={() => setImgFailed(true)}
-          className={cn("shrink-0 rounded-md object-contain", dim)}
+          className={cn("shrink-0 rounded-lg object-contain drop-shadow-sm", dim)}
         />
       ) : (
         <div
-          className={cn("flex shrink-0 items-center justify-center rounded-md font-bold text-void", dim)}
+          className={cn("flex shrink-0 items-center justify-center rounded-lg font-black text-white shadow-sm", dim)}
           style={{ backgroundColor: color }}
           title={team ?? "Unknown team"}
         >
@@ -90,7 +81,7 @@ export function TeamBadge({ team, logoUrl, size = "sm", showName = false, classN
         </div>
       )}
       {showName && (
-        <span className="text-sm text-ink-secondary">{team ?? "N/A"}</span>
+        <span className="text-xs font-black text-[#0F172A]">{team ?? "N/A"}</span>
       )}
     </div>
   );

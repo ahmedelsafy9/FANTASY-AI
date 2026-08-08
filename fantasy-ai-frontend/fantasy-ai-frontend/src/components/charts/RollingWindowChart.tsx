@@ -9,13 +9,6 @@ interface MetricChartProps {
   color: string;
 }
 
-/**
- * The backend returns one row per player with precomputed rolling-window
- * averages (last 3 / 5 / 10 matches) — not a full per-Gameweek time series.
- * This chart is scoped to exactly that: it compares the 3/5/10-match
- * windows for one metric. If none of a metric's window columns exist for
- * this player, it renders an honest empty state instead of a chart.
- */
 export function RollingWindowChart({ player, metric, label, color }: MetricChartProps) {
   const windows = [3, 5, 10] as const;
   const data = windows
@@ -36,31 +29,33 @@ export function RollingWindowChart({ player, metric, label, color }: MetricChart
   }
 
   return (
-    <div className="rounded-2xl border border-border-soft bg-surface p-5">
-      <h4 className="mb-4 text-sm font-medium text-ink-secondary">{label} — rolling average</h4>
+    <div className="rounded-chunky-lg border border-slate-200 bg-white p-5 shadow-card">
+      <h4 className="mb-4 text-xs font-black uppercase text-slate-500">{label} — Rolling Average</h4>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
           <XAxis
             dataKey="window"
-            tick={{ fill: "#9AA3AE", fontSize: 12 }}
-            axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
+            tick={{ fill: "#334155", fontSize: 11, fontWeight: 700 }}
+            axisLine={{ stroke: "#CBD5E1" }}
             tickLine={false}
           />
           <YAxis
-            tick={{ fill: "#9AA3AE", fontSize: 12 }}
+            tick={{ fill: "#334155", fontSize: 11, fontWeight: 700 }}
             axisLine={false}
             tickLine={false}
             width={32}
           />
           <Tooltip
-            cursor={{ fill: "rgba(255,255,255,0.04)" }}
+            cursor={{ fill: "rgba(15,23,42,0.04)" }}
             contentStyle={{
-              background: "#181C22",
-              border: "1px solid rgba(255,255,255,0.14)",
+              background: "#FFFFFF",
+              border: "1px solid #CBD5E1",
               borderRadius: 10,
               fontSize: 12,
-              color: "#F5F6F8",
+              fontWeight: 800,
+              color: "#0F172A",
+              boxShadow: "0 4px 16px -2px rgba(15,23,42,0.1)",
             }}
           />
           <Bar dataKey="value" fill={color} radius={[6, 6, 0, 0]} maxBarSize={48} />

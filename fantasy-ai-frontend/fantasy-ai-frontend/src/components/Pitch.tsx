@@ -6,36 +6,29 @@ interface PitchProps {
   className?: string;
 }
 
-/**
- * A visual football pitch component for the squad builder.
- * Renders a green pitch background with subtle markings (center circle,
- * halfway line, penalty areas). Children (PlayerTokens) should be
- * positioned using the PitchRow component for formation layout.
- */
 export function Pitch({ children, className }: PitchProps) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-emerald-dim/40 pitch-surface",
+        "relative overflow-hidden rounded-chunky-xl border-4 border-pitch-dark pitch-surface shadow-card-hover",
         className,
       )}
     >
       {/* Pitch markings */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
         {/* Border */}
-        <div className="absolute inset-3 rounded-xl border border-white/[0.08]" />
+        <div className="absolute inset-4 rounded-chunky-lg border-2 border-white/35" />
         {/* Halfway line */}
-        <div className="absolute left-3 right-3 top-1/2 h-px bg-white/[0.08]" />
+        <div className="absolute left-4 right-4 top-1/2 h-0.5 bg-white/35" />
         {/* Center circle */}
-        <div className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.08] sm:h-24 sm:w-24" />
+        <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/35 sm:h-28 sm:w-28" />
         {/* Center dot */}
-        <div className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10" />
+        <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45" />
         {/* Top penalty area */}
-        <div className="absolute left-1/2 top-3 h-[18%] w-[40%] -translate-x-1/2 border-b border-l border-r border-white/[0.06] sm:w-[35%]" />
+        <div className="absolute left-1/2 top-4 h-[18%] w-[42%] -translate-x-1/2 border-b-2 border-l-2 border-r-2 border-white/30 sm:w-[36%]" />
         {/* Bottom penalty area */}
-        <div className="absolute bottom-3 left-1/2 h-[18%] w-[40%] -translate-x-1/2 border-l border-r border-t border-white/[0.06] sm:w-[35%]" />
-        {/* Subtle gradient overlay for depth */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] via-transparent to-black/10" />
+        <div className="absolute bottom-4 left-1/2 h-[18%] w-[42%] -translate-x-1/2 border-l-2 border-r-2 border-t-2 border-white/30 sm:w-[36%]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/20" />
       </div>
 
       {/* Formation content */}
@@ -51,7 +44,6 @@ interface PitchRowProps {
   className?: string;
 }
 
-/** A horizontal row in the pitch formation, centering its children (PlayerTokens). */
 export function PitchRow({ children, className }: PitchRowProps) {
   return (
     <div className={cn("flex items-center justify-center gap-4 sm:gap-8", className)}>

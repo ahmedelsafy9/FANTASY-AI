@@ -5,14 +5,9 @@ import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import { PlayerCardSkeleton, ErrorState, EmptyState } from "@/components/states";
 import type { UpcomingFixture } from "@/types/api";
 
-/**
- * Fixture Intelligence section exposing real upcoming match sequences,
- * home/away context, and FDR ratings for Premier League clubs.
- */
 export function FixtureIntelligence() {
   const { data, loading, error, refetch } = usePredictions();
 
-  // Extract unique team upcoming fixtures from active player records
   const teamFixturesMap = useMemo(() => {
     if (!data?.predictions)
       return new Map<string, { team: string; logoUrl?: string | null; fixtures: UpcomingFixture[] }>();
@@ -40,11 +35,11 @@ export function FixtureIntelligence() {
   }, [teamFixturesMap]);
 
   return (
-    <section className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
-      <div className="mb-8">
-        <h2 className="text-2xl font-semibold text-ink sm:text-3xl">Fixture Intelligence</h2>
-        <p className="mt-1.5 max-w-xl text-sm text-ink-tertiary">
-          Official upcoming match sequences, home/away difficulty, and FDR ratings for Premier League teams.
+    <section className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+      <div className="mb-6">
+        <h2 className="text-2xl font-black text-navy sm:text-3xl">Fixture Intelligence</h2>
+        <p className="mt-1 max-w-xl text-sm font-semibold text-slate-500">
+          Upcoming match sequences, home/away difficulty, and FDR ratings for Premier League teams.
         </p>
       </div>
 
@@ -70,11 +65,11 @@ export function FixtureIntelligence() {
           {teamCards.map(({ team, logoUrl, fixtures }) => (
             <div
               key={team}
-              className="flex flex-col gap-3 rounded-2xl border border-border-soft bg-surface/80 p-5 transition-colors hover:border-emerald/20"
+              className="flex flex-col gap-3 rounded-chunky-lg border border-slate-200 bg-white p-5 shadow-card transition-all hover:border-emerald/40"
             >
-              <div className="flex items-center justify-between border-b border-border-soft pb-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <TeamBadge team={team} logoUrl={logoUrl} size="md" showName />
-                <span className="text-xs font-medium text-ink-tertiary">
+                <span className="text-xs font-bold text-slate-500">
                   Next {fixtures.length} Matches
                 </span>
               </div>

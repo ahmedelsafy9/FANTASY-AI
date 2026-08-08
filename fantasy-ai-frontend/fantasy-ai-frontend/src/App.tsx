@@ -18,7 +18,7 @@ import About from "@/pages/About";
 
 function Layout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-[#e5e7eb]">
       <MockBanner />
       <Navigation />
       <main className="flex-1 pb-safe-bottom md:pb-0">{children}</main>
