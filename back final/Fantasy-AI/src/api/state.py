@@ -9,6 +9,8 @@ request.
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from dataclasses import dataclass
 
 import pandas as pd
@@ -196,6 +198,15 @@ def _try_fetch_live_metadata(
         return None, None, None
 
 
+def _normalize_player_name(s: str | None) -> str:
+    if not s:
+        return ""
+    s = unicodedata.normalize("NFD", str(s))
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    s = s.lower().replace("-", " ").replace(".", "").replace("'", "")
+    return re.sub(r"\s+", " ", s).strip()
+
+
 def _enrich_with_presentation_metadata(
     predictions: pd.DataFrame,
     player_id_column: str,
@@ -203,6 +214,9 @@ def _enrich_with_presentation_metadata(
     player_metadata: dict[int, PlayerMetadata] | None,
 ) -> pd.DataFrame:
     """Add photo_url/team_logo_url/opponent_logo_url columns where resolvable.
+
+    Matches players accurately by normalized name against official Premier League
+    metadata so that players get their real photo and never a wrong face.
 
     Args:
         predictions: The predictions DataFrame to enrich.
@@ -224,14 +238,37 @@ def _enrich_with_presentation_metadata(
         if team_metadata:
             name_by_team_id = {tm.name: tm.badge_url for tm in team_metadata.values()}
 
-        def lookup_photo(pid: object) -> str | None:
-            try:
-                meta = player_metadata.get(int(pid))  # type: ignore[arg-type]
-            except (TypeError, ValueError):
-                return None
-            return meta.photo_url if meta else None
+        # Build normalized name -> photo_url mapping
+        photo_by_name: dict[str, str] = {}
+        for meta in player_metadata.values():
+            if not meta.photo_url:
+                continue
+            if meta.full_name:
+                norm_full = _normalize_player_name(meta.full_name)
+                if norm_full:
+                    photo_by_name[norm_full] = meta.photo_url
+            norm_web = _normalize_player_name(meta.web_name)
+            if norm_web and norm_web not in photo_by_name:
+                photo_by_name[norm_web] = meta.photo_url
 
-        result["photo_url"] = result[player_id_column].map(lookup_photo)
+        def lookup_photo(row: pd.Series) -> str | None:
+            raw_name = row.get("name") or row.get("name_normalized")
+            if not raw_name:
+                return None
+            norm_p = _normalize_player_name(str(raw_name))
+            if norm_p in photo_by_name:
+                return photo_by_name[norm_p]
+            words = norm_p.split()
+            if len(words) > 1:
+                first_last = f"{words[0]} {words[-1]}"
+                if first_last in photo_by_name:
+                    return photo_by_name[first_last]
+            for w in words:
+                if len(w) >= 4 and w in photo_by_name:
+                    return photo_by_name[w]
+            return None
+
+        result["photo_url"] = result.apply(lookup_photo, axis=1)
 
         if team_metadata and "team" in result.columns:
             result["team_logo_url"] = result["team"].map(name_by_team_id)

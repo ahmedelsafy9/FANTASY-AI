@@ -16,7 +16,7 @@ from typing import Any
 # NOT from the player's FPL ``element`` ID.
 _PHOTO_URL_TEMPLATE = (
     "https://resources.premierleague.com/"
-    "premierleague25/photos/players/110x140/p{photo_id}.png"
+    "premierleague/photos/players/110x140/p{photo_id}.png"
 )
 
 
@@ -30,12 +30,14 @@ class PlayerMetadata:
         team_id: The player's current team ID.
         photo_url: URL to the player's photo, or ``None`` if the
             source record didn't include a valid ``photo`` field.
+        full_name: The player's full name (first_name + second_name).
     """
 
     player_id: int
     web_name: str
     team_id: int | None
     photo_url: str | None
+    full_name: str | None = None
 
 
 def player_photo_url(photo_field: str | None) -> str | None:
@@ -105,6 +107,10 @@ def build_player_metadata(
         except (TypeError, ValueError):
             continue
 
+        fn = str(element.get("first_name", "")).strip()
+        sn = str(element.get("second_name", "")).strip()
+        full_name = f"{fn} {sn}".strip() if (fn or sn) else None
+
         result[numeric_player_id] = PlayerMetadata(
             player_id=numeric_player_id,
             web_name=str(element.get("web_name", "Unknown")),
@@ -114,6 +120,7 @@ def build_player_metadata(
                 else None
             ),
             photo_url=player_photo_url(element.get("photo")),
+            full_name=full_name,
         )
 
     return result
