@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from src.api.services.prediction_query_service import _row_to_dict
 from src.config.logging_config import get_logger
 from src.core.exceptions import PlayerNotFoundError
 
@@ -67,9 +68,7 @@ class PlayerService:
             raise PlayerNotFoundError(f"No player found with identifier '{player_id}'.")
 
         row = matches.iloc[0]
-        return {
-            key: (None if pd.isna(value) else _to_native(value)) for key, value in row.items()
-        }
+        return _row_to_dict(row)
 
     def list_player_ids(self) -> list[str]:
         """List every known player identifier.
@@ -79,16 +78,3 @@ class PlayerService:
         """
         return self._latest_rows[self._player_id_column].astype(str).tolist()
 
-
-def _to_native(value: object) -> object:
-    """Convert a pandas/numpy scalar to a plain Python type for JSON serialization.
-
-    Args:
-        value: A scalar value, possibly a numpy/pandas type.
-
-    Returns:
-        object: The equivalent built-in Python type.
-    """
-    if hasattr(value, "item"):
-        return value.item()
-    return value

@@ -56,7 +56,10 @@ def build_next_gameweek_rows(
         PredictionError: If no player identifier or Gameweek column is
             available in the data.
     """
-    player_id_column = next((c for c in player_id_columns if c in data.columns), None)
+    stable_candidates = ("name_normalized", "name")
+    player_id_column = next((c for c in stable_candidates if c in data.columns), None)
+    if player_id_column is None:
+        player_id_column = next((c for c in player_id_columns if c in data.columns), None)
     if player_id_column is None:
         raise PredictionError(
             f"No player identifier column found among {player_id_columns}."

@@ -6,8 +6,10 @@ import pandas as pd
 
 from src.prediction.fixture_aware_next_gameweek import (
     ResolvedFixture,
+    UpcomingFixture,
     build_fixture_aware_next_gameweek_rows,
     resolve_team_fixtures,
+    resolve_team_upcoming_fixtures,
 )
 
 
@@ -120,3 +122,102 @@ def test_every_row_has_a_fixture_source_label() -> None:
         team_fixtures={},
     )
     assert set(rows["fixture_source"]) == {"proxy_last_played"}
+
+
+# --- resolve_team_upcoming_fixtures ----------------------------------------------
+
+
+def test_resolve_team_upcoming_fixtures_home_and_away_resolution() -> None:
+    """Home and away fixtures resolve opponents, FDR difficulty, and home/away status correctly."""
+    fixtures = [
+        {
+            "id": 101,
+            "code": 2001,
+            "event": 1,
+            "finished": False,
+            "team_h": 1,
+            "team_a": 2,
+            "team_h_difficulty": 2,
+            "team_a_difficulty": 4,
+            "kickoff_time": "2026-08-20T19:00:00Z",
+        }
+    ]
+    team_mapping = {1: "Arsenal", 2: "Chelsea"}
+    resolved = resolve_team_upcoming_fixtures(fixtures, team_mapping)
+
+    assert "Arsenal" in resolved
+    assert "Chelsea" in resolved
+
+    # Arsenal is Home vs Chelsea
+    ars_fix = resolved["Arsenal"][0]
+    assert ars_fix.is_home is True
+    assert ars_fix.opponent_team_id == 2
+    assert ars_fix.opponent_name == "Chelsea"
+    assert ars_fix.difficulty == 2
+    assert ars_fix.event == 1
+
+    # Chelsea is Away vs Arsenal
+    che_fix = resolved["Chelsea"][0]
+    assert che_fix.is_home is False
+    assert che_fix.opponent_team_id == 1
+    assert che_fix.opponent_name == "Arsenal"
+    assert che_fix.difficulty == 4
+    assert che_fix.event == 1
+
+
+def test_resolve_team_upcoming_fixtures_double_gameweek_and_ordering() -> None:
+    """Multiple fixtures in the same gameweek (Double GW) are preserved in kickoff order."""
+    fixtures = [
+        {
+            "id": 102,
+            "event": 25,
+            "finished": False,
+            "team_h": 1,
+            "team_a": 3,
+            "team_h_difficulty": 3,
+            "team_a_difficulty": 3,
+            "kickoff_time": "2026-02-15T15:00:00Z",
+        },
+        {
+            "id": 101,
+            "event": 25,
+            "finished": False,
+            "team_h": 1,
+            "team_a": 2,
+            "team_h_difficulty": 2,
+            "team_a_difficulty": 4,
+            "kickoff_time": "2026-02-11T19:45:00Z",
+        },
+    ]
+    resolved = resolve_team_upcoming_fixtures(fixtures, {1: "Arsenal", 2: "Chelsea", 3: "Liverpool"})
+
+    assert len(resolved["Arsenal"]) == 2
+    # Earlier kickoff fixture (101) comes first
+    assert resolved["Arsenal"][0].fixture_id == 101
+    assert resolved["Arsenal"][0].opponent_name == "Chelsea"
+    assert resolved["Arsenal"][1].fixture_id == 102
+    assert resolved["Arsenal"][1].opponent_name == "Liverpool"
+
+
+def test_resolve_team_upcoming_fixtures_null_event_and_kickoff_safety() -> None:
+    """Fixtures with event=None or kickoff_time=None do not crash and are retained safely."""
+    fixtures = [
+        {
+            "id": 999,
+            "event": None,
+            "finished": False,
+            "team_h": 1,
+            "team_a": 2,
+            "team_h_difficulty": 3,
+            "team_a_difficulty": 3,
+            "kickoff_time": None,
+        }
+    ]
+    resolved = resolve_team_upcoming_fixtures(fixtures, {1: "Arsenal", 2: "Chelsea"})
+
+    assert len(resolved["Arsenal"]) == 1
+    fix = resolved["Arsenal"][0]
+    assert fix.fixture_id == 999
+    assert fix.event is None
+    assert fix.kickoff_time is None
+

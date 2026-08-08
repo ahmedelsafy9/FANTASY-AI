@@ -170,8 +170,62 @@ class PredictionQueryService:
         )
 
 
+def _is_missing(value: object) -> bool:
+    """Check if a scalar value represents a missing value (None, NaN, NaT).
+
+    Containers (lists, dicts, tuples, sets) are never treated as scalar missing values.
+    """
+    if value is None:
+        return True
+    if isinstance(value, (list, tuple, dict, set, pd.Series, pd.DataFrame)):
+        return False
+    try:
+        return bool(pd.isna(value))
+    except (ValueError, TypeError):
+        return False
+
+
+def _to_native(value: object) -> object:
+    """Recursively convert pandas/numpy types and nested containers to built-in Python types for JSON.
+
+    Args:
+        value: A scalar or container value.
+
+    Returns:
+        object: Built-in Python primitive (dict, list, int, float, str, bool, None).
+    """
+    if _is_missing(value):
+        return None
+
+    if isinstance(value, dict):
+        return {k: _to_native(v) for k, v in value.items()}
+
+    if isinstance(value, (list, tuple, set)):
+        return [_to_native(v) for v in value]
+
+    if hasattr(value, "tolist") and not isinstance(value, (str, bytes)):
+        try:
+            return [_to_native(v) for v in value.tolist()]
+        except (ValueError, TypeError):
+            pass
+
+    if hasattr(value, "item"):
+        try:
+            val = value.item()
+            if _is_missing(val):
+                return None
+            return val
+        except (ValueError, TypeError):
+            pass
+
+    return value
+
+
 def _row_to_dict(row: pd.Series) -> dict:
     """Convert a pandas row to a JSON-serializable dict (NaN -> None).
+
+    Safely handles nested containers (like upcoming_fixtures lists) without
+    raising ValueError on pandas missing-value checks.
 
     Args:
         row: The row to convert.
@@ -179,20 +233,7 @@ def _row_to_dict(row: pd.Series) -> dict:
     Returns:
         dict: The row as a plain dict of built-in Python types.
     """
-    return {
-        key: (None if pd.isna(value) else _to_native(value)) for key, value in row.items()
-    }
-
-
-def _to_native(value: object) -> object:
-    """Convert a pandas/numpy scalar to a plain Python type for JSON serialization.
-
-    Args:
-        value: A scalar value, possibly a numpy/pandas type.
-
-    Returns:
-        object: The equivalent built-in Python type.
-    """
-    if hasattr(value, "item"):
-        return value.item()
-    return value
+    res = {}
+    for key, value in row.items():
+        res[key] = _to_native(value)
+    return res

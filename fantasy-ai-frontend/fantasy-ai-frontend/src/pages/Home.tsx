@@ -25,7 +25,7 @@ export default function Home() {
 
   const players = topPlayers.data?.predictions ?? null;
   const spotlightPlayer = players && players.length > 0 ? players[0] : null;
-  const gameweek = spotlightPlayer?.predicted_for_gw;
+  const gameweek = spotlightPlayer?.upcoming_fixtures?.[0]?.event ?? spotlightPlayer?.predicted_for_gw;
 
   return (
     <div className="pb-safe-bottom">

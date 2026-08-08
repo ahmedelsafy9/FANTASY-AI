@@ -4,6 +4,10 @@ Loading the engineered dataset and trained model, and computing
 next-Gameweek predictions, are all relatively expensive — this module
 does that work exactly once (at process startup) rather than per
 request.
+
+Live FPL bootstrap data is also used to ensure that the prediction
+pool only contains players and teams that actually exist in the
+current season.
 """
 
 from __future__ import annotations
@@ -33,27 +37,7 @@ logger = get_logger(__name__)
 
 @dataclass
 class AppState:
-    """Everything the API's route handlers need, computed once at startup.
-
-    Attributes:
-        settings: The application settings used to build this state.
-        engineered_data: The full engineered dataset (Sprint 5 output).
-        loaded_model: The trained model and its reproducibility metadata.
-        predictions: Next-Gameweek predictions for every player,
-            including every engineered feature column (not just the
-            trimmed CSV export columns), so services like the captain
-            picker can filter on them. Enriched, where live metadata
-            was reachable at startup, with real fixture data (Phase 3:
-            ``opponent_team``, ``is_home``, ``fixture_difficulty``,
-            ``fixture_source``) and presentation metadata (Phase 5:
-            ``photo_url``, ``team_logo_url``, ``opponent_logo_url``).
-        player_id_column: The resolved player identifier column name.
-        live_metadata_available: Whether live fixture/metadata
-            enrichment succeeded at startup. When ``False``,
-            predictions still use the Sprint 7 proxy and lack the
-            presentation-metadata columns — the API and frontend must
-            handle their absence gracefully, never assume they exist.
-    """
+    """Everything the API's route handlers need, computed once at startup."""
 
     settings: Settings
     engineered_data: pd.DataFrame
@@ -64,22 +48,10 @@ class AppState:
 
 
 def build_app_state(settings: Settings) -> AppState:
-    """Load data and the trained model, and compute predictions, once.
+    """Load data, model, live FPL metadata and compute predictions once."""
 
-    Args:
-        settings: Application settings.
-
-    Returns:
-        AppState: The fully populated application state.
-
-    Raises:
-        FileNotFoundError: If the engineered dataset is missing.
-        src.core.exceptions.ModelNotFoundError: If the model artifact
-            or its metadata is missing.
-        src.core.exceptions.PredictionError: If next-Gameweek rows
-            cannot be built (e.g. no player identifier column).
-    """
     features_path = settings.paths.processed_data_dir / "vaastav_features.csv"
+
     if not features_path.exists():
         raise FileNotFoundError(
             f"Engineered dataset not found at {features_path}. "
@@ -91,20 +63,42 @@ def build_app_state(settings: Settings) -> AppState:
 
     model_path = settings.paths.models_dir / "best_model.joblib"
     metadata_path = settings.paths.models_dir / "best_model_metadata.json"
+
     loaded_model = load_model(model_path, metadata_path)
 
     player_id_column = next(
-        (c for c in settings.feature_engineering.player_id_columns if c in engineered_data.columns),
+        (
+            c
+            for c in settings.feature_engineering.player_id_columns
+            if c in engineered_data.columns
+        ),
         None,
     )
+
     if player_id_column is None:
         raise ValueError(
             f"No player identifier column found among "
             f"{settings.feature_engineering.player_id_columns}."
         )
 
-    team_fixtures, team_metadata, player_metadata = _try_fetch_live_metadata(settings)
-    live_metadata_available = bool(team_fixtures or team_metadata or player_metadata)
+    # ---------------------------------------------------------------
+    # Live FPL metadata
+    # ---------------------------------------------------------------
+
+    (
+        team_fixtures,
+        team_metadata,
+        player_metadata,
+        upcoming_team_fixtures,
+    ) = _try_fetch_live_metadata(settings)
+
+    live_metadata_available = bool(
+        team_fixtures or team_metadata or player_metadata
+    )
+
+    # ---------------------------------------------------------------
+    # Build next-gameweek prediction rows
+    # ---------------------------------------------------------------
 
     next_gw_rows = build_fixture_aware_next_gameweek_rows(
         engineered_data,
@@ -113,22 +107,36 @@ def build_app_state(settings: Settings) -> AppState:
         max_valid_gameweek=settings.prediction.max_valid_gameweek,
         team_fixtures=team_fixtures,
     )
+
     prediction_service = PredictionService(loaded_model)
+
     predictions = prediction_service.predict(next_gw_rows)
 
-    predictions = _enrich_with_presentation_metadata(
-        predictions,
+    # ---------------------------------------------------------------
+    # IMPORTANT:
+    # Use official FPL API bootstrap-static as the authority for the
+    # CURRENT player pool (players, teams, positions, prices, status).
+    #
+    # Merge current FPL players with model predictions via a LEFT JOIN.
+    # ---------------------------------------------------------------
+
+    predictions = _build_current_fpl_prediction_pool(
+        predictions=predictions,
         player_id_column=player_id_column,
+        team_fixtures=team_fixtures,
         team_metadata=team_metadata,
         player_metadata=player_metadata,
+        upcoming_team_fixtures=upcoming_team_fixtures,
     )
 
     logger.info(
-        "API state ready: %d player(s), model '%s', live metadata available=%s.",
+        "API state ready: %d current-season player(s), model '%s', "
+        "live metadata available=%s.",
         len(predictions),
         loaded_model.model_name,
         live_metadata_available,
     )
+
     return AppState(
         settings=settings,
         engineered_data=engineered_data,
@@ -139,103 +147,290 @@ def build_app_state(settings: Settings) -> AppState:
     )
 
 
+from src.prediction.fixture_aware_next_gameweek import (
+    ResolvedFixture,
+    UpcomingFixture,
+    build_fixture_aware_next_gameweek_rows,
+    resolve_team_fixtures,
+    resolve_team_upcoming_fixtures,
+)
+
+
 def _try_fetch_live_metadata(
     settings: Settings,
 ) -> tuple[
     dict[str, ResolvedFixture] | None,
     dict[int, TeamMetadata] | None,
     dict[int, PlayerMetadata] | None,
+    dict[str, list[UpcomingFixture]] | None,
 ]:
-    """Best-effort fetch of live fixtures + team/player presentation metadata.
+    """Best-effort fetch of live fixtures + current FPL metadata."""
 
-    Deliberately never raises: this enriches the experience (Phase 3
-    fixture-awareness, Phase 5 photos/badges) but the API must remain
-    fully functional (using the Sprint 7 proxy, no photos/badges) if
-    the live FPL API is unreachable at startup.
-
-    Args:
-        settings: Application settings.
-
-    Returns:
-        tuple: ``(team_fixtures, team_metadata, player_metadata)``,
-        each ``None``/empty if the fetch failed.
-    """
     try:
         fpl_source = FPLApiDataSource(
             base_url=settings.data_sources.fpl_api_base_url,
             events_path=settings.automation.fpl_api_events_path,
-            live_event_path_template=settings.automation.fpl_api_live_event_path_template,
+            live_event_path_template=(
+                settings.automation.fpl_api_live_event_path_template
+            ),
             fixtures_path=settings.automation.fpl_api_fixtures_path,
             timeout_seconds=settings.data_sources.request_timeout_seconds,
             max_retries=settings.data_sources.request_max_retries,
         )
+
         live_dir = settings.paths.raw_data_dir / "fpl_api"
+
         if not (live_dir / "bootstrap_static.json").exists():
             fpl_source.download(live_dir)
 
         teams_raw = fpl_source.get_teams(live_dir)
+
         mapping_service = TeamMappingService(
-            settings.paths.external_data_dir / settings.fixture_aware.team_mapping_cache_path
+            settings.paths.external_data_dir
+            / settings.fixture_aware.team_mapping_cache_path
         )
+
         team_id_to_name = mapping_service.build_mapping(teams_raw)
 
         fixtures_raw = fpl_source.get_fixtures(future_only=True)
-        team_fixtures = resolve_team_fixtures(fixtures_raw, team_id_to_name)
+
+        team_fixtures = resolve_team_fixtures(
+            fixtures_raw,
+            team_id_to_name,
+        )
 
         team_metadata = build_team_metadata(teams_raw)
-        bootstrap = json.loads((live_dir / "bootstrap_static.json").read_text(encoding="utf-8"))
-        player_metadata = build_player_metadata(bootstrap.get("elements", []))
 
-        return team_fixtures, team_metadata, player_metadata
+        upcoming_team_fixtures = resolve_team_upcoming_fixtures(
+            fixtures_raw,
+            team_id_to_name,
+            team_metadata=team_metadata,
+            max_fixtures=5,
+        )
+
+        bootstrap_path = live_dir / "bootstrap_static.json"
+
+        bootstrap = json.loads(
+            bootstrap_path.read_text(encoding="utf-8")
+        )
+
+        player_metadata = build_player_metadata(
+            bootstrap.get("elements", [])
+        )
+
+        return (
+            team_fixtures,
+            team_metadata,
+            player_metadata,
+            upcoming_team_fixtures,
+        )
+
     except (FantasyAIError, OSError, ValueError) as exc:
         logger.warning(
-            "Live fixture/metadata enrichment unavailable at startup (%s); "
-            "predictions will use the last-played-match proxy with no photos/badges.",
+            "Live fixture/metadata enrichment unavailable at startup "
+            "(%s); predictions will use the available historical data.",
             exc,
         )
-        return None, None, None
+
+        return None, None, None, None
 
 
-def _enrich_with_presentation_metadata(
+from src.preprocessing.steps.normalize_names import _fold_to_ascii_lower
+
+
+def _build_current_fpl_prediction_pool(
     predictions: pd.DataFrame,
     player_id_column: str,
+    team_fixtures: dict[str, ResolvedFixture] | None,
     team_metadata: dict[int, TeamMetadata] | None,
     player_metadata: dict[int, PlayerMetadata] | None,
+    upcoming_team_fixtures: dict[str, list[UpcomingFixture]] | None = None,
 ) -> pd.DataFrame:
-    """Add photo_url/team_logo_url/opponent_logo_url columns where resolvable.
+    """Build the active prediction pool using bootstrap-static as the authority.
 
-    Args:
-        predictions: The predictions DataFrame to enrich.
-        player_id_column: Column identifying each player.
-        team_metadata: Team-ID -> TeamMetadata, or None.
-        player_metadata: Player-ID -> PlayerMetadata, or None.
+    Conceptually performs:
+        current_fpl_players LEFT JOIN model_predictions
 
-    Returns:
-        pd.DataFrame: The enriched predictions (new columns are all
-        ``None`` when metadata wasn't available — never fabricated).
+    The current player pool, team names, positions, prices, status, and IDs
+    are sourced directly from bootstrap-static (via player_metadata and team_metadata).
+    Model predictions and historical feature columns are left-joined on stable
+    player identity (``name_normalized``).
+
+    If live metadata is unavailable, returns predictions unchanged as fallback.
     """
-    result = predictions.copy()
-    result["photo_url"] = None
-    result["team_logo_url"] = None
-    result["opponent_logo_url"] = None
+    if not player_metadata or not team_metadata:
+        logger.warning(
+            "Live FPL metadata unavailable; using historical predictions as fallback."
+        )
+        fallback_df = predictions.copy()
+        for col in ("photo_url", "team_logo_url", "opponent_logo_url"):
+            if col not in fallback_df.columns:
+                fallback_df[col] = None
+        if "upcoming_fixtures" not in fallback_df.columns:
+            fallback_df["upcoming_fixtures"] = [[] for _ in range(len(fallback_df))]
+        return fallback_df
 
-    if player_metadata:
-        name_by_team_id = {}
-        if team_metadata:
-            name_by_team_id = {tm.name: tm.badge_url for tm in team_metadata.values()}
+    # 1. Determine stable join column in predictions DataFrame
+    join_col = next(
+        (c for c in ("name_normalized", "name") if c in predictions.columns),
+        None,
+    )
 
-        def lookup_photo(pid: object) -> str | None:
-            try:
-                meta = player_metadata.get(int(pid))  # type: ignore[arg-type]
-            except (TypeError, ValueError):
-                return None
-            return meta.photo_url if meta else None
+    # 2. Build DataFrame of current FPL players from bootstrap-static
+    rows = []
+    badge_by_team_name = {
+        metadata.name: metadata.badge_url for metadata in team_metadata.values()
+    }
 
-        result["photo_url"] = result[player_id_column].map(lookup_photo)
+    # Count occurrences of normalized names in current API to detect ambiguity
+    norm_name_counts: dict[str, int] = {}
+    for meta in player_metadata.values():
+        full_name = f"{meta.first_name or ''} {meta.second_name or ''}".strip()
+        norm_full = str(_fold_to_ascii_lower(full_name)) if full_name else ""
+        if norm_full:
+            norm_name_counts[norm_full] = norm_name_counts.get(norm_full, 0) + 1
 
-        if team_metadata and "team" in result.columns:
-            result["team_logo_url"] = result["team"].map(name_by_team_id)
-        if team_metadata and "opponent_team" in result.columns:
-            result["opponent_logo_url"] = result["opponent_team"].map(name_by_team_id)
+    for player_id, meta in player_metadata.items():
+        team_name = (
+            team_metadata[meta.team_id].name
+            if meta.team_id is not None and meta.team_id in team_metadata
+            else "Unknown"
+        )
+        team_badge = (
+            team_metadata[meta.team_id].badge_url
+            if meta.team_id is not None and meta.team_id in team_metadata
+            else None
+        )
 
-    return result
+        full_name = f"{meta.first_name or ''} {meta.second_name or ''}".strip()
+        norm_full = str(_fold_to_ascii_lower(full_name)) if full_name else ""
+        norm_web = str(_fold_to_ascii_lower(meta.web_name)) if meta.web_name else ""
+
+        # Flag ambiguous name match if multiple current players share the exact same normalized full name
+        is_ambiguous = norm_full and norm_name_counts.get(norm_full, 0) > 1
+
+        upcoming_list = (
+            upcoming_team_fixtures.get(team_name)
+            if upcoming_team_fixtures
+            else None
+        )
+        upcoming_fixtures_payload = (
+            [uf.to_dict() for uf in upcoming_list] if upcoming_list else []
+        )
+
+        row = {
+            player_id_column: meta.player_id,
+            "id": meta.player_id,
+            "element": meta.player_id,
+            "web_name": meta.web_name,
+            "name": meta.web_name,
+            "first_name": meta.first_name,
+            "second_name": meta.second_name,
+            "team_id": meta.team_id,
+            "team": team_name,
+            "element_type": meta.element_type,
+            "position": meta.position,
+            "now_cost": meta.now_cost,
+            "value": meta.value,
+            "status": meta.status,
+            "photo_url": meta.photo_url,
+            "team_logo_url": team_badge,
+            "upcoming_fixtures": upcoming_fixtures_payload,
+            "_norm_full": norm_full,
+            "_norm_web": norm_web,
+            "_is_ambiguous": is_ambiguous,
+        }
+
+        # Resolve upcoming fixture for this player's current team
+        fixture = team_fixtures.get(team_name) if team_fixtures else None
+        if fixture is not None:
+            row["predicted_for_gw"] = fixture.gameweek
+            row["opponent_team"] = fixture.opponent
+            row["is_home"] = int(fixture.is_home)
+            row["fixture_difficulty"] = fixture.difficulty
+            row["fixture_source"] = "real_fixture"
+            row["opponent_logo_url"] = badge_by_team_name.get(fixture.opponent)
+        else:
+            row["fixture_source"] = "proxy_last_played"
+            row["fixture_difficulty"] = None
+            row["opponent_logo_url"] = None
+
+        rows.append(row)
+
+    current_fpl_df = pd.DataFrame(rows)
+
+    # 3. Join model_predictions by stable player identity (name_normalized)
+    if join_col and not predictions.empty:
+        pred_copy = predictions.copy()
+
+        # Build a lookup dictionary from predictions by normalized name
+        # Exclude metadata columns that are strictly driven by current bootstrap-static
+        override_cols = {
+            "team",
+            "name",
+            "web_name",
+            "first_name",
+            "second_name",
+            "team_id",
+            "element_type",
+            "position",
+            "now_cost",
+            "value",
+            "status",
+            "photo_url",
+            "team_logo_url",
+            "opponent_logo_url",
+            "predicted_for_gw",
+            "opponent_team",
+            "is_home",
+            "fixture_difficulty",
+            "fixture_source",
+            "element",
+            "id",
+        }
+        pred_cols = [c for c in pred_copy.columns if c == join_col or c not in override_cols]
+        pred_subset = pred_copy[pred_cols].drop_duplicates(subset=[join_col])
+
+        # Map predictions to current players using _norm_full or _norm_web
+        # If a current player is ambiguous or has no historical match, model outputs remain None
+        merged_rows = []
+        pred_lookup = pred_subset.set_index(join_col).to_dict(orient="index")
+
+        for _, c_row in current_fpl_df.iterrows():
+            c_dict = c_row.to_dict()
+            norm_full = c_dict.pop("_norm_full")
+            norm_web = c_dict.pop("_norm_web")
+            is_ambiguous = c_dict.pop("_is_ambiguous")
+
+            matched_pred = None
+            if not is_ambiguous:
+                if norm_full in pred_lookup:
+                    matched_pred = pred_lookup[norm_full]
+                elif norm_web in pred_lookup:
+                    matched_pred = pred_lookup[norm_web]
+
+            if matched_pred:
+                c_dict.update(matched_pred)
+
+            merged_rows.append(c_dict)
+
+        merged = pd.DataFrame(merged_rows)
+    else:
+        # Drop temporary normalization columns if join_col unavailable
+        current_fpl_df = current_fpl_df.drop(
+            columns=["_norm_full", "_norm_web", "_is_ambiguous"], errors="ignore"
+        )
+        merged = current_fpl_df
+
+    # Ensure prediction target columns exist and are None for unmatched current players
+    pred_target_cols = [
+        c for c in merged.columns if c.startswith("predicted_") and not c.startswith("predicted_for_gw")
+    ]
+    for ptc in pred_target_cols:
+        merged[ptc] = merged[ptc].astype(object).where(merged[ptc].notna(), None)
+
+    logger.info(
+        "Built current FPL prediction pool: %d active player(s) from API (merged on stable player identity).",
+        len(merged),
+    )
+    return merged.reset_index(drop=True)

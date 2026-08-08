@@ -164,3 +164,96 @@ def test_routes_503_when_state_not_loaded() -> None:
     # Health and docs must still work even without loaded state.
     assert client.get("/").status_code == 200
     assert client.get("/swagger").status_code == 200
+
+
+def test_cors_headers_present_on_preflight_and_503_error() -> None:
+    """CORS headers must be present on OPTIONS preflight and 503 responses for localhost and 127.0.0.1 origins."""
+    app = create_app()
+    app.state.fantasy_ai_state = None
+    client = TestClient(app)
+
+    for origin in ("http://localhost:5173", "http://127.0.0.1:5173"):
+        # OPTIONS preflight request
+        preflight = client.options(
+            "/predict",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert preflight.status_code in (200, 204)
+        assert preflight.headers.get("access-control-allow-origin") == origin
+
+        # GET request when state is not loaded returning 503
+        response = client.get("/predict", headers={"Origin": origin})
+        assert response.status_code == 503
+        assert response.headers.get("access-control-allow-origin") == origin
+
+
+def test_predict_and_player_routes_with_nested_list_columns(client: TestClient) -> None:
+    """GET /predict and GET /player/{id} must safely serialize rows containing multi-element lists without ValueError."""
+    app = create_app()
+    engineered_data = pd.DataFrame(
+        {
+            "element": [1, 2],
+            "name": ["Salah", "Haaland"],
+            "season": ["2022-23", "2022-23"],
+            "GW": [10, 10],
+            "minutes_avg_last_3": [90.0, 90.0],
+            "total_points": [10, 12],
+            "upcoming_fixtures": [
+                [{"gw": 11, "opponent": "MCI"}, {"gw": 12, "opponent": "ARS"}],
+                [{"gw": 11, "opponent": "CHE"}, {"gw": 12, "opponent": "LIV"}],
+            ],
+        }
+    )
+    predictions = engineered_data.copy()
+    predictions["predicted_for_gw"] = 11
+    predictions["predicted_total_points"] = [8.5, 9.5]
+
+    loaded_model = LoadedModel(
+        model=_StubModel(),
+        model_name="stub_model",
+        feature_columns=["minutes_avg_last_3"],
+        target_column="total_points",
+        train_medians={"minutes_avg_last_3": 80.0},
+        metrics={"mae": 1.0, "rmse": 1.5, "r2": 0.8},
+    )
+
+    from src.api.state import AppState
+
+    app.state.fantasy_ai_state = AppState(
+        settings=get_settings(),
+        engineered_data=engineered_data,
+        loaded_model=loaded_model,
+        predictions=predictions,
+        player_id_column="element",
+    )
+
+    tc = TestClient(app)
+
+    # Test /predict
+    res_predict = tc.get("/predict", headers={"Origin": "http://localhost:5173"})
+    assert res_predict.status_code == 200
+    assert res_predict.headers.get("access-control-allow-origin") == "http://localhost:5173"
+    body = res_predict.json()
+    assert body["count"] == 2
+    assert len(body["predictions"][0]["upcoming_fixtures"]) == 2
+
+    # Test /top_players
+    res_top = tc.get("/top_players?limit=2", headers={"Origin": "http://127.0.0.1:5173"})
+    assert res_top.status_code == 200
+    assert res_top.headers.get("access-control-allow-origin") == "http://127.0.0.1:5173"
+
+    # Test /captain
+    res_cap = tc.get("/captain", headers={"Origin": "http://localhost:5173"})
+    assert res_cap.status_code == 200
+    assert res_cap.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+    # Test /player/1
+    res_player = tc.get("/player/1", headers={"Origin": "http://localhost:5173"})
+    assert res_player.status_code == 200
+    assert res_player.headers.get("access-control-allow-origin") == "http://localhost:5173"
+    assert res_player.json()["data"]["name"] == "Salah"
+
+

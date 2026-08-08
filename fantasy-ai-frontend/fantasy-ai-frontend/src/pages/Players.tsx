@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowUpDown, Users } from "lucide-react";
 import { usePredictions } from "@/hooks/useApi";
 import { PlayerAvatar, TeamBadge } from "@/components/identity";
-import { FDRBadge } from "@/components/FDRBadge";
+import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Dropdown } from "@/components/ui/overlays";
 import { Skeleton, Badge } from "@/components/ui/primitives";
@@ -159,9 +159,9 @@ export default function Players() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <TeamBadge team={p.team} logoUrl={p.team_logo_url} size="sm" />
-                        <FDRBadge difficulty={p.fixture_difficulty} size="sm" />
+                        <UpcomingFixtures player={p} variant="inline" maxFixtures={3} />
                       </div>
                     </div>
                   </div>

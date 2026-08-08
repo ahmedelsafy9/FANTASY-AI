@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import type { PlayerRecord } from "@/types/api";
 import { PlayerAvatar, TeamBadge } from "@/components/identity";
-import { FixtureBadge } from "@/components/FixtureBadge";
+import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import { Badge } from "@/components/ui/primitives";
 import { formatPrice, formatStat } from "@/lib/format";
 import { derivePlayingTimeReliability } from "@/lib/insights";
@@ -112,13 +112,16 @@ export function PlayerCard({ player, rank, onClick, className }: PlayerCardProps
       </div>
 
       {/* Fixture + GW row */}
-      <div className="flex items-center justify-between gap-2 border-t border-border-soft px-4 py-2.5">
-        <FixtureBadge player={player} size="sm" />
-        <div className="flex items-center gap-1.5">
-          {typeof player.predicted_for_gw === "number" && (
-            <Badge tone="signal">GW {player.predicted_for_gw}</Badge>
+      <div className="flex flex-col gap-2 border-t border-border-soft px-4 py-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-tertiary">
+            Upcoming Fixtures
+          </span>
+          {typeof (player.upcoming_fixtures?.[0]?.event ?? player.predicted_for_gw) === "number" && (
+            <Badge tone="signal">GW {player.upcoming_fixtures?.[0]?.event ?? player.predicted_for_gw}</Badge>
           )}
         </div>
+        <UpcomingFixtures player={player} variant="compact" maxFixtures={3} />
       </div>
 
       {/* Stats footer */}

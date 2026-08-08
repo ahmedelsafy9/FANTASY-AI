@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import type { PlayerRecord } from "@/types/api";
 import { PlayerAvatar, TeamBadge } from "@/components/identity";
-import { FixtureBadge } from "@/components/FixtureBadge";
+import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import { PredictionScore } from "@/components/PredictionScore";
 import { InsightTag } from "@/components/InsightTag";
 import { Stat, ConfidenceBar } from "@/components/stats";
@@ -102,10 +102,10 @@ export function PlayerDetailPanel({ player }: PlayerDetailPanelProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }}
       >
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-tertiary">
-          Upcoming Fixture
+        <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-tertiary">
+          Upcoming Fixtures
         </h3>
-        <FixtureBadge player={player} size="lg" />
+        <UpcomingFixtures player={player} variant="full" maxFixtures={5} />
       </motion.div>
 
       {/* AI Insights */}

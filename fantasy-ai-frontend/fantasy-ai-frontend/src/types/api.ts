@@ -10,6 +10,20 @@
  * gracefully rather than assume presence.
  */
 
+/** An upcoming fixture for a player's team. */
+export interface UpcomingFixture {
+  fixture_id?: number | null;
+  code?: number | null;
+  event?: number | null;
+  is_home: boolean;
+  opponent_team_id: number;
+  opponent_name: string;
+  opponent_short_name?: string | null;
+  opponent_logo_url?: string | null;
+  difficulty?: number | null;
+  kickoff_time?: string | null;
+}
+
 /** A single player/prediction record as returned by the backend. */
 export interface PlayerRecord {
   element?: number;
@@ -59,6 +73,7 @@ export interface PlayerRecord {
   /** Phase 3: real upcoming-fixture data, where the live FPL API was reachable. */
   fixture_difficulty?: number | null;
   fixture_source?: "real_fixture" | "proxy_last_played";
+  upcoming_fixtures?: UpcomingFixture[];
   /** Phase 4: statistically-grounded uncertainty (never a fabricated confidence %). */
   model_test_rmse?: number;
   prediction_uncertainty_std?: number;

@@ -5,6 +5,7 @@ import type { PlayerRecord } from "@/types/api";
 import { usePredictions } from "@/hooks/useApi";
 import { useSquad } from "@/hooks/useSquad";
 import { PlayerAvatar, TeamBadge } from "@/components/identity";
+import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import { PlayerToken, EmptySlot } from "@/components/PlayerToken";
 import { Pitch, PitchRow } from "@/components/Pitch";
 import { Stat } from "@/components/stats";
@@ -311,7 +312,10 @@ function PlayerBrowserRow({
             </span>
           )}
         </div>
-        <TeamBadge team={player.team} logoUrl={player.team_logo_url} size="sm" showName />
+        <div className="mt-1 flex items-center gap-2">
+          <TeamBadge team={player.team} logoUrl={player.team_logo_url} size="sm" showName />
+          <UpcomingFixtures player={player} variant="inline" maxFixtures={3} className="hidden md:inline-flex" />
+        </div>
       </div>
       <span className="numeral hidden text-sm text-ink-secondary sm:block">{formatPrice(player.value)}</span>
       <span className="numeral text-sm font-semibold text-gold">{formatStat(player.predicted_total_points)}</span>

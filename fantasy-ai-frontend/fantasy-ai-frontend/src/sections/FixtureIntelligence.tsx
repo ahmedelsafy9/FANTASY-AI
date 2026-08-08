@@ -1,34 +1,88 @@
-import { CalendarX } from "lucide-react";
+import { useMemo } from "react";
+import { usePredictions } from "@/hooks/useApi";
+import { TeamBadge } from "@/components/identity";
+import { UpcomingFixtures } from "@/components/UpcomingFixtures";
+import { PlayerCardSkeleton, ErrorState, EmptyState } from "@/components/states";
+import type { UpcomingFixture } from "@/types/api";
 
 /**
- * The backend (see the API's router files) exposes no fixtures endpoint —
- * there is no `/fixtures` route, and no fixture list, kickoff time, or
- * fixture-difficulty rating in any response schema. Rather than fabricate
- * fixture data, this section is honestly built as a "not yet available"
- * state, ready to be swapped for real fixture cards the moment the backend
- * adds that endpoint — no redesign required.
+ * Fixture Intelligence section exposing real upcoming match sequences,
+ * home/away context, and FDR ratings for Premier League clubs.
  */
 export function FixtureIntelligence() {
+  const { data, loading, error, refetch } = usePredictions();
+
+  // Extract unique team upcoming fixtures from active player records
+  const teamFixturesMap = useMemo(() => {
+    if (!data?.predictions)
+      return new Map<string, { team: string; logoUrl?: string | null; fixtures: UpcomingFixture[] }>();
+
+    const map = new Map<string, { team: string; logoUrl?: string | null; fixtures: UpcomingFixture[] }>();
+    for (const player of data.predictions) {
+      if (
+        player.team &&
+        player.upcoming_fixtures &&
+        player.upcoming_fixtures.length > 0 &&
+        !map.has(player.team)
+      ) {
+        map.set(player.team, {
+          team: player.team,
+          logoUrl: player.team_logo_url,
+          fixtures: player.upcoming_fixtures,
+        });
+      }
+    }
+    return map;
+  }, [data]);
+
+  const teamCards = useMemo(() => {
+    return Array.from(teamFixturesMap.values()).sort((a, b) => a.team.localeCompare(b.team));
+  }, [teamFixturesMap]);
+
   return (
-    <section className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
+    <section className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
       <div className="mb-8">
         <h2 className="text-2xl font-semibold text-ink sm:text-3xl">Fixture Intelligence</h2>
         <p className="mt-1.5 max-w-xl text-sm text-ink-tertiary">
-          Upcoming fixtures, home/away context, and difficulty ratings.
+          Official upcoming match sequences, home/away difficulty, and FDR ratings for Premier League teams.
         </p>
       </div>
 
-      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border-medium bg-surface/50 px-6 py-16 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-ink-tertiary">
-          <CalendarX size={20} />
+      {loading && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <PlayerCardSkeleton key={i} />
+          ))}
         </div>
-        <p className="font-medium text-ink">Fixture data isn't available yet</p>
-        <p className="max-w-sm text-sm text-ink-tertiary">
-          The current backend doesn't expose an upcoming-fixtures endpoint, so
-          this section can't show real matchups yet. It's built and ready to
-          populate the moment that data is available — no redesign needed.
-        </p>
-      </div>
+      )}
+
+      {!loading && error && <ErrorState message={error} onRetry={refetch} />}
+
+      {!loading && !error && teamCards.length === 0 && (
+        <EmptyState
+          title="No fixture data available"
+          description="The live FPL API fixture metadata could not be loaded."
+        />
+      )}
+
+      {!loading && !error && teamCards.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {teamCards.map(({ team, logoUrl, fixtures }) => (
+            <div
+              key={team}
+              className="flex flex-col gap-3 rounded-2xl border border-border-soft bg-surface/80 p-5 transition-colors hover:border-emerald/20"
+            >
+              <div className="flex items-center justify-between border-b border-border-soft pb-3">
+                <TeamBadge team={team} logoUrl={logoUrl} size="md" showName />
+                <span className="text-xs font-medium text-ink-tertiary">
+                  Next {fixtures.length} Matches
+                </span>
+              </div>
+              <UpcomingFixtures fixtures={fixtures} variant="full" maxFixtures={5} />
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

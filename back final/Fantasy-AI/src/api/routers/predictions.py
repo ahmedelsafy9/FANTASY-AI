@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from src.api.dependencies import get_prediction_query_service
 from src.api.schemas import CaptainResponse, PredictionListResponse
-from src.api.services.prediction_query_service import PredictionQueryService
+from src.api.services.prediction_query_service import PredictionQueryService, _row_to_dict
 from src.core.exceptions import PlayerNotFoundError
 
 router = APIRouter(tags=["predictions"])
@@ -128,4 +128,4 @@ def _iter_rows(data):
         dict: Each row, JSON-serializable.
     """
     for _, row in data.iterrows():
-        yield {key: (None if pd.isna(value) else value) for key, value in row.items()}
+        yield _row_to_dict(row)
