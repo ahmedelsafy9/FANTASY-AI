@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { BarChart3, TrendingUp, Shield, Sparkles } from "lucide-react";
 import type { PlayerRecord } from "@/types/api";
 import { usePredictions } from "@/hooks/useApi";
+import { normalizePosition } from "@/hooks/useSquad";
 import { PlayerCard } from "@/components/PlayerCard";
 import { FilterBar } from "@/components/FilterBar";
 import { PlayerCardSkeleton, ErrorState, EmptyState } from "@/components/states";
@@ -32,7 +33,10 @@ export default function Predictions() {
   const filtered = useMemo(() => {
     return predictions
       .filter((p) => (team === "all" ? true : p.team === team))
-      .filter((p) => (position === "all" ? true : p.position === position))
+      .filter((p) => {
+        if (position === "all") return true;
+        return normalizePosition(p.position) === normalizePosition(position);
+      })
       .filter((p) => {
         if (!query.trim()) return true;
         const q = query.toLowerCase();
@@ -43,12 +47,17 @@ export default function Predictions() {
         );
       })
       .sort((a, b) => {
+        if (sortKey === "value") {
+          const av = a.value ?? a.now_cost ?? 0;
+          const bv = b.value ?? b.now_cost ?? 0;
+          return Number(bv) - Number(av);
+        }
+        if (sortKey === "name") {
+          return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+        }
         const key = sortKey as keyof PlayerRecord;
         const av = a[key];
         const bv = b[key];
-        if (typeof av === "string" || typeof bv === "string") {
-          return String(av ?? "").localeCompare(String(bv ?? ""));
-        }
         const an = typeof av === "number" ? av : -Infinity;
         const bn = typeof bv === "number" ? bv : -Infinity;
         return bn - an;
@@ -172,7 +181,7 @@ export default function Predictions() {
       </div>
 
       {/* Results count */}
-      {!loading && !error && filtered.length > 0 && (
+      {!loading && !error && (
         <div className="mb-4 text-xs font-bold text-[#64748B]">
           Showing {filtered.length} of {predictions.length} players
         </div>
@@ -196,9 +205,9 @@ export default function Predictions() {
         />
       )}
 
-      {/* Player grid */}
+      {/* Player grid (No layout animation transitions) */}
       {!loading && !error && filtered.length > 0 && (
-        <motion.div layout className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((p, i) => (
             <PlayerCard
               key={p.element ?? p.name}
@@ -207,7 +216,7 @@ export default function Predictions() {
               onClick={() => setSelected(p)}
             />
           ))}
-        </motion.div>
+        </div>
       )}
 
       {/* Player detail drawer */}

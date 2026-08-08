@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -159,7 +159,7 @@ export function Tabs({ tabs, active, onChange, className }: TabsProps) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Dropdown                                                                    */
+/* Dropdown (Matches popover selection design across all pages)              */
 /* -------------------------------------------------------------------------- */
 
 interface DropdownProps {
@@ -171,22 +171,43 @@ interface DropdownProps {
 
 export function Dropdown({ label, options, value, onChange }: DropdownProps) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value);
 
+  useEffect(() => {
+    if (!open) return;
+
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        onBlur={() => setTimeout(() => setOpen(false), 120)}
-        className="flex items-center gap-2 rounded-xl border-2 border-[#CBD5E1] bg-white px-3.5 py-2 text-xs font-black text-[#0F172A] shadow-sm transition-all hover:border-[#94A3B8] cursor-pointer"
+        className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2 text-xs font-black text-[#0F172A] shadow-sm transition-colors hover:border-[#94A3B8] cursor-pointer"
       >
         <span className="text-[#64748B] font-bold">{label}:</span>
-        <span className="font-black">{selected?.label ?? "All"}</span>
-        <ChevronDown size={14} className={cn("transition-transform text-[#64748B]", open && "rotate-180")} />
+        <span className="font-black max-w-[120px] truncate">{selected?.label ?? "All"}</span>
+        <ChevronDown
+          size={12}
+          className={cn("transition-transform text-[#64748B]", open && "rotate-180")}
+        />
       </button>
+
       <AnimatePresence>
         {open && (
           <motion.ul
@@ -195,11 +216,12 @@ export function Dropdown({ label, options, value, onChange }: DropdownProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 top-full z-20 mt-2 max-h-64 w-48 overflow-y-auto rounded-chunky-lg border border-[#E2E8F0] bg-white p-1.5 shadow-card-hover"
+            className="absolute left-0 top-full z-30 mt-1 max-h-60 w-48 overflow-y-auto rounded-chunky border border-[#E2E8F0] bg-white p-1 shadow-card"
           >
             {options.map((opt) => (
               <li key={opt.value}>
                 <button
+                  type="button"
                   role="option"
                   aria-selected={value === opt.value}
                   onClick={() => {
@@ -207,7 +229,7 @@ export function Dropdown({ label, options, value, onChange }: DropdownProps) {
                     setOpen(false);
                   }}
                   className={cn(
-                    "block w-full rounded-xl px-3 py-2 text-left text-xs font-black transition-colors cursor-pointer",
+                    "block w-full rounded-lg px-3 py-1.5 text-left text-xs font-black transition-colors cursor-pointer",
                     value === opt.value
                       ? "bg-[#ECFDF5] text-[#059669]"
                       : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]",

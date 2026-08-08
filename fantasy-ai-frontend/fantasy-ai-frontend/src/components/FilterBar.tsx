@@ -21,7 +21,6 @@ interface FilterBarProps {
 /**
  * Consolidated filter/sort bar used on Predictions and Players pages.
  * Dynamically derives team and position options from the prediction data.
- * Mobile-friendly horizontal scrollable layout.
  */
 export function FilterBar({
   predictions,
@@ -51,7 +50,10 @@ export function FilterBar({
       const bi = order.indexOf(b);
       return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     });
-    return [{ value: "all", label: "All Positions" }, ...sorted.map((p) => ({ value: p, label: p }))];
+    return [
+      { value: "all", label: "All Positions" },
+      ...sorted.map((p) => ({ value: p, label: p === "GKP" ? "GK" : p })),
+    ];
   }, [predictions]);
 
   return (
@@ -59,7 +61,7 @@ export function FilterBar({
       <div className="flex-1 min-w-0 max-w-md">
         <SearchInput value={query} onChange={onQueryChange} />
       </div>
-      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+      <div className="flex flex-wrap items-center gap-2">
         <Dropdown label="Team" options={teamOptions} value={team} onChange={onTeamChange} />
         <Dropdown label="Position" options={positionOptions} value={position} onChange={onPositionChange} />
         <Dropdown label="Sort" options={sortOptions} value={sortKey} onChange={onSortChange} />
