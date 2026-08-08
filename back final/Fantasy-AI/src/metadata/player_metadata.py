@@ -16,7 +16,7 @@ from typing import Any
 # NOT from the player's FPL ``element`` ID.
 _PHOTO_URL_TEMPLATE = (
     "https://resources.premierleague.com/"
-    "premierleague25/photos/players/110x140/p{photo_id}.png"
+    "premierleague/photos/players/110x140/p{photo_id}.png"
 )
 
 
@@ -40,6 +40,7 @@ class PlayerMetadata:
         now_cost: Price in 10ths of £M (e.g. 60 for £6.0m).
         value: Price in £M (e.g. 6.0).
         status: Player availability status (e.g. "a", "d", "i", "s", "u").
+        full_name: The player's full name (first_name + second_name).
     """
 
     player_id: int
@@ -53,6 +54,7 @@ class PlayerMetadata:
     now_cost: int | None = None
     value: float | None = None
     status: str | None = None
+    full_name: str | None = None
 
 
 def player_photo_url(photo_field: str | None) -> str | None:
@@ -139,6 +141,9 @@ def build_player_metadata(
             else None
         )
         val = now_cost
+        fn = str(element.get("first_name", "")).strip()
+        sn = str(element.get("second_name", "")).strip()
+        full_name = f"{fn} {sn}".strip() if (fn or sn) else None
 
         result[numeric_player_id] = PlayerMetadata(
             player_id=numeric_player_id,
@@ -164,6 +169,7 @@ def build_player_metadata(
                 else None
             ),
             photo_url=player_photo_url(element.get("photo")),
+            full_name=full_name,
         )
 
     return result

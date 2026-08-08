@@ -10,7 +10,7 @@ router = APIRouter(tags=["player-photos"])
 
 PHOTO_URL_TEMPLATE = (
     "https://resources.premierleague.com/"
-    "premierleague25/photos/players/110x140/p{photo_id}.png"
+    "premierleague/photos/players/110x140/p{photo_id}.png"
 )
 
 

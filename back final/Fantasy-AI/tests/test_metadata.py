@@ -27,7 +27,7 @@ def test_build_team_metadata_skips_records_without_id() -> None:
 def test_player_photo_url_builds_from_photo_field() -> None:
     """A player with a photo field must get a constructed photo URL."""
     url = player_photo_url("118748.jpg")
-    assert url == "https://resources.premierleague.com/premierleague25/photos/players/110x140/p118748.png"
+    assert url == "https://resources.premierleague.com/premierleague/photos/players/110x140/p118748.png"
 
 
 def test_player_photo_url_none_without_photo_field() -> None:
