@@ -286,6 +286,41 @@ class FPLApiDataSource(DataSource):
         bootstrap = json.loads(bootstrap_path.read_text(encoding="utf-8"))
         return list(bootstrap.get("teams", []))
 
+    def get_bootstrap_static(self, destination: Path) -> dict[str, Any]:
+        """Return the parsed bootstrap-static JSON payload.
+
+        Args:
+            destination: Directory previously populated by :meth:`download`.
+
+        Returns:
+            dict[str, Any]: The full bootstrap-static payload.
+
+        Raises:
+            DataSourceError: If bootstrap-static hasn't been downloaded yet.
+        """
+        bootstrap_path = destination / _BOOTSTRAP_FILENAME
+        if not bootstrap_path.exists():
+            raise DataSourceError(
+                f"{_BOOTSTRAP_FILENAME} not found in {destination}. Call download() first."
+            )
+        return json.loads(bootstrap_path.read_text(encoding="utf-8"))
+
+    def get_elements(self, destination: Path) -> list[dict[str, Any]]:
+        """Return the player (elements) reference list from bootstrap-static.
+
+        Args:
+            destination: Directory previously populated by :meth:`download`.
+
+        Returns:
+            list[dict[str, Any]]: Each player's raw bootstrap-static record.
+
+        Raises:
+            DataSourceError: If bootstrap-static hasn't been downloaded yet.
+        """
+        bootstrap = self.get_bootstrap_static(destination)
+        return list(bootstrap.get("elements", []))
+
+
     def get_fixtures(self, future_only: bool = True) -> list[dict[str, Any]]:
         """Fetch fixtures from the live FPL API.
 

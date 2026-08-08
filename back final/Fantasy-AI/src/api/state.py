@@ -24,7 +24,7 @@ from src.config.settings import Settings
 from src.core.exceptions import FantasyAIError
 from src.data_collection.services.team_mapping_service import TeamMappingService
 from src.data_collection.sources.fpl_api_source import FPLApiDataSource
-from src.metadata.player_metadata import PlayerMetadata, build_player_metadata
+from src.metadata.player_metadata import PlayerMetadata, build_player_metadata, player_photo_url
 from src.metadata.team_metadata import TeamMetadata, build_team_metadata
 from src.prediction.fixture_aware_next_gameweek import (
     ResolvedFixture,
@@ -83,6 +83,10 @@ def build_app_state(settings: Settings) -> AppState:
             f"{settings.feature_engineering.player_id_columns}."
         )
 
+<<<<<<< HEAD
+    team_fixtures, team_metadata, player_metadata, current_bootstrap = _try_fetch_live_metadata(settings)
+    live_metadata_available = bool(team_fixtures or team_metadata or player_metadata)
+=======
     # ---------------------------------------------------------------
     # Live FPL metadata
     # ---------------------------------------------------------------
@@ -101,6 +105,7 @@ def build_app_state(settings: Settings) -> AppState:
     # ---------------------------------------------------------------
     # Build next-gameweek prediction rows
     # ---------------------------------------------------------------
+>>>>>>> 6a9fdc0c2339f3fbf5f47193d150e0596c75f4b7
 
     next_gw_rows = build_fixture_aware_next_gameweek_rows(
         engineered_data,
@@ -111,6 +116,25 @@ def build_app_state(settings: Settings) -> AppState:
     )
 
     prediction_service = PredictionService(loaded_model)
+<<<<<<< HEAD
+    raw_predictions = prediction_service.predict(next_gw_rows)
+
+    if current_bootstrap and "elements" in current_bootstrap and current_bootstrap["elements"]:
+        predictions = _build_current_fpl_predictions(
+            current_bootstrap=current_bootstrap,
+            model_predictions=raw_predictions,
+            player_id_column=player_id_column,
+            team_metadata=team_metadata,
+            player_metadata=player_metadata,
+        )
+    else:
+        predictions = _enrich_with_presentation_metadata(
+            raw_predictions,
+            player_id_column=player_id_column,
+            team_metadata=team_metadata,
+            player_metadata=player_metadata,
+        )
+=======
 
     predictions = prediction_service.predict(next_gw_rows)
 
@@ -130,6 +154,7 @@ def build_app_state(settings: Settings) -> AppState:
         player_metadata=player_metadata,
         upcoming_team_fixtures=upcoming_team_fixtures,
     )
+>>>>>>> 6a9fdc0c2339f3fbf5f47193d150e0596c75f4b7
 
     logger.info(
         "API state ready: %d current-season player(s), model '%s', "
@@ -164,10 +189,29 @@ def _try_fetch_live_metadata(
     dict[str, ResolvedFixture] | None,
     dict[int, TeamMetadata] | None,
     dict[int, PlayerMetadata] | None,
+<<<<<<< HEAD
+    dict[str, Any] | None,
+=======
     dict[str, list[UpcomingFixture]] | None,
+>>>>>>> 6a9fdc0c2339f3fbf5f47193d150e0596c75f4b7
 ]:
     """Best-effort fetch of live fixtures + current FPL metadata."""
 
+<<<<<<< HEAD
+    Deliberately never raises: this enriches the experience (Phase 3
+    fixture-awareness, Phase 5 photos/badges) but the API must remain
+    fully functional (using the Sprint 7 proxy, no photos/badges) if
+    the live FPL API is unreachable at startup.
+
+    Args:
+        settings: Application settings.
+
+    Returns:
+        tuple: ``(team_fixtures, team_metadata, player_metadata, current_bootstrap)``,
+        each ``None``/empty if the fetch failed.
+    """
+=======
+>>>>>>> 6a9fdc0c2339f3fbf5f47193d150e0596c75f4b7
     try:
         fpl_source = FPLApiDataSource(
             base_url=settings.data_sources.fpl_api_base_url,
@@ -202,6 +246,12 @@ def _try_fetch_live_metadata(
         )
 
         team_metadata = build_team_metadata(teams_raw)
+<<<<<<< HEAD
+        bootstrap = fpl_source.get_bootstrap_static(live_dir)
+        player_metadata = build_player_metadata(bootstrap.get("elements", []))
+
+        return team_fixtures, team_metadata, player_metadata, bootstrap
+=======
 
         upcoming_team_fixtures = resolve_team_upcoming_fixtures(
             fixtures_raw,
@@ -227,14 +277,131 @@ def _try_fetch_live_metadata(
             upcoming_team_fixtures,
         )
 
+>>>>>>> 6a9fdc0c2339f3fbf5f47193d150e0596c75f4b7
     except (FantasyAIError, OSError, ValueError) as exc:
         logger.warning(
             "Live fixture/metadata enrichment unavailable at startup "
             "(%s); predictions will use the available historical data.",
             exc,
         )
+<<<<<<< HEAD
+        return None, None, None, None
+
+
+def _build_current_fpl_predictions(
+    current_bootstrap: dict[str, Any],
+    model_predictions: pd.DataFrame,
+    player_id_column: str,
+    team_metadata: dict[int, TeamMetadata] | None,
+    player_metadata: dict[int, PlayerMetadata] | None,
+) -> pd.DataFrame:
+    """Build the CURRENT prediction/squad pool driving dataset.
+
+    The official FPL bootstrap-static endpoint (elements + teams) is the single
+    source of truth for current players, teams, positions, prices, and status.
+
+    Conceptually: CURRENT FPL PLAYERS (bootstrap["elements"]) LEFT JOIN MODEL PREDICTIONS.
+    """
+    elements = current_bootstrap.get("elements", [])
+    teams = current_bootstrap.get("teams", [])
+    team_names = {int(t["id"]): str(t.get("name", "")) for t in teams if "id" in t}
+
+    predictions_by_id: dict[int, pd.Series] = {}
+    predictions_by_name: dict[str, pd.Series] = {}
+
+    for _, row in model_predictions.iterrows():
+        pid = row.get(player_id_column) or row.get("element") or row.get("id")
+        if pd.notna(pid):
+            try:
+                predictions_by_id[int(pid)] = row
+            except (TypeError, ValueError):
+                pass
+        name_val = row.get("name") or row.get("name_normalized")
+        if name_val:
+            norm = _normalize_player_name(str(name_val))
+            if norm and norm not in predictions_by_name:
+                predictions_by_name[norm] = row
+
+    rows: list[dict[str, Any]] = []
+    for elem in elements:
+        elem_id = elem.get("id")
+        if elem_id is None:
+            continue
+        numeric_id = int(elem_id)
+
+        fn = str(elem.get("first_name", "")).strip()
+        sn = str(elem.get("second_name", "")).strip()
+        web_name = str(elem.get("web_name", "Unknown"))
+        full_name = f"{fn} {sn}".strip() if (fn or sn) else web_name
+        team_id = elem.get("team")
+        team_name = team_names.get(int(team_id), f"Team {team_id}") if team_id is not None else "Unknown"
+
+        current_player_dict: dict[str, Any] = {
+            player_id_column: numeric_id,
+            "element": numeric_id,
+            "id": numeric_id,
+            "name": web_name,
+            "first_name": fn,
+            "second_name": sn,
+            "full_name": full_name,
+            "name_normalized": _normalize_player_name(full_name),
+            "team": team_name,
+            "team_id": team_id,
+            "element_type": elem.get("element_type"),
+            "now_cost": elem.get("now_cost"),
+            "value": elem.get("now_cost"),
+            "status": elem.get("status"),
+            "total_points": elem.get("total_points"),
+            "minutes": elem.get("minutes"),
+            "goals_scored": elem.get("goals_scored"),
+            "assists": elem.get("assists"),
+            "clean_sheets": elem.get("clean_sheets"),
+            "bonus": elem.get("bonus"),
+            "influence": elem.get("influence"),
+            "creativity": elem.get("creativity"),
+            "threat": elem.get("threat"),
+            "ict_index": elem.get("ict_index"),
+            "photo_url": player_photo_url(elem.get("photo")),
+        }
+
+        if team_metadata and team_id is not None and int(team_id) in team_metadata:
+            current_player_dict["team_logo_url"] = team_metadata[int(team_id)].badge_url
+        else:
+            current_player_dict["team_logo_url"] = None
+
+        model_row = None
+        if numeric_id in predictions_by_id:
+            model_row = predictions_by_id[numeric_id]
+        else:
+            norm_full = current_player_dict["name_normalized"]
+            norm_web = _normalize_player_name(web_name)
+            if norm_full in predictions_by_name:
+                model_row = predictions_by_name[norm_full]
+            elif norm_web in predictions_by_name:
+                model_row = predictions_by_name[norm_web]
+
+        if model_row is not None:
+            for col in model_row.index:
+                if col not in current_player_dict:
+                    current_player_dict[col] = model_row[col]
+                elif col in ("predicted_total_points", "predicted_for_gw", "opponent_team", "is_home", "fixture_difficulty", "fixture_source"):
+                    current_player_dict[col] = model_row[col]
+        else:
+            current_player_dict["predicted_total_points"] = 0.0
+            current_player_dict["predicted_for_gw"] = 1
+            current_player_dict["fixture_source"] = "no_historical_data"
+            current_player_dict["opponent_team"] = None
+            current_player_dict["is_home"] = 0
+            current_player_dict["fixture_difficulty"] = None
+            current_player_dict["opponent_logo_url"] = None
+
+        rows.append(current_player_dict)
+
+    return pd.DataFrame(rows)
+=======
 
         return None, None, None, None
+>>>>>>> 6a9fdc0c2339f3fbf5f47193d150e0596c75f4b7
 
 
 from src.preprocessing.steps.normalize_names import _fold_to_ascii_lower
