@@ -39,8 +39,8 @@ def get_player_service(request: Request) -> PlayerService:
     """
     state = get_app_state(request)
     return PlayerService(
-        data=state.engineered_data,
-        player_id_columns=state.settings.feature_engineering.player_id_columns,
+        data=state.predictions,
+        player_id_columns=(state.player_id_column, "id", "element", "name"),
         chronological_columns=state.settings.feature_engineering.chronological_columns,
     )
 
