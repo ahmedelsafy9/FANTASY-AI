@@ -19,34 +19,41 @@ dist/
 # Environment / secrets
 .env
 .env.*
+!.env.example
 *.local
 
-# Data (never version raw or processed datasets)
-data/raw/*
-data/processed/*
-data/external/*
+# Data (never version raw, processed, or external historical datasets)
+data/raw/
+data/processed/
+data/external/
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/external/.gitkeep
+*.csv
+*.parquet
+*.feather
 
-# Models (large binary artifacts)
+# Models (ignore old models, checkpoints, experiments; allow production model)
 models/*
 !models/.gitkeep
+!models/best_model.joblib
+!models/best_model_metadata.json
+models/old/
+models/checkpoints/
+models/experiments/
 
 # Logs
 logs/
 *.log
 
-# IDE
+# IDE & OS
 .vscode/
 .idea/
 *.swp
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Jupyter (explicitly excluded from this project, but ignore stray files)
+# Jupyter notebooks
 .ipynb_checkpoints/
 *.ipynb
 
@@ -54,13 +61,3 @@ Thumbs.db
 .coverage
 htmlcov/
 coverage.xml
-# Local / training data - never deploy to Vercel
-data/raw/
-data/processed/vaastav_cleaned.csv
-
-# Local runtime artifacts
-logs/
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/

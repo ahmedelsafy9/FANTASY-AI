@@ -175,6 +175,10 @@ class DataSourceSettings:
     request_max_retries: int = field(
         default_factory=lambda: _env_int("FANTASY_AI_REQUEST_MAX_RETRIES", 3)
     )
+    data_url: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_DATA_URL", "")
+    )
+
 
 
 @dataclass(frozen=True)
