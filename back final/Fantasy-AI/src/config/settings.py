@@ -498,6 +498,21 @@ class TrainingSettings:
     boosted_learning_rate: float = field(
         default_factory=lambda: float(_env_str("FANTASY_AI_BOOSTED_LEARNING_RATE", "0.05"))
     )
+    season_weight_max: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_SEASON_WEIGHT_MAX", "3.0")
+        )
+    )
+    season_weight_min: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_SEASON_WEIGHT_MIN", "1.0")
+        )
+    )
+    season_weight_strategy: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_SEASON_WEIGHT_STRATEGY", "linear"
+        )
+    )
 
 
 @dataclass(frozen=True)

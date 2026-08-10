@@ -165,7 +165,7 @@ def test_write_comparison_report_produces_readable_file(tmp_path: Path) -> None:
 class _MeanBaseline:
     """A trivial estimator that always predicts the training mean."""
 
-    def fit(self, X, y):  # noqa: N803 - sklearn convention
+    def fit(self, X, y, **kwargs):  # noqa: N803 - sklearn convention
         self._mean = float(np.mean(y))
         return self
 
