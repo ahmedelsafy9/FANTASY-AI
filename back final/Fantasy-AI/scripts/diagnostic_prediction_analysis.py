@@ -37,10 +37,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.config.settings import Settings
 from src.training.dataset import prepare_split_dataset
 from src.training.factory import build_default_model_specs
+from src.training.ranking_metrics import high_score_recall, top_n_recall
 from src.training.trainer import ModelTrainer
 
 
-MODELS = ("xgboost", "lightgbm", "deep_learning")
+MODELS = ("xgboost", "lightgbm", "deep_learning_weighted_huber")
 
 
 def safe_corr(a: np.ndarray, b: np.ndarray) -> float:
@@ -62,6 +63,9 @@ def spearman(a: np.ndarray, b: np.ndarray) -> float:
 def summarize_predictions(name: str, pred: np.ndarray, y: np.ndarray) -> dict:
     error = pred - y
     abs_error = np.abs(error)
+    ss_res = np.sum(error ** 2)
+    ss_tot = np.sum((y - np.mean(y)) ** 2)
+    r2_score = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else float("nan")
 
     return {
         "model": name,
@@ -74,8 +78,14 @@ def summarize_predictions(name: str, pred: np.ndarray, y: np.ndarray) -> dict:
         "bias_mean_pred_minus_actual": float(np.mean(error)),
         "mae": float(np.mean(abs_error)),
         "rmse": float(np.sqrt(np.mean(error ** 2))),
+        "r2": r2_score,
+        "spearman": float(spearman(pred, y)),
         "under_prediction_rate": float(np.mean(error < 0)),
         "over_prediction_rate": float(np.mean(error > 0)),
+        "high_score_recall": float(high_score_recall(y, pred, threshold=6.0, pred_threshold=6.0)),
+        "top_10_recall": float(top_n_recall(y, pred, n=10)),
+        "top_20_recall": float(top_n_recall(y, pred, n=20)),
+        "top_30_recall": float(top_n_recall(y, pred, n=30)),
     }
 
 

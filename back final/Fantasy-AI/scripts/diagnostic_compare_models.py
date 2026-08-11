@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.config.settings import Settings  # noqa: E402
 from src.training.dataset import prepare_split_dataset  # noqa: E402
 from src.training.factory import build_default_model_specs  # noqa: E402
+from src.training.ranking_metrics import high_score_recall, top_n_recall  # noqa: E402
 from src.training.trainer import ModelTrainer  # noqa: E402
 
 
@@ -92,6 +93,9 @@ def _prediction_summary(
     """Return prediction distribution and error diagnostics."""
     errors = predictions - actual
     absolute_errors = np.abs(errors)
+    ss_res = np.sum(errors ** 2)
+    ss_tot = np.sum((actual - np.mean(actual)) ** 2)
+    r2_score = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else float("nan")
 
     return {
         "prediction_mean": float(np.mean(predictions)),
@@ -103,6 +107,14 @@ def _prediction_summary(
         "mean_error": float(np.mean(errors)),
         "mean_absolute_error": float(np.mean(absolute_errors)),
         "max_absolute_error": float(np.max(absolute_errors)),
+        "rmse": float(np.sqrt(np.mean(errors ** 2))),
+        "r2": r2_score,
+        "spearman": _spearman_rank_corr(predictions, actual),
+        "under_prediction_rate": float(np.mean(errors < 0)),
+        "high_score_recall": high_score_recall(actual, predictions, threshold=6.0, pred_threshold=6.0),
+        "top_10_recall": top_n_recall(actual, predictions, n=10),
+        "top_20_recall": top_n_recall(actual, predictions, n=20),
+        "top_30_recall": top_n_recall(actual, predictions, n=30),
     }
 
 

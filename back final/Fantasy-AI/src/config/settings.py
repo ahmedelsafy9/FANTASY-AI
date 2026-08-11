@@ -481,7 +481,7 @@ class TrainingSettings:
         default_factory=lambda: _env_int("FANTASY_AI_RANDOM_STATE", 42)
     )
     primary_metric: str = field(
-        default_factory=lambda: _env_str("FANTASY_AI_PRIMARY_METRIC", "mae")
+        default_factory=lambda: _env_str("FANTASY_AI_PRIMARY_METRIC", "rmse")
     )
     random_forest_n_estimators: int = field(
         default_factory=lambda: _env_int("FANTASY_AI_RF_N_ESTIMATORS", 300)
@@ -549,6 +549,21 @@ class TrainingSettings:
     dl_use_batch_norm: bool = field(
         default_factory=lambda: _env_str(
             "FANTASY_AI_DL_USE_BATCH_NORM", "true"
+        ).lower() == "true"
+    )
+    dl_loss_beta: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_DL_LOSS_BETA", "4.0")
+        )
+    )
+    dl_high_score_weight_power: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_DL_HIGH_SCORE_WEIGHT_POWER", "0.0")
+        )
+    )
+    dl_use_discrete_sample_weights: bool = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_DL_USE_DISCRETE_SAMPLE_WEIGHTS", "true"
         ).lower() == "true"
     )
 

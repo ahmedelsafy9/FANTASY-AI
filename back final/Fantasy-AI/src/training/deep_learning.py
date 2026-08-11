@@ -48,6 +48,9 @@ class DeepLearningConfig:
     epochs: int = 200
     patience: int = 15
     use_batch_norm: bool = True
+    loss_beta: float = 4.0
+    high_score_weight_power: float = 0.0
+    use_discrete_sample_weights: bool = True
     random_state: int = 42
 
 
@@ -136,9 +139,22 @@ class TabularMLPRegressor:
 
         if sample_weight is not None:
             w_np = np.asarray(sample_weight, dtype=np.float32).ravel()
-            w_tensor = torch.from_numpy(w_np).to(device)
         else:
-            w_tensor = torch.ones(len(y_np), dtype=torch.float32, device=device)
+            w_np = np.ones(len(y_np), dtype=np.float32)
+
+        if cfg.use_discrete_sample_weights:
+            discrete_w = _discrete_bucket_weights(y_np)
+            w_np = w_np * discrete_w
+
+        if cfg.high_score_weight_power > 0:
+            magnitude_weight = (
+                1.0
+                + cfg.high_score_weight_power
+                * np.clip(y_np, 0, None)
+            )
+            w_np = w_np * magnitude_weight
+
+        w_tensor = torch.from_numpy(w_np).to(device)
 
         # ---------------------------------------------------------------
         # Train/validation split (80/20 of training data) for early stopping
@@ -197,7 +213,7 @@ class TabularMLPRegressor:
             patience=5,
             min_lr=1e-6,
         )
-        loss_fn = nn.SmoothL1Loss(reduction="none")
+        loss_fn = nn.SmoothL1Loss(beta=cfg.loss_beta, reduction="none")
 
         # ---------------------------------------------------------------
         # Training loop
@@ -374,6 +390,30 @@ class TabularMLPRegressor:
             self._model = model
         else:
             self._model = None
+
+
+def _discrete_bucket_weights(y: np.ndarray) -> np.ndarray:
+    """Compute discrete sample weights based on point-score buckets.
+
+    Higher-scoring performances receive proportionally more weight,
+    encouraging the model to pay extra attention to high-value rows
+    without the calibration issues of continuous magnitude weighting.
+
+    Bucket weights:
+        0-2 pts  -> 1.0 (base)
+        3-5 pts  -> 1.2
+        6-8 pts  -> 1.5
+        9-12 pts -> 2.0
+        13-20 pts -> 2.5
+        21+ pts  -> 3.0
+    """
+    w = np.ones(len(y), dtype=np.float32)
+    w[(y >= 3) & (y <= 5)] = 1.2
+    w[(y >= 6) & (y <= 8)] = 1.5
+    w[(y >= 9) & (y <= 12)] = 2.0
+    w[(y >= 13) & (y <= 20)] = 2.5
+    w[y >= 21] = 3.0
+    return w
 
 
 def _build_mlp(

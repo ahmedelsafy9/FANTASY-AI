@@ -254,6 +254,27 @@ class TestTraining:
         assert np.all(np.isfinite(preds))
         assert np.max(np.abs(preds)) < 1000.0
 
+    def test_configurable_loss_beta_and_magnitude_weighting(self) -> None:
+        """Configurable loss_beta and high_score_weight_power build and train correctly."""
+        from src.training.deep_learning import DeepLearningConfig, TabularMLPRegressor
+
+        X = np.random.randn(100, 4).astype(np.float32)
+        y = np.array([0, 2, 6, 10, 12] * 20, dtype=np.float32)
+
+        config = DeepLearningConfig(
+            hidden_layers=(16,),
+            epochs=2,
+            batch_size=32,
+            loss_beta=4.0,
+            high_score_weight_power=0.5,
+        )
+        model = TabularMLPRegressor(config=config)
+        model.fit(X, y)
+        preds = model.predict(X)
+
+        assert len(preds) == 100
+        assert np.all(np.isfinite(preds))
+
 
 # -----------------------------------------------------------------------
 # Reproducibility
@@ -366,8 +387,8 @@ class TestFactoryIntegration:
         settings = _test_settings()
         specs, skipped = build_default_model_specs(settings)
         names = {spec.name for spec in specs}
-        assert "deep_learning" in names
-        assert "deep_learning" not in skipped
+        assert "deep_learning_weighted_huber" in names
+        assert "deep_learning_weighted_huber" not in skipped
 
     def test_factory_skips_deep_learning_when_torch_missing(self) -> None:
         """When torch cannot be imported, the factory should skip gracefully."""
@@ -375,8 +396,8 @@ class TestFactoryIntegration:
         with patch.dict("sys.modules", {"torch": None}):
             specs, skipped = build_default_model_specs(settings)
         names = {spec.name for spec in specs}
-        assert "deep_learning" not in names
-        assert "deep_learning" in skipped
+        assert "deep_learning_weighted_huber" not in names
+        assert "deep_learning_weighted_huber" in skipped
 
 
 # -----------------------------------------------------------------------
