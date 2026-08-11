@@ -233,6 +233,27 @@ class TestTraining:
         with pytest.raises(RuntimeError, match="not been fitted"):
             model.predict(np.zeros((5, 10)))
 
+    def test_near_zero_variance_precision_does_not_explode_predictions(self) -> None:
+        """Features with constant training values (producing ~1e-8 std due to float precision)
+        must not explode test predictions when test features contain non-constant values."""
+        from src.training.deep_learning import DeepLearningConfig, TabularMLPRegressor
+
+        # 200 rows with constant value 0.1 (which yields ~1.49e-8 std in float32 over 200k rows)
+        X_train = np.full((200, 5), fill_value=0.1, dtype=np.float32)
+        y_train = np.ones(200, dtype=np.float32)
+
+        config = DeepLearningConfig(hidden_layers=(16,), epochs=2, batch_size=32)
+        model = TabularMLPRegressor(config=config)
+        model.fit(X_train, y_train)
+
+        # Test set contains non-constant values (e.g., 29.0)
+        X_test = np.full((10, 5), fill_value=29.0, dtype=np.float32)
+        preds = model.predict(X_test)
+
+        # Predictions must be reasonable numbers (not millions/billions)
+        assert np.all(np.isfinite(preds))
+        assert np.max(np.abs(preds)) < 1000.0
+
 
 # -----------------------------------------------------------------------
 # Reproducibility

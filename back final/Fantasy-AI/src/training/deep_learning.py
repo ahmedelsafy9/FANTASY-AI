@@ -120,9 +120,11 @@ class TabularMLPRegressor:
         # ---------------------------------------------------------------
         self._scaler_mean = X_np.mean(axis=0)
         self._scaler_std = X_np.std(axis=0)
-        # Avoid division by zero for constant features
-        self._scaler_std[self._scaler_std < 1e-8] = 1.0
+        # Avoid division by zero/near-zero for constant features
+        # (float32 precision can leave ~1e-8 std on constant columns)
+        self._scaler_std[self._scaler_std < 1e-5] = 1.0
         X_scaled = (X_np - self._scaler_mean) / self._scaler_std
+        X_scaled = np.clip(X_scaled, -50.0, 50.0)
 
         # ---------------------------------------------------------------
         # Prepare tensors
@@ -322,6 +324,7 @@ class TabularMLPRegressor:
 
         X_np = np.asarray(X, dtype=np.float32)
         X_scaled = (X_np - self._scaler_mean) / self._scaler_std
+        X_scaled = np.clip(X_scaled, -50.0, 50.0)
 
         self._model.eval()
         with torch.no_grad():
