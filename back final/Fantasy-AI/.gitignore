@@ -54,3 +54,13 @@ Thumbs.db
 .coverage
 htmlcov/
 coverage.xml
+# Local / training data - never deploy to Vercel
+data/raw/
+data/processed/vaastav_cleaned.csv
+
+# Local runtime artifacts
+logs/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
