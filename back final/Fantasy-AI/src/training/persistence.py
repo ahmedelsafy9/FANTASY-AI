@@ -45,7 +45,11 @@ def save_best_model(
 
     ensure_directory(model_path.parent)
     joblib.dump(best_result.model, model_path)
-    logger.info("Saved best model ('%s') to %s.", best_result.name, model_path)
+    logger.info(
+        "Saved best model ('%s') to %s.",
+        best_result.name,
+        model_path,
+    )
 
     metadata = {
         "model_name": best_result.name,

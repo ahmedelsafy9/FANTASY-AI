@@ -1,0 +1,410 @@
+"""Deep Learning tabular regression model with a scikit-learn-compatible API.
+
+Wraps a PyTorch MLP so the existing :class:`~src.training.trainer.ModelTrainer`
+can treat it like any other estimator — calling ``fit(X, y, sample_weight=...)``
+and ``predict(X)`` — without knowing anything about PyTorch internals.
+
+The model handles its own standardization (fitted on training data only),
+weighted loss computation, early stopping, and learning-rate scheduling.
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+
+from src.config.logging_config import get_logger
+
+logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class DeepLearningConfig:
+    """Hyperparameters for the tabular MLP regression model.
+
+    These are populated from :class:`~src.config.settings.TrainingSettings`
+    and injected at construction time — no hardcoded hyperparameters.
+
+    Attributes:
+        hidden_layers: Sizes of hidden layers, e.g. ``(256, 128, 64)``.
+        dropout: Dropout probability between hidden layers.
+        learning_rate: Initial learning rate for AdamW.
+        weight_decay: L2 regularization strength for AdamW.
+        batch_size: Mini-batch size.
+        epochs: Maximum training epochs.
+        patience: Early stopping patience (epochs without improvement).
+        use_batch_norm: Whether to apply batch normalization.
+        random_state: Random seed for reproducibility.
+    """
+
+    hidden_layers: tuple[int, ...] = (256, 128, 64)
+    dropout: float = 0.2
+    learning_rate: float = 1e-3
+    weight_decay: float = 1e-4
+    batch_size: int = 512
+    epochs: int = 200
+    patience: int = 15
+    use_batch_norm: bool = True
+    random_state: int = 42
+
+
+class TabularMLPRegressor:
+    """Scikit-learn-compatible MLP regression estimator backed by PyTorch.
+
+    Implements ``fit(X, y, sample_weight=None)`` and ``predict(X)``
+    so the existing model-agnostic trainer can use it exactly like
+    ``LinearRegression`` or ``XGBRegressor``.
+
+    All PyTorch knowledge is encapsulated here — the trainer never
+    imports or references PyTorch.
+
+    Args:
+        config: Hyperparameters for the MLP.
+    """
+
+    def __init__(self, config: DeepLearningConfig | None = None) -> None:
+        self.config = config or DeepLearningConfig()
+        self._model: Any = None
+        self._scaler_mean: np.ndarray | None = None
+        self._scaler_std: np.ndarray | None = None
+        self._input_dim: int | None = None
+        self._training_info: dict[str, Any] = {}
+
+    def fit(
+        self,
+        X: Any,
+        y: Any,
+        sample_weight: np.ndarray | None = None,
+    ) -> "TabularMLPRegressor":
+        """Train the MLP on the given data.
+
+        Args:
+            X: Feature matrix (DataFrame or array-like).
+            y: Target vector.
+            sample_weight: Per-row recency weights. Used in the loss
+                computation as ``sum(w_i * loss_i) / sum(w_i)``.
+
+        Returns:
+            TabularMLPRegressor: ``self``, following scikit-learn convention.
+        """
+        import torch
+        import torch.nn as nn
+        from torch.utils.data import DataLoader, TensorDataset
+
+        cfg = self.config
+        start = time.perf_counter()
+
+        # ---------------------------------------------------------------
+        # Reproducibility
+        # ---------------------------------------------------------------
+        torch.manual_seed(cfg.random_state)
+        np.random.seed(cfg.random_state)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(cfg.random_state)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+        # ---------------------------------------------------------------
+        # Convert to numpy
+        # ---------------------------------------------------------------
+        X_np = np.asarray(X, dtype=np.float32)
+        y_np = np.asarray(y, dtype=np.float32).ravel()
+
+        self._input_dim = X_np.shape[1]
+
+        # ---------------------------------------------------------------
+        # Standardize features (fitted on training data only)
+        # ---------------------------------------------------------------
+        self._scaler_mean = X_np.mean(axis=0)
+        self._scaler_std = X_np.std(axis=0)
+        # Avoid division by zero for constant features
+        self._scaler_std[self._scaler_std < 1e-8] = 1.0
+        X_scaled = (X_np - self._scaler_mean) / self._scaler_std
+
+        # ---------------------------------------------------------------
+        # Prepare tensors
+        # ---------------------------------------------------------------
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        X_tensor = torch.from_numpy(X_scaled).to(device)
+        y_tensor = torch.from_numpy(y_np).to(device)
+
+        if sample_weight is not None:
+            w_np = np.asarray(sample_weight, dtype=np.float32).ravel()
+            w_tensor = torch.from_numpy(w_np).to(device)
+        else:
+            w_tensor = torch.ones(len(y_np), dtype=torch.float32, device=device)
+
+        # ---------------------------------------------------------------
+        # Train/validation split (80/20 of training data) for early stopping
+        # ---------------------------------------------------------------
+        n_total = len(X_tensor)
+        n_val = max(1, int(n_total * 0.15))
+        n_train = n_total - n_val
+
+        # Use the last rows as validation (preserves chronological order)
+        X_tr, X_val = X_tensor[:n_train], X_tensor[n_train:]
+        y_tr, y_val = y_tensor[:n_train], y_tensor[n_train:]
+        w_tr, w_val = w_tensor[:n_train], w_tensor[n_train:]
+
+        train_dataset = TensorDataset(X_tr, y_tr, w_tr)
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=cfg.batch_size,
+            shuffle=True,
+            drop_last=False,
+            generator=torch.Generator().manual_seed(cfg.random_state),
+        )
+
+        # ---------------------------------------------------------------
+        # Build model
+        # ---------------------------------------------------------------
+        model = _build_mlp(
+            input_dim=self._input_dim,
+            hidden_layers=cfg.hidden_layers,
+            dropout=cfg.dropout,
+            use_batch_norm=cfg.use_batch_norm,
+        ).to(device)
+
+        param_count = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        logger.info(
+            "Deep Learning architecture: input=%d, hidden=%s, "
+            "batch_norm=%s, dropout=%.2f, params=%d",
+            self._input_dim,
+            cfg.hidden_layers,
+            cfg.use_batch_norm,
+            cfg.dropout,
+            param_count,
+        )
+
+        # ---------------------------------------------------------------
+        # Optimizer and scheduler
+        # ---------------------------------------------------------------
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=cfg.learning_rate,
+            weight_decay=cfg.weight_decay,
+        )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=0.5,
+            patience=5,
+            min_lr=1e-6,
+        )
+        loss_fn = nn.SmoothL1Loss(reduction="none")
+
+        # ---------------------------------------------------------------
+        # Training loop
+        # ---------------------------------------------------------------
+        best_val_loss = float("inf")
+        best_state = None
+        patience_counter = 0
+
+        for epoch in range(1, cfg.epochs + 1):
+            model.train()
+            epoch_loss = 0.0
+            epoch_weight_sum = 0.0
+
+            for X_batch, y_batch, w_batch in train_loader:
+                optimizer.zero_grad()
+                preds = model(X_batch).squeeze(-1)
+                raw_loss = loss_fn(preds, y_batch)
+                # Mathematically correct weighted loss:
+                # weighted_loss = sum(w_i * loss_i) / sum(w_i)
+                weighted_loss = (raw_loss * w_batch).sum() / w_batch.sum()
+                weighted_loss.backward()
+                optimizer.step()
+
+                batch_w_sum = w_batch.sum().item()
+                epoch_loss += (raw_loss * w_batch).sum().item()
+                epoch_weight_sum += batch_w_sum
+
+            avg_train_loss = epoch_loss / max(epoch_weight_sum, 1e-8)
+
+            # ---------------------------------------------------------------
+            # Validation (unweighted — mirrors test-set evaluation)
+            # ---------------------------------------------------------------
+            model.eval()
+            with torch.no_grad():
+                val_preds = model(X_val).squeeze(-1)
+                val_raw_loss = loss_fn(val_preds, y_val)
+                # Use uniform weights on validation (same as test evaluation)
+                val_loss = val_raw_loss.mean().item()
+
+            scheduler.step(val_loss)
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_state = {k: v.clone() for k, v in model.state_dict().items()}
+                patience_counter = 0
+            else:
+                patience_counter += 1
+
+            if epoch % 20 == 0 or epoch == 1 or patience_counter == 0:
+                current_lr = optimizer.param_groups[0]["lr"]
+                logger.info(
+                    "  Epoch %3d/%d — train_loss=%.4f, val_loss=%.4f, "
+                    "lr=%.2e, patience=%d/%d",
+                    epoch,
+                    cfg.epochs,
+                    avg_train_loss,
+                    val_loss,
+                    current_lr,
+                    patience_counter,
+                    cfg.patience,
+                )
+
+            if patience_counter >= cfg.patience:
+                logger.info(
+                    "  Early stopping at epoch %d (best val_loss=%.4f).",
+                    epoch,
+                    best_val_loss,
+                )
+                break
+
+        # ---------------------------------------------------------------
+        # Restore best model weights
+        # ---------------------------------------------------------------
+        if best_state is not None:
+            model.load_state_dict(best_state)
+
+        self._model = model.cpu().eval()
+
+        train_duration = time.perf_counter() - start
+
+        self._training_info = {
+            "input_dim": self._input_dim,
+            "hidden_layers": cfg.hidden_layers,
+            "param_count": param_count,
+            "epochs_run": epoch,
+            "best_val_loss": best_val_loss,
+            "batch_size": cfg.batch_size,
+            "learning_rate": cfg.learning_rate,
+            "weight_decay": cfg.weight_decay,
+            "dropout": cfg.dropout,
+            "use_batch_norm": cfg.use_batch_norm,
+            "early_stopped": patience_counter >= cfg.patience,
+            "train_seconds": train_duration,
+            "device": str(device),
+        }
+
+        logger.info(
+            "Deep Learning training complete: %d epochs, "
+            "best_val_loss=%.4f, duration=%.2fs, device=%s",
+            epoch,
+            best_val_loss,
+            train_duration,
+            device,
+        )
+
+        return self
+
+    def predict(self, X: Any) -> np.ndarray:
+        """Generate predictions for the given feature matrix.
+
+        Args:
+            X: Feature matrix (DataFrame or array-like).
+
+        Returns:
+            np.ndarray: Predicted target values, shape ``(n_samples,)``.
+
+        Raises:
+            RuntimeError: If the model has not been fitted yet.
+        """
+        if self._model is None:
+            raise RuntimeError("TabularMLPRegressor has not been fitted yet.")
+
+        import torch
+
+        X_np = np.asarray(X, dtype=np.float32)
+        X_scaled = (X_np - self._scaler_mean) / self._scaler_std
+
+        self._model.eval()
+        with torch.no_grad():
+            X_tensor = torch.from_numpy(X_scaled)
+            predictions = self._model(X_tensor).squeeze(-1).numpy()
+
+        return predictions
+
+    def get_params(self, deep: bool = True) -> dict[str, Any]:
+        """Get estimator parameters (scikit-learn compatibility)."""
+        return {"config": self.config}
+
+    def set_params(self, **params: Any) -> "TabularMLPRegressor":
+        """Set estimator parameters (scikit-learn compatibility)."""
+        if "config" in params:
+            self.config = params["config"]
+        return self
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Custom pickling: convert PyTorch model to CPU state dict."""
+        state = self.__dict__.copy()
+        if self._model is not None:
+            import torch
+
+            state["_model_state_dict"] = self._model.state_dict()
+            state["_model_class_args"] = {
+                "input_dim": self._input_dim,
+                "hidden_layers": self.config.hidden_layers,
+                "dropout": self.config.dropout,
+                "use_batch_norm": self.config.use_batch_norm,
+            }
+            del state["_model"]
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Custom unpickling: reconstruct PyTorch model from state dict."""
+        model_state_dict = state.pop("_model_state_dict", None)
+        model_class_args = state.pop("_model_class_args", None)
+        self.__dict__.update(state)
+
+        if model_state_dict is not None and model_class_args is not None:
+            import torch
+
+            model = _build_mlp(**model_class_args)
+            model.load_state_dict(model_state_dict)
+            model.eval()
+            self._model = model
+        else:
+            self._model = None
+
+
+def _build_mlp(
+    input_dim: int,
+    hidden_layers: tuple[int, ...],
+    dropout: float,
+    use_batch_norm: bool,
+) -> Any:
+    """Construct the MLP architecture.
+
+    Args:
+        input_dim: Number of input features.
+        hidden_layers: Sizes of hidden layers.
+        dropout: Dropout probability.
+        use_batch_norm: Whether to use batch normalization.
+
+    Returns:
+        A ``torch.nn.Sequential`` model.
+    """
+    import torch.nn as nn
+
+    layers: list[nn.Module] = []
+    prev_dim = input_dim
+
+    for hidden_dim in hidden_layers:
+        layers.append(nn.Linear(prev_dim, hidden_dim))
+        if use_batch_norm:
+            layers.append(nn.BatchNorm1d(hidden_dim))
+        layers.append(nn.GELU())
+        if dropout > 0:
+            layers.append(nn.Dropout(dropout))
+        prev_dim = hidden_dim
+
+    # Final regression output
+    layers.append(nn.Linear(prev_dim, 1))
+
+    return nn.Sequential(*layers)

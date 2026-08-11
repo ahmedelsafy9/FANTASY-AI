@@ -514,6 +514,44 @@ class TrainingSettings:
         )
     )
 
+    # Deep Learning (PyTorch MLP) hyperparameters
+    dl_hidden_layers: tuple[int, ...] = field(
+        default_factory=lambda: tuple(
+            int(s)
+            for s in _env_str("FANTASY_AI_DL_HIDDEN_LAYERS", "256,128,64").split(",")
+            if s
+        )
+    )
+    dl_dropout: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_DL_DROPOUT", "0.2")
+        )
+    )
+    dl_learning_rate: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_DL_LEARNING_RATE", "1e-3")
+        )
+    )
+    dl_weight_decay: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_DL_WEIGHT_DECAY", "1e-4")
+        )
+    )
+    dl_batch_size: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_DL_BATCH_SIZE", 512)
+    )
+    dl_epochs: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_DL_EPOCHS", 200)
+    )
+    dl_patience: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_DL_PATIENCE", 15)
+    )
+    dl_use_batch_norm: bool = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_DL_USE_BATCH_NORM", "true"
+        ).lower() == "true"
+    )
+
 
 @dataclass(frozen=True)
 class PredictionSettings:
