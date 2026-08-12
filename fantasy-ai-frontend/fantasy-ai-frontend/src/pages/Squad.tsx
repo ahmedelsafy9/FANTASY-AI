@@ -72,6 +72,8 @@ export default function Squad() {
   const [showTeamMenu, setShowTeamMenu] = useState(false);
   const [detailPlayer, setDetailPlayer] = useState<PlayerRecord | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [swapSelectedPlayer, setSwapSelectedPlayer] = useState<PlayerRecord | null>(null);
+  const [swapErrorMessage, setSwapErrorMessage] = useState<string | null>(null);
 
   const sq = useSquad();
   const players = data?.predictions ?? [];
@@ -140,28 +142,48 @@ export default function Squad() {
     (player: PlayerRecord) => {
       if (sq.isInSquad(player)) {
         sq.removePlayer(player);
+        if (
+          swapSelectedPlayer &&
+          getPlayerId(swapSelectedPlayer) === getPlayerId(player)
+        ) {
+          setSwapSelectedPlayer(null);
+          setSwapErrorMessage(null);
+        }
       } else {
         const check = sq.canAddPlayer(player);
         if (!check.allowed) return;
         sq.addPlayer(player);
       }
     },
-    [sq],
+    [sq, swapSelectedPlayer],
   );
 
-  const handlePitchTokenClick = useCallback(
+  const handlePlayerTokenClick = useCallback(
     (player: PlayerRecord) => {
       const pid = getPlayerId(player);
-      if (sq.captainId === pid) {
-        sq.setCaptainId(null);
-        sq.setViceCaptainId(pid);
-      } else if (sq.viceCaptainId === pid) {
-        sq.setViceCaptainId(null);
+
+      if (!swapSelectedPlayer) {
+        setSwapSelectedPlayer(player);
+        setSwapErrorMessage(null);
+        return;
+      }
+
+      const selectedPid = getPlayerId(swapSelectedPlayer);
+      if (selectedPid === pid) {
+        setSwapSelectedPlayer(null);
+        setSwapErrorMessage(null);
+        return;
+      }
+
+      const res = sq.swapPlayers(swapSelectedPlayer, player);
+      if (res.success) {
+        setSwapSelectedPlayer(null);
+        setSwapErrorMessage(null);
       } else {
-        sq.setCaptainId(pid);
+        setSwapErrorMessage(res.reason ?? "Cannot swap these players.");
       }
     },
-    [sq],
+    [swapSelectedPlayer, sq],
   );
 
   const startGKP = sq.startingXI.filter(
@@ -193,10 +215,48 @@ export default function Squad() {
     FWD: 3,
   };
 
+  const handleEmptySlotClick = useCallback(
+    (posLabel: string) => {
+      if (swapSelectedPlayer) {
+        const isSub = sq.bench.some(
+          (p) => getPlayerId(p) === getPlayerId(swapSelectedPlayer),
+        );
+        if (isSub) {
+          const res = sq.movePlayerToStartingXI(swapSelectedPlayer);
+          if (res.success) {
+            setSwapSelectedPlayer(null);
+            setSwapErrorMessage(null);
+            return;
+          } else {
+            setSwapErrorMessage(
+              res.reason ?? "Cannot move player to starting XI.",
+            );
+            return;
+          }
+        }
+      }
+
+      let targetTab = "all";
+      if (posLabel.startsWith("GK")) targetTab = "GKP";
+      else if (posLabel.startsWith("DEF")) targetTab = "DEF";
+      else if (posLabel.startsWith("MID")) targetTab = "MID";
+      else if (posLabel.startsWith("FWD")) targetTab = "FWD";
+      else targetTab = "all";
+
+      setPosTab(targetTab);
+
+      const el = document.getElementById("player-selection-panel");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    },
+    [swapSelectedPlayer, sq],
+  );
+
   const emptyGK = Math.max(0, 1 - startGKP.length);
-  const emptyDEF = Math.max(0, 3 - startDEF.length);
-  const emptyMID = Math.max(0, 2 - startMID.length);
-  const emptyFWD = Math.max(0, 1 - startFWD.length);
+  const emptyDEF = Math.max(0, 4 - startDEF.length);
+  const emptyMID = Math.max(0, 4 - startMID.length);
+  const emptyFWD = Math.max(0, 2 - startFWD.length);
 
   const benchSlots: (PlayerRecord | null)[] = [
     ...sq.bench,
@@ -318,7 +378,7 @@ export default function Squad() {
       {/* MAIN GRID */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[400px_1fr] xl:grid-cols-[440px_1fr]">
         {/* LEFT: Player Selection Panel */}
-        <div className="order-2 lg:order-1 flex flex-col">
+        <div id="player-selection-panel" className="order-2 lg:order-1 flex flex-col">
           {/* Position tabs */}
           <div className="mb-3 flex items-center gap-1 rounded-chunky border border-[#E2E8F0] bg-white p-1 shadow-sm">
             {POSITION_TABS.map((tab) => {
@@ -631,124 +691,373 @@ export default function Squad() {
 
         {/* RIGHT: Pitch + Bench */}
         <div className="order-1 lg:order-2 flex flex-col gap-4">
+          {/* Floating Swap Action Bar */}
+          <AnimatePresence>
+            {swapSelectedPlayer && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="rounded-2xl border-2 border-[#10B981] bg-[#0F172A] p-3.5 text-white shadow-2xl backdrop-blur-md z-40"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <PlayerAvatar
+                      name={swapSelectedPlayer.name}
+                      photoUrl={swapSelectedPlayer.photo_url}
+                      size="sm"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black truncate text-white">
+                          {swapSelectedPlayer.name ?? "Player"}
+                        </span>
+                        <span className="rounded bg-[#10B981]/20 border border-[#10B981]/40 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#34D399]">
+                          {normalizePosition(swapSelectedPlayer.position)}
+                        </span>
+                        <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold text-slate-300">
+                          {sq.startingXI.some(
+                            (p) => getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                          )
+                            ? "Starting XI"
+                            : "Substitute"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-medium text-slate-300 truncate">
+                        Select a player to swap with, or choose an action.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {sq.startingXI.some(
+                      (p) => getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                    ) ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const res = sq.movePlayerToBench(swapSelectedPlayer);
+                          if (res.success) {
+                            setSwapSelectedPlayer(null);
+                            setSwapErrorMessage(null);
+                          } else {
+                            setSwapErrorMessage(
+                              res.reason ?? "Cannot move player to bench."
+                            );
+                          }
+                        }}
+                        className="flex items-center gap-1.5 rounded-xl bg-[#10B981] px-3 py-1.5 text-xs font-black text-white hover:bg-[#059669] transition-colors cursor-pointer"
+                      >
+                        <ArrowUpDown size={13} />
+                        <span>Move to Bench</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const res = sq.movePlayerToStartingXI(swapSelectedPlayer);
+                          if (res.success) {
+                            setSwapSelectedPlayer(null);
+                            setSwapErrorMessage(null);
+                          } else {
+                            setSwapErrorMessage(
+                              res.reason ?? "Cannot move player to starting XI."
+                            );
+                          }
+                        }}
+                        className="flex items-center gap-1.5 rounded-xl bg-[#10B981] px-3 py-1.5 text-xs font-black text-white hover:bg-[#059669] transition-colors cursor-pointer"
+                      >
+                        <ArrowUpDown size={13} />
+                        <span>Move to XI</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSwapSelectedPlayer(null);
+                        setSwapErrorMessage(null);
+                      }}
+                      className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-black text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <X size={14} />
+                      <span>Cancel</span>
+                    </button>
+                  </div>
+                </div>
+
+                {swapErrorMessage && (
+                  <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-red-500/20 border border-red-500/40 px-3 py-1.5 text-xs font-bold text-red-200">
+                    <AlertTriangle size={14} className="shrink-0 text-red-400" />
+                    <span>{swapErrorMessage}</span>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Pitch */}
-          {sq.squad.length > 0 ? (
-            <Pitch className="min-h-[340px] sm:min-h-[420px]">
-              {/* GK Row */}
-              <PitchRow>
-                {startGKP.map((p) => (
-                  <PlayerToken
-                    key={getPlayerId(p)}
-                    player={p}
-                    isCaptain={
-                      sq.effectiveCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveCaptain)
-                        : false
-                    }
-                    isViceCaptain={
-                      sq.effectiveViceCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveViceCaptain)
-                        : false
-                    }
-                    onClick={() => handlePitchTokenClick(p)}
-                  />
-                ))}
-                {Array.from({ length: emptyGK }).map((_, i) => (
-                  <EmptySlot key={`e-gk-${i}`} label="GK" />
-                ))}
-              </PitchRow>
+          <Pitch className="min-h-[420px] sm:min-h-[480px]">
+            {/* GK Row */}
+            <PitchRow>
+              {startGKP.map((p) => {
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
 
-              {/* DEF Row */}
-              <PitchRow>
-                {startDEF.map((p) => (
+                return (
                   <PlayerToken
                     key={getPlayerId(p)}
                     player={p}
                     isCaptain={
                       sq.effectiveCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveCaptain)
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveCaptain)
                         : false
                     }
                     isViceCaptain={
                       sq.effectiveViceCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveViceCaptain)
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveViceCaptain)
                         : false
                     }
-                    onClick={() => handlePitchTokenClick(p)}
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    onClick={() => handlePlayerTokenClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      const res = sq.swapPlayers(swapSelectedPlayer!, p);
+                      if (res.success) {
+                        setSwapSelectedPlayer(null);
+                        setSwapErrorMessage(null);
+                      } else {
+                        setSwapErrorMessage(res.reason ?? "Cannot swap these players.");
+                      }
+                    }}
                   />
-                ))}
-                {Array.from({ length: emptyDEF }).map((_, i) => (
-                  <EmptySlot key={`e-def-${i}`} label="DEF" />
-                ))}
-              </PitchRow>
+                );
+              })}
+              {Array.from({ length: emptyGK }).map((_, i) => {
+                const isSubSelected = swapSelectedPlayer
+                  ? sq.bench.some(
+                      (p) => getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                    )
+                  : false;
+                const isGKSelected =
+                  isSubSelected &&
+                  normalizePosition(swapSelectedPlayer?.position) === "GKP";
 
-              {/* MID Row */}
-              <PitchRow>
-                {startMID.map((p) => (
-                  <PlayerToken
-                    key={getPlayerId(p)}
-                    player={p}
-                    isCaptain={
-                      sq.effectiveCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveCaptain)
-                        : false
-                    }
-                    isViceCaptain={
-                      sq.effectiveViceCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveViceCaptain)
-                        : false
-                    }
-                    onClick={() => handlePitchTokenClick(p)}
+                return (
+                  <EmptySlot
+                    key={`e-gk-${i}`}
+                    label="GK"
+                    isHighlightTarget={isGKSelected}
+                    targetBadgeLabel="MOVE TO XI"
+                    onClick={() => handleEmptySlotClick("GK")}
                   />
-                ))}
-                {Array.from({ length: emptyMID }).map((_, i) => (
-                  <EmptySlot key={`e-mid-${i}`} label="MID" />
-                ))}
-              </PitchRow>
+                );
+              })}
+            </PitchRow>
 
-              {/* FWD Row */}
-              <PitchRow>
-                {startFWD.map((p) => (
+            {/* DEF Row */}
+            <PitchRow>
+              {startDEF.map((p) => {
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
+
+                return (
                   <PlayerToken
                     key={getPlayerId(p)}
                     player={p}
                     isCaptain={
                       sq.effectiveCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveCaptain)
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveCaptain)
                         : false
                     }
                     isViceCaptain={
                       sq.effectiveViceCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveViceCaptain)
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveViceCaptain)
                         : false
                     }
-                    onClick={() => handlePitchTokenClick(p)}
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    onClick={() => handlePlayerTokenClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      const res = sq.swapPlayers(swapSelectedPlayer!, p);
+                      if (res.success) {
+                        setSwapSelectedPlayer(null);
+                        setSwapErrorMessage(null);
+                      } else {
+                        setSwapErrorMessage(res.reason ?? "Cannot swap these players.");
+                      }
+                    }}
                   />
-                ))}
-                {Array.from({ length: emptyFWD }).map((_, i) => (
-                  <EmptySlot key={`e-fwd-${i}`} label="FWD" />
-                ))}
-              </PitchRow>
-            </Pitch>
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-chunky-xl border-2 border-dashed border-[#A7F3D0] bg-white px-6 py-16 text-center sm:py-24 shadow-card">
-              <Shield size={48} className="mb-4 text-[#10B981]" />
-              <p className="font-display text-2xl font-black text-[#0F172A]">
-                Build Your Team Squad
-              </p>
-              <p className="mt-2 max-w-xs text-sm font-bold text-[#475569]">
-                Select players from the list or click <span className="text-[#059669] font-black">Auto Pick</span> to let AI generate your optimal XI.
-              </p>
-            </div>
-          )}
+                );
+              })}
+              {Array.from({ length: emptyDEF }).map((_, i) => {
+                const isSubSelected = swapSelectedPlayer
+                  ? sq.bench.some(
+                      (p) => getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                    )
+                  : false;
+                const isDefSelected =
+                  isSubSelected &&
+                  normalizePosition(swapSelectedPlayer?.position) === "DEF";
+
+                return (
+                  <EmptySlot
+                    key={`e-def-${i}`}
+                    label="DEF"
+                    isHighlightTarget={isDefSelected}
+                    targetBadgeLabel="MOVE TO XI"
+                    onClick={() => handleEmptySlotClick("DEF")}
+                  />
+                );
+              })}
+            </PitchRow>
+
+            {/* MID Row */}
+            <PitchRow>
+              {startMID.map((p) => {
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
+
+                return (
+                  <PlayerToken
+                    key={getPlayerId(p)}
+                    player={p}
+                    isCaptain={
+                      sq.effectiveCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveCaptain)
+                        : false
+                    }
+                    isViceCaptain={
+                      sq.effectiveViceCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveViceCaptain)
+                        : false
+                    }
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    onClick={() => handlePlayerTokenClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      const res = sq.swapPlayers(swapSelectedPlayer!, p);
+                      if (res.success) {
+                        setSwapSelectedPlayer(null);
+                        setSwapErrorMessage(null);
+                      } else {
+                        setSwapErrorMessage(res.reason ?? "Cannot swap these players.");
+                      }
+                    }}
+                  />
+                );
+              })}
+              {Array.from({ length: emptyMID }).map((_, i) => {
+                const isSubSelected = swapSelectedPlayer
+                  ? sq.bench.some(
+                      (p) => getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                    )
+                  : false;
+                const isMidSelected =
+                  isSubSelected &&
+                  normalizePosition(swapSelectedPlayer?.position) === "MID";
+
+                return (
+                  <EmptySlot
+                    key={`e-mid-${i}`}
+                    label="MID"
+                    isHighlightTarget={isMidSelected}
+                    targetBadgeLabel="MOVE TO XI"
+                    onClick={() => handleEmptySlotClick("MID")}
+                  />
+                );
+              })}
+            </PitchRow>
+
+            {/* FWD Row */}
+            <PitchRow>
+              {startFWD.map((p) => {
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
+
+                return (
+                  <PlayerToken
+                    key={getPlayerId(p)}
+                    player={p}
+                    isCaptain={
+                      sq.effectiveCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveCaptain)
+                        : false
+                    }
+                    isViceCaptain={
+                      sq.effectiveViceCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveViceCaptain)
+                        : false
+                    }
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    onClick={() => handlePlayerTokenClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      const res = sq.swapPlayers(swapSelectedPlayer!, p);
+                      if (res.success) {
+                        setSwapSelectedPlayer(null);
+                        setSwapErrorMessage(null);
+                      } else {
+                        setSwapErrorMessage(res.reason ?? "Cannot swap these players.");
+                      }
+                    }}
+                  />
+                );
+              })}
+              {Array.from({ length: emptyFWD }).map((_, i) => {
+                const isSubSelected = swapSelectedPlayer
+                  ? sq.bench.some(
+                      (p) => getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                    )
+                  : false;
+                const isFwdSelected =
+                  isSubSelected &&
+                  normalizePosition(swapSelectedPlayer?.position) === "FWD";
+
+                return (
+                  <EmptySlot
+                    key={`e-fwd-${i}`}
+                    label="FWD"
+                    isHighlightTarget={isFwdSelected}
+                    targetBadgeLabel="MOVE TO XI"
+                    onClick={() => handleEmptySlotClick("FWD")}
+                  />
+                );
+              })}
+            </PitchRow>
+          </Pitch>
 
           {/* Substitutes */}
           <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-3.5 sm:p-4 shadow-card">
@@ -765,22 +1074,49 @@ export default function Squad() {
             <div className="grid grid-cols-4 gap-2 sm:gap-4">
               {benchSlots.map((p, idx) => {
                 if (!p) {
+                  const benchPosLabel = idx === 0 ? "GK" : "SUB";
                   return (
                     <div
                       key={`bench-empty-${idx}`}
                       className="flex flex-col items-center gap-1"
                     >
-                      <EmptySlot label={idx === 0 ? "GK" : `SUB ${idx}`} />
+                      <EmptySlot
+                        label={idx === 0 ? "GK" : `SUB ${idx}`}
+                        onClick={() => handleEmptySlotClick(benchPosLabel)}
+                      />
                     </div>
                   );
                 }
+
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
+
                 return (
                   <PlayerToken
                     key={getPlayerId(p)}
                     player={p}
                     benchLabel={idx === 0 ? "1st Sub" : `Sub ${idx + 1}`}
                     isFirstSub={idx === 0}
-                    onClick={() => sq.removePlayer(p)}
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    onClick={() => handlePlayerTokenClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      const res = sq.swapPlayers(swapSelectedPlayer!, p);
+                      if (res.success) {
+                        setSwapSelectedPlayer(null);
+                        setSwapErrorMessage(null);
+                      } else {
+                        setSwapErrorMessage(res.reason ?? "Cannot swap these players.");
+                      }
+                    }}
                   />
                 );
               })}

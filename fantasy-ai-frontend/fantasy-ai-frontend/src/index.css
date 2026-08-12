@@ -104,7 +104,14 @@
 
   /* Football pitch surface */
   .pitch-surface {
-    background: linear-gradient(160deg, #166534 0%, #15803D 40%, #166534 100%);
+    background-color: #1b803a;
+    background-image: repeating-linear-gradient(
+      0deg,
+      #1e893e 0px,
+      #1e893e 40px,
+      #177333 40px,
+      #177333 80px
+    );
   }
 
   .scrollbar-none::-webkit-scrollbar {

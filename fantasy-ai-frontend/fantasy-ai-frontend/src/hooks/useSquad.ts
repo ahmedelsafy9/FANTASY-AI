@@ -59,6 +59,7 @@ export interface AddPlayerResult {
 
 export function useSquad() {
   const [squad, setSquad] = useState<PlayerRecord[]>([]);
+  const [starterIds, setStarterIds] = useState<string[]>([]);
   const [captainId, setCaptainId] = useState<string | null>(null);
   const [viceCaptainId, setViceCaptainId] = useState<string | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -150,6 +151,7 @@ export function useSquad() {
   const removePlayer = useCallback((player: PlayerRecord) => {
     const pid = getPlayerId(player);
     setSquad((current) => current.filter((p) => getPlayerId(p) !== pid));
+    setStarterIds((ids) => ids.filter((id) => id !== pid));
     setCaptainId((cid) => (cid === pid ? null : cid));
     setViceCaptainId((vcid) => (vcid === pid ? null : vcid));
   }, []);
@@ -167,6 +169,7 @@ export function useSquad() {
 
   const resetSquad = useCallback(() => {
     setSquad([]);
+    setStarterIds([]);
     setCaptainId(null);
     setViceCaptainId(null);
     _setBenchOrder([]);
@@ -194,82 +197,93 @@ export function useSquad() {
       };
     }
 
-    const gkps = squad.filter((p) => normalizePosition(p.position) === "GKP");
-    const defs = squad.filter((p) => normalizePosition(p.position) === "DEF");
-    const mids = squad.filter((p) => normalizePosition(p.position) === "MID");
-    const fwds = squad.filter((p) => normalizePosition(p.position) === "FWD");
-
     const sortFn = (a: PlayerRecord, b: PlayerRecord) =>
       (b.predicted_total_points ?? -100) - (a.predicted_total_points ?? -100);
 
-    // Pick 1 Starting GKP & 1 Bench GKP
-    const sortedGkps = [...gkps].sort(sortFn);
-    const startGkp = sortedGkps.slice(0, 1);
-    const benchGkp = sortedGkps.slice(1);
+    const validStarterIds = starterIds.filter((id) =>
+      squad.some((p) => getPlayerId(p) === id)
+    );
 
-    // Pick Outfielders for Starting XI
-    const sortedDefs = [...defs].sort(sortFn);
-    const sortedMids = [...mids].sort(sortFn);
-    const sortedFwds = [...fwds].sort(sortFn);
+    let startingXIList: PlayerRecord[] = [];
+    let benchList: PlayerRecord[] = [];
 
-    // Must have at least min starters per position
-    const minDef = Math.min(sortedDefs.length, POSITION_MIN_STARTERS.DEF);
-    const minMid = Math.min(sortedMids.length, POSITION_MIN_STARTERS.MID);
-    const minFwd = Math.min(sortedFwds.length, POSITION_MIN_STARTERS.FWD);
+    if (validStarterIds.length > 0) {
+      startingXIList = squad.filter((p) => validStarterIds.includes(getPlayerId(p)));
+      benchList = squad.filter((p) => !validStarterIds.includes(getPlayerId(p)));
+    } else {
+      const gkps = squad.filter((p) => normalizePosition(p.position) === "GKP");
+      const defs = squad.filter((p) => normalizePosition(p.position) === "DEF");
+      const mids = squad.filter((p) => normalizePosition(p.position) === "MID");
+      const fwds = squad.filter((p) => normalizePosition(p.position) === "FWD");
 
-    let startDefs = sortedDefs.slice(0, minDef);
-    let startMids = sortedMids.slice(0, minMid);
-    let startFwds = sortedFwds.slice(0, minFwd);
+      const sortedGkps = [...gkps].sort(sortFn);
+      const startGkp = sortedGkps.slice(0, 1);
+      const benchGkp = sortedGkps.slice(1);
 
-    let availDefs = sortedDefs.slice(minDef);
-    let availMids = sortedMids.slice(minMid);
-    let availFwds = sortedFwds.slice(minFwd);
+      const sortedDefs = [...defs].sort(sortFn);
+      const sortedMids = [...mids].sort(sortFn);
+      const sortedFwds = [...fwds].sort(sortFn);
 
-    const neededOutfield = 10 - (startDefs.length + startMids.length + startFwds.length);
+      const minDef = Math.min(sortedDefs.length, POSITION_MIN_STARTERS.DEF);
+      const minMid = Math.min(sortedMids.length, POSITION_MIN_STARTERS.MID);
+      const minFwd = Math.min(sortedFwds.length, POSITION_MIN_STARTERS.FWD);
 
-    // Pool of remaining outfield players
-    const pool: { player: PlayerRecord; pos: string }[] = [
-      ...availDefs.map((p) => ({ player: p, pos: "DEF" })),
-      ...availMids.map((p) => ({ player: p, pos: "MID" })),
-      ...availFwds.map((p) => ({ player: p, pos: "FWD" })),
-    ].sort((a, b) => sortFn(a.player, b.player));
+      let startDefs = sortedDefs.slice(0, minDef);
+      let startMids = sortedMids.slice(0, minMid);
+      let startFwds = sortedFwds.slice(0, minFwd);
 
-    let addedCount = 0;
-    for (const item of pool) {
-      if (addedCount >= neededOutfield) break;
-      if (item.pos === "DEF" && startDefs.length < POSITION_MAX_STARTERS.DEF) {
-        startDefs.push(item.player);
-        addedCount++;
-      } else if (item.pos === "MID" && startMids.length < POSITION_MAX_STARTERS.MID) {
-        startMids.push(item.player);
-        addedCount++;
-      } else if (item.pos === "FWD" && startFwds.length < POSITION_MAX_STARTERS.FWD) {
-        startFwds.push(item.player);
-        addedCount++;
+      let availDefs = sortedDefs.slice(minDef);
+      let availMids = sortedMids.slice(minMid);
+      let availFwds = sortedFwds.slice(minFwd);
+
+      const neededOutfield = 10 - (startDefs.length + startMids.length + startFwds.length);
+
+      const pool: { player: PlayerRecord; pos: string }[] = [
+        ...availDefs.map((p) => ({ player: p, pos: "DEF" })),
+        ...availMids.map((p) => ({ player: p, pos: "MID" })),
+        ...availFwds.map((p) => ({ player: p, pos: "FWD" })),
+      ].sort((a, b) => sortFn(a.player, b.player));
+
+      let addedCount = 0;
+      for (const item of pool) {
+        if (addedCount >= neededOutfield) break;
+        if (item.pos === "DEF" && startDefs.length < POSITION_MAX_STARTERS.DEF) {
+          startDefs.push(item.player);
+          addedCount++;
+        } else if (item.pos === "MID" && startMids.length < POSITION_MAX_STARTERS.MID) {
+          startMids.push(item.player);
+          addedCount++;
+        } else if (item.pos === "FWD" && startFwds.length < POSITION_MAX_STARTERS.FWD) {
+          startFwds.push(item.player);
+          addedCount++;
+        }
       }
+
+      startingXIList = [...startGkp, ...startDefs, ...startMids, ...startFwds];
+      const startingIdsSet = new Set(startingXIList.map(getPlayerId));
+
+      const remainingOutfield = squad
+        .filter((p) => normalizePosition(p.position) !== "GKP" && !startingIdsSet.has(getPlayerId(p)))
+        .sort(sortFn);
+
+      benchList = [...benchGkp, ...remainingOutfield];
     }
 
-    const startingXI = [...startGkp, ...startDefs, ...startMids, ...startFwds];
-    const startingIds = new Set(startingXI.map(getPlayerId));
+    const startDefsList = startingXIList.filter((p) => normalizePosition(p.position) === "DEF");
+    const startMidsList = startingXIList.filter((p) => normalizePosition(p.position) === "MID");
+    const startFwdsList = startingXIList.filter((p) => normalizePosition(p.position) === "FWD");
 
-    // Bench: 1 GKP + remaining outfielders sorted by predicted points
-    const remainingOutfield = squad
-      .filter((p) => normalizePosition(p.position) !== "GKP" && !startingIds.has(getPlayerId(p)))
-      .sort(sortFn);
-
-    const bench = [...benchGkp, ...remainingOutfield];
-
-    const formationStr = `${startDefs.length}-${startMids.length}-${startFwds.length}`;
+    const formationStr = `${startDefsList.length}-${startMidsList.length}-${startFwdsList.length}`;
 
     // Resolve Captain & Vice Captain
-    let effectiveCaptain = startingXI.find((p) => getPlayerId(p) === captainId) ?? null;
-    let effectiveViceCaptain = startingXI.find((p) => getPlayerId(p) === viceCaptainId) ?? null;
+    let effectiveCaptain = startingXIList.find((p) => getPlayerId(p) === captainId) ?? null;
+    let effectiveViceCaptain = startingXIList.find((p) => getPlayerId(p) === viceCaptainId) ?? null;
 
-    if (!effectiveCaptain && startingXI.length > 0) {
-      effectiveCaptain = [...startingXI].sort(sortFn)[0];
+    if (!effectiveCaptain && startingXIList.length > 0) {
+      effectiveCaptain = [...startingXIList].sort(sortFn)[0];
     }
-    if (!effectiveViceCaptain && startingXI.length > 1) {
-      const remainingStarters = startingXI.filter((p) => getPlayerId(p) !== getPlayerId(effectiveCaptain!));
+    if (!effectiveViceCaptain && startingXIList.length > 1) {
+      const remainingStarters = startingXIList.filter((p) => getPlayerId(p) !== getPlayerId(effectiveCaptain!));
       effectiveViceCaptain = [...remainingStarters].sort(sortFn)[0] ?? null;
     }
 
@@ -277,7 +291,7 @@ export function useSquad() {
     const totalSquadXp = squad.reduce((sum, p) => sum + (p.predicted_total_points ?? 0), 0);
 
     let totalStartingXp = 0;
-    for (const p of startingXI) {
+    for (const p of startingXIList) {
       const base = p.predicted_total_points ?? 0;
       if (effectiveCaptain && getPlayerId(p) === getPlayerId(effectiveCaptain)) {
         totalStartingXp += base * 2;
@@ -287,15 +301,15 @@ export function useSquad() {
     }
 
     return {
-      startingXI,
-      bench,
+      startingXI: startingXIList,
+      bench: benchList,
       formationStr,
       effectiveCaptain,
       effectiveViceCaptain,
       totalStartingXp,
       totalSquadXp,
     };
-  }, [squad, captainId, viceCaptainId]);
+  }, [squad, starterIds, captainId, viceCaptainId]);
 
   // Auto Pick AI Squad Optimizer
   const autoPick = useCallback((availablePlayers: PlayerRecord[]) => {
@@ -376,7 +390,217 @@ export function useSquad() {
         setViceCaptainId(getPlayerId(secondScorer));
       }
     }
+    setStarterIds([]);
   }, []);
+
+  const canSwapPlayers = useCallback(
+    (playerA: PlayerRecord, playerB: PlayerRecord): { allowed: boolean; reason?: string } => {
+      const pidA = getPlayerId(playerA);
+      const pidB = getPlayerId(playerB);
+
+      if (pidA === pidB) {
+        return { allowed: false, reason: "Cannot swap a player with themselves" };
+      }
+
+      const isAInXI = startingXI.some((p) => getPlayerId(p) === pidA);
+      const isBInXI = startingXI.some((p) => getPlayerId(p) === pidB);
+
+      if (isAInXI === isBInXI) {
+        return { allowed: true };
+      }
+
+      const starter = isAInXI ? playerA : playerB;
+      const sub = isAInXI ? playerB : playerA;
+
+      const starterPos = normalizePosition(starter.position);
+      const subPos = normalizePosition(sub.position);
+
+      if (starterPos === "GKP" || subPos === "GKP") {
+        if (starterPos !== subPos) {
+          return {
+            allowed: false,
+            reason: "Goalkeepers can only be swapped with another Goalkeeper.",
+          };
+        }
+        return { allowed: true };
+      }
+
+      if (starterPos === subPos) {
+        return { allowed: true };
+      }
+
+      const currentCounts = {
+        DEF: startingXI.filter((p) => normalizePosition(p.position) === "DEF").length,
+        MID: startingXI.filter((p) => normalizePosition(p.position) === "MID").length,
+        FWD: startingXI.filter((p) => normalizePosition(p.position) === "FWD").length,
+      };
+
+      const newCounts = {
+        ...currentCounts,
+        [starterPos]: currentCounts[starterPos as keyof typeof currentCounts] - 1,
+        [subPos]: currentCounts[subPos as keyof typeof currentCounts] + 1,
+      };
+
+      if (newCounts.DEF < POSITION_MIN_STARTERS.DEF) {
+        return {
+          allowed: false,
+          reason: `Cannot swap: Starting XI requires at least ${POSITION_MIN_STARTERS.DEF} Defenders.`,
+        };
+      }
+      if (newCounts.DEF > POSITION_MAX_STARTERS.DEF) {
+        return {
+          allowed: false,
+          reason: `Cannot swap: Starting XI cannot have more than ${POSITION_MAX_STARTERS.DEF} Defenders.`,
+        };
+      }
+
+      if (newCounts.MID < POSITION_MIN_STARTERS.MID) {
+        return {
+          allowed: false,
+          reason: `Cannot swap: Starting XI requires at least ${POSITION_MIN_STARTERS.MID} Midfielders.`,
+        };
+      }
+      if (newCounts.MID > POSITION_MAX_STARTERS.MID) {
+        return {
+          allowed: false,
+          reason: `Cannot swap: Starting XI cannot have more than ${POSITION_MAX_STARTERS.MID} Midfielders.`,
+        };
+      }
+
+      if (newCounts.FWD < POSITION_MIN_STARTERS.FWD) {
+        return {
+          allowed: false,
+          reason: `Cannot swap: Starting XI requires at least ${POSITION_MIN_STARTERS.FWD} Forwards.`,
+        };
+      }
+      if (newCounts.FWD > POSITION_MAX_STARTERS.FWD) {
+        return {
+          allowed: false,
+          reason: `Cannot swap: Starting XI cannot have more than ${POSITION_MAX_STARTERS.FWD} Forwards.`,
+        };
+      }
+
+      return { allowed: true };
+    },
+    [startingXI]
+  );
+
+  const swapPlayers = useCallback(
+    (playerA: PlayerRecord, playerB: PlayerRecord): { success: boolean; reason?: string } => {
+      const pidA = getPlayerId(playerA);
+      const pidB = getPlayerId(playerB);
+
+      const check = canSwapPlayers(playerA, playerB);
+      if (!check.allowed) {
+        return { success: false, reason: check.reason };
+      }
+
+      const currentStarterIds = startingXI.map(getPlayerId);
+      const isAInXI = currentStarterIds.includes(pidA);
+      const isBInXI = currentStarterIds.includes(pidB);
+
+      let nextStarterIds: string[];
+      if (isAInXI && !isBInXI) {
+        nextStarterIds = currentStarterIds.map((id) => (id === pidA ? pidB : id));
+      } else if (!isAInXI && isBInXI) {
+        nextStarterIds = currentStarterIds.map((id) => (id === pidB ? pidA : id));
+      } else {
+        nextStarterIds = [...currentStarterIds];
+      }
+
+      setStarterIds(nextStarterIds);
+      return { success: true };
+    },
+    [startingXI, canSwapPlayers]
+  );
+
+  const movePlayerToBench = useCallback(
+    (player: PlayerRecord): { success: boolean; reason?: string } => {
+      const pid = getPlayerId(player);
+      const isStarter = startingXI.some((p) => getPlayerId(p) === pid);
+
+      if (!isStarter) {
+        return { success: false, reason: "Player is already on the bench" };
+      }
+
+      if (bench.length >= 4) {
+        return {
+          success: false,
+          reason: "Bench is full — choose a substitute to swap.",
+        };
+      }
+
+      const pos = normalizePosition(player.position);
+      const posStartersCount = startingXI.filter(
+        (p) => normalizePosition(p.position) === pos
+      ).length;
+      const minRequired = POSITION_MIN_STARTERS[pos] ?? 1;
+
+      if (posStartersCount <= minRequired) {
+        const posLabel =
+          pos === "GKP"
+            ? "Goalkeepers"
+            : pos === "DEF"
+              ? "Defenders"
+              : pos === "MID"
+                ? "Midfielders"
+                : "Forwards";
+        return {
+          success: false,
+          reason: `Cannot move to bench: Starting XI requires at least ${minRequired} ${posLabel}.`,
+        };
+      }
+
+      const currentStarterIds = startingXI.map(getPlayerId);
+      setStarterIds(currentStarterIds.filter((id) => id !== pid));
+      return { success: true };
+    },
+    [startingXI, bench]
+  );
+
+  const movePlayerToStartingXI = useCallback(
+    (player: PlayerRecord): { success: boolean; reason?: string } => {
+      const pid = getPlayerId(player);
+      const isStarter = startingXI.some((p) => getPlayerId(p) === pid);
+
+      if (isStarter) {
+        return { success: false, reason: "Player is already in Starting XI" };
+      }
+
+      if (startingXI.length >= 11) {
+        return {
+          success: false,
+          reason: "Starting XI is full (11/11). Choose a starting player to swap.",
+        };
+      }
+
+      const pos = normalizePosition(player.position);
+      const posStartersCount = startingXI.filter(
+        (p) => normalizePosition(p.position) === pos
+      ).length;
+      const maxAllowed = POSITION_MAX_STARTERS[pos] ?? 5;
+
+      if (posStartersCount >= maxAllowed) {
+        const posLabel =
+          pos === "GKP"
+            ? "Goalkeepers"
+            : pos === "DEF"
+              ? "Defenders"
+              : pos === "MID"
+                ? "Midfielders"
+                : "Forwards";
+        return {
+          success: false,
+          reason: `Cannot move to XI: Starting XI cannot have more than ${maxAllowed} ${posLabel}.`,
+        };
+      }
+
+      const currentStarterIds = startingXI.map(getPlayerId);
+      setStarterIds([...currentStarterIds, pid]);
+      return { success: true };
+    },
+    [startingXI]
+  );
 
   return {
     squad,
@@ -404,5 +628,9 @@ export function useSquad() {
     autoPick,
     getPositionCounts,
     getClubCounts,
+    canSwapPlayers,
+    swapPlayers,
+    movePlayerToBench,
+    movePlayerToStartingXI,
   };
 }
