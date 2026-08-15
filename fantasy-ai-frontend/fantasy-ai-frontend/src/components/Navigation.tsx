@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Shirt,
   Calendar,
-  Info,
   Crown,
   Menu,
   X,
@@ -25,7 +24,6 @@ const NAV_ITEMS = [
   { path: "/players", label: "Players", icon: Users },
   { path: "/fixtures", label: "Fixtures", icon: Calendar },
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/about", label: "About", icon: Info },
 ];
 
 export function Navigation() {

@@ -83,17 +83,16 @@ src/
 │   ├── PlayerCard.tsx, PredictionRank.tsx, PlayerDetailPanel.tsx
 │   ├── GameweekBadge.tsx, Navigation.tsx, Footer.tsx, MockBanner.tsx
 │   └── states.tsx   ErrorState, EmptyState, and matching skeleton loaders
-├── sections/        Hero, GameweekOverview, TopPredictions, FixtureIntelligence, PlayerSpotlight, AIInsights, HowItWorks
-└── pages/           Home, Dashboard, Predictions, Players, PlayerDetails, Fixtures, About
+├── sections/        Hero, GameweekOverview, TopPredictions, FixtureIntelligence, PlayerSpotlight, AIInsights
+└── pages/           Home, Dashboard, Predictions, Players, PlayerDetails, Fixtures, Squad, Captain
 ```
 
-## Known limitations (see the in-app About page for the full, honest writeup)
+## Known limitations
 
 - **Next-Gameweek prediction is a proxy.** The backend predicts using each
   player's most recently played match, not true upcoming-fixture data
   (real opponent, home/away for that specific match, injury news). This
-  is a backend limitation, documented in both the backend's own README
-  and this frontend's About page — not hidden.
+  is a backend limitation, documented in the backend's own documentation.
 - **No fixtures endpoint exists yet.** The Fixtures page/section is
   honestly built as a "not available" state.
 - **No player photos or team crests** are provided by the backend —

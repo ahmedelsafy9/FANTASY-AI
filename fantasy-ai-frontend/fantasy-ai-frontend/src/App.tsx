@@ -14,7 +14,6 @@ import PlayerDetails from "@/pages/PlayerDetails";
 import Fixtures from "@/pages/Fixtures";
 import Squad from "@/pages/Squad";
 import Captain from "@/pages/Captain";
-import About from "@/pages/About";
 
 function Layout({ children }: { children: ReactNode }) {
   return (
@@ -42,7 +41,6 @@ export default function App() {
           <Route path="/fixtures" element={<Layout><Fixtures /></Layout>} />
           <Route path="/squad" element={<Layout><Squad /></Layout>} />
           <Route path="/captain" element={<Layout><Captain /></Layout>} />
-          <Route path="/about" element={<Layout><About /></Layout>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

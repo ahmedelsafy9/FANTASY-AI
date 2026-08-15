@@ -6,7 +6,6 @@ const LINKS = [
   { label: "Players", to: "/players" },
   { label: "Squad Builder", to: "/squad" },
   { label: "Captain Pick", to: "/captain" },
-  { label: "About", to: "/about" },
 ];
 
 export function Footer() {
