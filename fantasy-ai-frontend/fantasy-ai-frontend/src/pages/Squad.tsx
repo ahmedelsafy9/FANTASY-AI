@@ -1,168 +1,190 @@
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Crown,
-  Plus,
   Shield,
   Users,
   Zap,
   RotateCcw,
-  ChevronDown,
   AlertTriangle,
   X,
   ArrowUpDown,
-  Trash2,
+  ChevronDown,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import type { PlayerRecord } from "@/types/api";
 import { usePredictions } from "@/hooks/useApi";
 import {
   useSquad,
   getPlayerId,
-  getPlayerPrice,
   normalizePosition,
+  SUPPORTED_FORMATIONS,
+  parseFormation,
 } from "@/hooks/useSquad";
-import { PlayerAvatar, TeamBadge } from "@/components/identity";
-import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import { PlayerToken, EmptySlot } from "@/components/PlayerToken";
 import { Pitch, PitchRow } from "@/components/Pitch";
 import { Stat } from "@/components/stats";
-import { Button, Badge, Skeleton } from "@/components/ui/primitives";
-import { SearchInput } from "@/components/ui/SearchInput";
+import { Button, Badge } from "@/components/ui/primitives";
 import { Drawer } from "@/components/ui/overlays";
 import { PlayerDetailPanel } from "@/components/PlayerDetailPanel";
-import { ErrorState, EmptyState } from "@/components/states";
-import { formatPrice, formatStat } from "@/lib/format";
+import { PlayerActionModal } from "@/components/PlayerActionModal";
+import { PlayerPickerModal } from "@/components/PlayerPickerModal";
+import { formatPrice, formatInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-const POSITION_TABS = [
-  { id: "all", label: "All" },
-  { id: "GKP", label: "GK" },
-  { id: "DEF", label: "DEF" },
-  { id: "MID", label: "MID" },
-  { id: "FWD", label: "FWD" },
-] as const;
-
-type SortKey = "prediction" | "price_asc" | "price_desc" | "form" | "value";
-
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "prediction", label: "AI Prediction" },
-  { value: "price_desc", label: "Price (High)" },
-  { value: "price_asc", label: "Price (Low)" },
-  { value: "form", label: "Form" },
-  { value: "value", label: "Best Value" },
-];
-
-function getAITag(
-  pts: number | null | undefined,
-): { label: string; tone: string } | null {
-  if (pts === null || pts === undefined) return null;
-  if (pts >= 7.5) return { label: "AI PICK", tone: "emerald" };
-  if (pts >= 6.0) return { label: "STRONG", tone: "gold" };
-  if (pts >= 4.5) return { label: "GOOD", tone: "sky" };
-  return null;
-}
 
 export default function Squad() {
   const { data, loading, error, refetch } = usePredictions();
-  const [query, setQuery] = useState("");
-  const [posTab, setPosTab] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("prediction");
-  const [teamFilter, setTeamFilter] = useState("all");
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const [showTeamMenu, setShowTeamMenu] = useState(false);
-  const [detailPlayer, setDetailPlayer] = useState<PlayerRecord | null>(null);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-
   const sq = useSquad();
   const players = data?.predictions ?? [];
 
-  const teamOptions = useMemo(() => {
-    const teams = Array.from(
-      new Set(players.map((p) => p.team).filter(Boolean)),
-    ) as string[];
-    return [
-      { value: "all", label: "All Teams" },
-      ...teams.sort().map((t) => ({ value: t, label: t })),
-    ];
-  }, [players]);
+  // Modal / Interaction states
+  const [actionPlayer, setActionPlayer] = useState<PlayerRecord | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerTargetPos, setPickerTargetPos] = useState<string | undefined>(undefined);
+  const [replacingPlayer, setReplacingPlayer] = useState<PlayerRecord | null>(null);
+  const [detailPlayer, setDetailPlayer] = useState<PlayerRecord | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showFormationMenu, setShowFormationMenu] = useState(false);
 
-  const filtered = useMemo(() => {
-    let list = players.filter((p) => {
-      if (posTab !== "all") {
-        const norm = normalizePosition(p.position);
-        if (posTab === "GKP" && norm !== "GKP") return false;
-        if (posTab !== "GKP" && norm !== posTab) return false;
-      }
-      if (teamFilter !== "all" && p.team !== teamFilter) return false;
-      if (query.trim()) {
-        const q = query.toLowerCase();
-        if (
-          !p.name?.toLowerCase().includes(q) &&
-          !p.team?.toLowerCase().includes(q)
-        )
-          return false;
-      }
-      return true;
-    });
+  // Swap mode state
+  const [swapSelectedPlayer, setSwapSelectedPlayer] = useState<PlayerRecord | null>(null);
+  const [swapErrorMessage, setSwapErrorMessage] = useState<string | null>(null);
 
-    list = [...list].sort((a, b) => {
-      switch (sortKey) {
-        case "prediction":
-          return (
-            (b.predicted_total_points ?? -100) -
-            (a.predicted_total_points ?? -100)
-          );
-        case "price_desc":
-          return getPlayerPrice(b) - getPlayerPrice(a);
-        case "price_asc":
-          return getPlayerPrice(a) - getPlayerPrice(b);
-        case "form":
-          return (
-            (b.total_points_avg_last_3 ?? -100) -
-            (a.total_points_avg_last_3 ?? -100)
-          );
-        case "value": {
-          const va =
-            (a.predicted_total_points ?? 0) / Math.max(getPlayerPrice(a), 0.1);
-          const vb =
-            (b.predicted_total_points ?? 0) / Math.max(getPlayerPrice(b), 0.1);
-          return vb - va;
+  // Drag & Drop state
+  const [draggingPlayer, setDraggingPlayer] = useState<PlayerRecord | null>(null);
+  const [dragOverPlayerId, setDragOverPlayerId] = useState<string | null>(null);
+
+  // Handle clicking a player card on pitch or bench
+  const handlePlayerClick = useCallback(
+    (player: PlayerRecord) => {
+      // If currently in active swap mode:
+      if (swapSelectedPlayer) {
+        const selectedPid = getPlayerId(swapSelectedPlayer);
+        const clickedPid = getPlayerId(player);
+
+        if (selectedPid === clickedPid) {
+          // Deselect swap
+          setSwapSelectedPlayer(null);
+          setSwapErrorMessage(null);
+          return;
         }
-        default:
-          return 0;
-      }
-    });
 
-    return list;
-  }, [players, posTab, teamFilter, query, sortKey]);
-
-  const handleTogglePlayer = useCallback(
-    (player: PlayerRecord) => {
-      if (sq.isInSquad(player)) {
-        sq.removePlayer(player);
-      } else {
-        const check = sq.canAddPlayer(player);
-        if (!check.allowed) return;
-        sq.addPlayer(player);
+        const res = sq.swapPlayers(swapSelectedPlayer, player);
+        if (res.success) {
+          setSwapSelectedPlayer(null);
+          setSwapErrorMessage(null);
+        } else {
+          setSwapErrorMessage(res.reason ?? "Cannot swap these players.");
+        }
+        return;
       }
+
+      // Normal mode: open Player Action Modal (FPL style)
+      setActionPlayer(player);
     },
-    [sq],
+    [swapSelectedPlayer, sq],
   );
 
-  const handlePitchTokenClick = useCallback(
-    (player: PlayerRecord) => {
-      const pid = getPlayerId(player);
-      if (sq.captainId === pid) {
-        sq.setCaptainId(null);
-        sq.setViceCaptainId(pid);
-      } else if (sq.viceCaptainId === pid) {
-        sq.setViceCaptainId(null);
-      } else {
-        sq.setCaptainId(pid);
+  // Handle clicking an empty slot on pitch or bench
+  const handleEmptySlotClick = useCallback(
+    (posLabel: string) => {
+      // If in swap mode and moving bench player to XI:
+      if (swapSelectedPlayer) {
+        const isSub = sq.bench.some(
+          (p) => getPlayerId(p) === getPlayerId(swapSelectedPlayer),
+        );
+        if (isSub) {
+          const res = sq.movePlayerToStartingXI(swapSelectedPlayer);
+          if (res.success) {
+            setSwapSelectedPlayer(null);
+            setSwapErrorMessage(null);
+            return;
+          } else {
+            setSwapErrorMessage(res.reason ?? "Cannot move player to Starting XI.");
+            return;
+          }
+        }
       }
+
+      // Open Player Picker for this position
+      let targetPos: string | undefined = undefined;
+      if (posLabel.startsWith("GK")) targetPos = "GKP";
+      else if (posLabel.startsWith("DEF")) targetPos = "DEF";
+      else if (posLabel.startsWith("MID")) targetPos = "MID";
+      else if (posLabel.startsWith("FWD")) targetPos = "FWD";
+      // If bench slot without explicit position, leave undefined so user can pick any needed outfield position
+
+      setPickerTargetPos(targetPos);
+      setReplacingPlayer(null);
+      setPickerOpen(true);
     },
-    [sq],
+    [swapSelectedPlayer, sq],
   );
+
+  // Drag & Drop handlers
+  const handleDragStart = useCallback((_e: React.DragEvent, player: PlayerRecord) => {
+    setDraggingPlayer(player);
+    setSwapErrorMessage(null);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingPlayer(null);
+    setDragOverPlayerId(null);
+  }, []);
+
+  const handleDragOverPlayer = useCallback((_e: React.DragEvent, targetPlayer: PlayerRecord) => {
+    setDragOverPlayerId(getPlayerId(targetPlayer));
+  }, []);
+
+  const handleDropOnPlayer = useCallback(
+    (_e: React.DragEvent, targetPlayer: PlayerRecord) => {
+      if (!draggingPlayer) return;
+      const srcPid = getPlayerId(draggingPlayer);
+      const tgtPid = getPlayerId(targetPlayer);
+
+      if (srcPid === tgtPid) {
+        setDraggingPlayer(null);
+        setDragOverPlayerId(null);
+        return;
+      }
+
+      const res = sq.swapPlayers(draggingPlayer, targetPlayer);
+      if (!res.success) {
+        setSwapErrorMessage(res.reason ?? "Cannot swap these players.");
+      } else {
+        setSwapErrorMessage(null);
+      }
+
+      setDraggingPlayer(null);
+      setDragOverPlayerId(null);
+    },
+    [draggingPlayer, sq],
+  );
+
+  // Open player picker for in-place replacement
+  const handleOpenReplace = useCallback((player: PlayerRecord) => {
+    setReplacingPlayer(player);
+    setPickerTargetPos(normalizePosition(player.position));
+    setPickerOpen(true);
+  }, []);
+
+  // Handle player selection from picker modal
+  const handlePickerSelect = useCallback(
+    (player: PlayerRecord) => {
+      if (replacingPlayer) {
+        sq.replacePlayer(replacingPlayer, player);
+        setReplacingPlayer(null);
+      } else {
+        sq.addPlayer(player, { targetPosition: pickerTargetPos, asStarter: true });
+      }
+      setPickerOpen(false);
+    },
+    [replacingPlayer, pickerTargetPos, sq],
+  );
+
+  // Pitch rows mapped to active formation
+  const formationStruct = parseFormation(sq.formation);
 
   const startGKP = sq.startingXI.filter(
     (p) => normalizePosition(p.position) === "GKP",
@@ -177,116 +199,47 @@ export default function Squad() {
     (p) => normalizePosition(p.position) === "FWD",
   );
 
-  const posCounts = sq.getPositionCounts(sq.squad);
-
-  const posCountsInSquad: Record<string, number> = {
-    GKP: posCounts.GKP || 0,
-    DEF: posCounts.DEF || 0,
-    MID: posCounts.MID || 0,
-    FWD: posCounts.FWD || 0,
-  };
-
-  const posLimits: Record<string, number> = {
-    GKP: 2,
-    DEF: 5,
-    MID: 5,
-    FWD: 3,
-  };
-
   const emptyGK = Math.max(0, 1 - startGKP.length);
-  const emptyDEF = Math.max(0, 3 - startDEF.length);
-  const emptyMID = Math.max(0, 2 - startMID.length);
-  const emptyFWD = Math.max(0, 1 - startFWD.length);
+  const emptyDEF = Math.max(0, formationStruct.def - startDEF.length);
+  const emptyMID = Math.max(0, formationStruct.mid - startMID.length);
+  const emptyFWD = Math.max(0, formationStruct.fwd - startFWD.length);
 
-  const benchSlots: (PlayerRecord | null)[] = [
-    ...sq.bench,
-    ...Array(Math.max(0, 4 - sq.bench.length)).fill(null),
-  ].slice(0, 4);
+  // Bench slots:
+  // Slot 0: Goalkeeper substitute (always the backup GK)
+  // Slot 1, 2, 3: The 3 remaining outfield substitutes (DEF/MID/FWD depending on formation)
+  const benchGkps = sq.bench.filter((p) => normalizePosition(p.position) === "GKP");
+  const benchOutfield = sq.bench.filter((p) => normalizePosition(p.position) !== "GKP");
+
+  const benchGkSlot: PlayerRecord | null = benchGkps[0] ?? null;
+  const benchSub1: PlayerRecord | null = benchOutfield[0] ?? null;
+  const benchSub2: PlayerRecord | null = benchOutfield[1] ?? null;
+  const benchSub3: PlayerRecord | null = benchOutfield[2] ?? null;
+
+  const benchSlots = [
+    { player: benchGkSlot, label: "GK", isGk: true, posType: "GKP" },
+    { player: benchSub1, label: "SUB 1", isGk: false, isFirstSub: true, posType: "OUTFIELD" },
+    { player: benchSub2, label: "SUB 2", isGk: false, posType: "OUTFIELD" },
+    { player: benchSub3, label: "SUB 3", isGk: false, posType: "OUTFIELD" },
+  ];
 
   return (
-    <div className="mx-auto max-w-[1440px] px-4 py-6 pb-safe-bottom sm:px-6 lg:px-8">
-      {/* SQUAD SUMMARY HEADER */}
-      <div className="mb-6">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] shadow-sm">
-            <Shield size={20} />
-          </div>
-          <div>
-            <h1 className="font-display text-2xl font-black text-[#0F172A] sm:text-3xl">
-              Squad Selection
-            </h1>
-            <p className="text-sm font-semibold text-[#475569]">
-              Build your 15-player squad. Machine learning powers every recommendation.
-            </p>
-          </div>
-        </div>
-
-        {/* Stats summary bar */}
-        <div className="flex flex-wrap items-center gap-3 rounded-chunky-lg border border-[#E2E8F0] bg-white p-3.5 sm:gap-5 sm:p-4 shadow-card">
-          <div className="flex items-center gap-2">
-            <Users size={18} className="text-[#10B981]" />
-            <Badge tone={sq.isFull ? "teal" : "neutral"}>
-              {sq.squad.length}/{sq.maxSize}
-            </Badge>
-          </div>
-
-          <div className="h-6 w-px bg-[#E2E8F0]" />
-
-          {sq.squad.length > 0 && (
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">
-                Formation
-              </span>
-              <span className="numeral text-sm font-black text-[#0F172A]">
-                {sq.formationStr}
-              </span>
+    <div className="mx-auto max-w-[1400px] px-3 py-5 pb-safe-bottom sm:px-6 lg:px-8">
+      {/* SQUAD BUILDER HEADER */}
+      <div className="mb-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] shadow-sm">
+              <Shield size={20} />
             </div>
-          )}
-
-          <div className="h-6 w-px bg-[#E2E8F0] hidden sm:block" />
-
-          <Stat
-            label="Squad xPts"
-            value={formatStat(sq.totalStartingXp)}
-            tone="gold"
-          />
-
-          <div className="h-6 w-px bg-[#E2E8F0] hidden sm:block" />
-
-          <Stat
-            label="Total Value"
-            value={`£${sq.totalSquadPrice.toFixed(1)}m`}
-          />
-
-          <div className="h-6 w-px bg-[#E2E8F0] hidden sm:block" />
-
-          <Stat
-            label="Remaining"
-            value={`£${sq.remainingBudget.toFixed(1)}m`}
-            tone={sq.remainingBudget < 0.5 && sq.squad.length > 0 ? "coral" : "teal"}
-          />
-
-          {sq.effectiveCaptain && (
-            <>
-              <div className="h-6 w-px bg-[#E2E8F0] hidden md:block" />
-              <div className="hidden md:flex items-center gap-2">
-                <Crown size={16} className="text-[#D97706]" />
-                <span className="text-xs font-black text-[#0F172A]">
-                  {sq.effectiveCaptain.name ?? "N/A"}{" "}
-                  <span className="numeral text-[#D97706] font-black">
-                    {formatStat(
-                      (sq.effectiveCaptain.predicted_total_points ?? 0) * 2,
-                    )}
-                    <span className="text-[#64748B] text-[9px] ml-0.5 font-bold">
-                      (2×)
-                    </span>
-                  </span>
-                </span>
-              </div>
-            </>
-          )}
-
-          <div className="flex-1" />
+            <div>
+              <h1 className="font-display text-2xl font-black text-[#0F172A] sm:text-3xl">
+                Squad Builder
+              </h1>
+              <p className="text-xs font-semibold text-[#475569]">
+                Assemble your 15-player squad (2 GK, 5 DEF, 5 MID, 3 FWD) with drag & drop flexibility.
+              </p>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2">
             <Button
@@ -294,10 +247,10 @@ export default function Squad() {
               size="sm"
               onClick={() => sq.autoPick(players)}
               disabled={players.length === 0}
-              title="Auto Pick the best AI squad"
+              title="Auto Pick optimal AI starting XI & bench"
             >
-              <Zap size={15} />
-              <span className="hidden sm:inline">Auto Pick</span>
+              <Zap size={14} />
+              <span>AI Auto Pick</span>
             </Button>
             <Button
               variant="secondary"
@@ -308,547 +261,707 @@ export default function Squad() {
               }}
               disabled={sq.squad.length === 0}
             >
-              <RotateCcw size={15} />
-              <span className="hidden sm:inline">Reset</span>
+              <RotateCcw size={14} />
+              <span>Reset</span>
             </Button>
           </div>
         </div>
-      </div>
 
-      {/* MAIN GRID */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[400px_1fr] xl:grid-cols-[440px_1fr]">
-        {/* LEFT: Player Selection Panel */}
-        <div className="order-2 lg:order-1 flex flex-col">
-          {/* Position tabs */}
-          <div className="mb-3 flex items-center gap-1 rounded-chunky border border-[#E2E8F0] bg-white p-1 shadow-sm">
-            {POSITION_TABS.map((tab) => {
-              const isActive = posTab === tab.id;
-              const count =
-                tab.id === "all"
-                  ? sq.squad.length
-                  : posCountsInSquad[tab.id] ?? 0;
-              const limit =
-                tab.id === "all" ? 15 : posLimits[tab.id] ?? 0;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setPosTab(tab.id)}
-                  className={cn(
-                    "relative flex-1 rounded-xl px-2 py-2 text-center text-xs font-black transition-all cursor-pointer",
-                    isActive
-                      ? "bg-[#10B981] text-white shadow-sm"
-                      : "text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9]",
-                  )}
+        {/* STATS SUMMARY BAR */}
+        <div className="flex flex-wrap items-center gap-2.5 rounded-chunky-lg border border-[#E2E8F0] bg-white p-3 sm:gap-4 sm:p-3.5 shadow-card">
+          {/* Squad Count */}
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-[#10B981]" />
+            <Badge tone={sq.isFull ? "teal" : "neutral"}>
+              {sq.squad.length}/{sq.maxSize} Players
+            </Badge>
+          </div>
+
+          <div className="h-5 w-px bg-[#E2E8F0]" />
+
+          {/* Formation Selector Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowFormationMenu((o) => !o)}
+              onBlur={() => setTimeout(() => setShowFormationMenu(false), 150)}
+              className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] px-2.5 py-1 text-xs font-black text-[#0F172A] shadow-xs hover:border-[#10B981] transition-colors cursor-pointer"
+            >
+              <span className="text-[10px] font-bold uppercase text-[#64748B]">
+                Formation:
+              </span>
+              <span className="font-black text-[#0F172A]">{sq.formation}</span>
+              <ChevronDown
+                size={12}
+                className={cn(
+                  "text-[#64748B] transition-transform",
+                  showFormationMenu && "rotate-180",
+                )}
+              />
+            </button>
+
+            <AnimatePresence>
+              {showFormationMenu && (
+                <motion.ul
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="absolute left-0 top-full z-40 mt-1 w-32 overflow-hidden rounded-chunky border border-[#E2E8F0] bg-white p-1 shadow-card"
                 >
-                  <span className="flex items-center justify-center gap-1">
-                    {tab.label}
-                    <span
-                      className={cn(
-                        "numeral text-[10px]",
-                        isActive ? "text-white/90" : "text-[#64748B]",
-                      )}
-                    >
-                      {count}/{limit}
+                  {SUPPORTED_FORMATIONS.map((f) => (
+                    <li key={f}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sq.setFormation(f);
+                          setShowFormationMenu(false);
+                        }}
+                        className={cn(
+                          "block w-full rounded-lg px-3 py-1.5 text-left text-xs font-black transition-colors cursor-pointer",
+                          sq.formation === f
+                            ? "bg-[#ECFDF5] text-[#059669]"
+                            : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
+                        )}
+                      >
+                        {f}
+                      </button>
+                    </li>
+                  ))}
+                </motion.ul>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="h-5 w-px bg-[#E2E8F0] hidden sm:block" />
+
+          {/* Starting xPts */}
+          <Stat
+            label="Starting xPts"
+            value={`${formatInt(sq.totalStartingXp)}`}
+            tone="gold"
+          />
+
+          <div className="h-5 w-px bg-[#E2E8F0] hidden sm:block" />
+
+          {/* Total Value */}
+          <Stat
+            label="Squad Value"
+            value={`£${sq.totalSquadPrice.toFixed(1)}m`}
+          />
+
+          <div className="h-5 w-px bg-[#E2E8F0] hidden sm:block" />
+
+          {/* Remaining Budget */}
+          <Stat
+            label="Remaining Budget"
+            value={`£${sq.remainingBudget.toFixed(1)}m`}
+            tone={sq.remainingBudget < 0.5 && sq.squad.length > 0 ? "coral" : "teal"}
+          />
+
+          {/* Active Captain Callout */}
+          {sq.effectiveCaptain && (
+            <>
+              <div className="h-5 w-px bg-[#E2E8F0] hidden md:block" />
+              <div className="hidden md:flex items-center gap-2">
+                <Crown size={15} className="text-[#D97706]" />
+                <span className="text-xs font-black text-[#0F172A]">
+                  Captain: {sq.effectiveCaptain.name ?? "N/A"}{" "}
+                  <span className="numeral text-[#D97706] font-black">
+                    {formatInt((sq.effectiveCaptain.predicted_total_points ?? 0) * 2)} xP
+                    <span className="text-[#64748B] text-[9px] ml-0.5 font-bold">
+                      (2×)
                     </span>
                   </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Search + Filter row */}
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex-1">
-              <SearchInput
-                value={query}
-                onChange={setQuery}
-                placeholder="Search players…"
-              />
-            </div>
-
-            {/* Team filter dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowTeamMenu((o) => !o)}
-                onBlur={() =>
-                  setTimeout(() => setShowTeamMenu(false), 120)
-                }
-                className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2 text-xs font-black text-[#0F172A] shadow-sm transition-colors hover:border-[#94A3B8] cursor-pointer"
-              >
-                <span className="text-[#64748B] font-bold">Team:</span>
-                <span className="font-black max-w-[80px] truncate">
-                  {teamFilter === "all" ? "All" : teamFilter}
                 </span>
-                <ChevronDown
-                  size={12}
-                  className={cn(
-                    "transition-transform text-[#64748B]",
-                    showTeamMenu && "rotate-180",
-                  )}
-                />
-              </button>
-              <AnimatePresence>
-                {showTeamMenu && (
-                  <motion.ul
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.15 }}
-                    className="glass absolute right-0 top-full z-30 mt-1 max-h-60 w-48 overflow-y-auto rounded-chunky border border-[#E2E8F0] bg-white p-1 shadow-card"
-                  >
-                    {teamOptions.map((opt) => (
-                      <li key={opt.value}>
-                        <button
-                          onClick={() => {
-                            setTeamFilter(opt.value);
-                            setShowTeamMenu(false);
-                          }}
-                          className={cn(
-                            "block w-full rounded-lg px-3 py-1.5 text-left text-xs font-black transition-colors cursor-pointer",
-                            teamFilter === opt.value
-                              ? "bg-[#ECFDF5] text-[#059669]"
-                              : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      </li>
-                    ))}
-                  </motion.ul>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Sort dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowSortMenu((o) => !o)}
-                onBlur={() =>
-                  setTimeout(() => setShowSortMenu(false), 120)
-                }
-                className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2 text-xs font-black text-[#0F172A] shadow-sm transition-colors hover:border-[#94A3B8] cursor-pointer"
-              >
-                <ArrowUpDown size={12} className="text-[#64748B]" />
-                <span className="font-black">
-                  {SORT_OPTIONS.find((o) => o.value === sortKey)?.label ?? "Sort"}
-                </span>
-                <ChevronDown
-                  size={12}
-                  className={cn(
-                    "transition-transform text-[#64748B]",
-                    showSortMenu && "rotate-180",
-                  )}
-                />
-              </button>
-              <AnimatePresence>
-                {showSortMenu && (
-                  <motion.ul
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.15 }}
-                    className="glass absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-chunky border border-[#E2E8F0] bg-white p-1 shadow-card"
-                  >
-                    {SORT_OPTIONS.map((opt) => (
-                      <li key={opt.value}>
-                        <button
-                          onClick={() => {
-                            setSortKey(opt.value);
-                            setShowSortMenu(false);
-                          }}
-                          className={cn(
-                            "block w-full rounded-lg px-3 py-1.5 text-left text-xs font-black transition-colors cursor-pointer",
-                            sortKey === opt.value
-                              ? "bg-[#ECFDF5] text-[#059669]"
-                              : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      </li>
-                    ))}
-                  </motion.ul>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Player table list */}
-          <div className="flex-1 overflow-y-auto max-h-[calc(100vh-280px)] rounded-chunky-lg border border-[#E2E8F0] bg-white shadow-card">
-            <div className="sticky top-0 z-10 grid grid-cols-[1fr_60px_60px_90px_40px] items-center gap-1 border-b border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-2.5 text-[10px] font-black uppercase tracking-wider text-[#64748B]">
-              <span>Player</span>
-              <span className="text-right">Price</span>
-              <span className="text-right">xPts</span>
-              <span className="text-center">Fixtures</span>
-              <span />
-            </div>
-
-            {loading && (
-              <div className="flex flex-col gap-1 p-3">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full rounded-lg" />
-                ))}
               </div>
-            )}
-
-            {!loading && error && (
-              <div className="p-4">
-                <ErrorState message={error} onRetry={refetch} />
-              </div>
-            )}
-
-            {!loading && !error && filtered.length === 0 && (
-              <div className="p-4">
-                <EmptyState title="No players match your filters" />
-              </div>
-            )}
-
-            {!loading && !error && filtered.length > 0 && (
-              <ul className="divide-y divide-[#E2E8F0]">
-                {filtered.map((p) => {
-                  const inSquad = sq.isInSquad(p);
-                  const check = inSquad
-                    ? { allowed: true }
-                    : sq.canAddPlayer(p);
-                  const disabled = !inSquad && !check.allowed;
-                  const aiTag = getAITag(p.predicted_total_points);
-
-                  return (
-                    <li
-                      key={getPlayerId(p)}
-                      className={cn(
-                        "grid grid-cols-[1fr_60px_60px_90px_40px] items-center gap-1 px-3.5 py-2.5 transition-colors",
-                        inSquad
-                          ? "bg-[#ECFDF5]"
-                          : "hover:bg-[#F8FAFC]",
-                        disabled && "opacity-40",
-                      )}
-                    >
-                      {/* Player info */}
-                      <button
-                        className="flex items-center gap-2 min-w-0 text-left cursor-pointer"
-                        onClick={() => setDetailPlayer(p)}
-                        title="View player details"
-                      >
-                        <PlayerAvatar
-                          name={p.name}
-                          photoUrl={p.photo_url}
-                          size="sm"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate text-xs font-black text-[#0F172A]">
-                              {p.name ?? "N/A"}
-                            </span>
-                            {aiTag && (
-                              <span
-                                className={cn(
-                                  "shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase leading-none",
-                                  aiTag.tone === "emerald" &&
-                                    "bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]",
-                                  aiTag.tone === "gold" &&
-                                    "bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]",
-                                  aiTag.tone === "sky" &&
-                                    "bg-[#F0F9FF] text-[#075985] border border-[#BAE6FD]",
-                                )}
-                              >
-                                {aiTag.label}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <TeamBadge
-                              team={p.team}
-                              logoUrl={p.team_logo_url}
-                              size="sm"
-                            />
-                            {p.position && (
-                              <span className="rounded bg-[#F1F5F9] px-1 py-0.5 text-[9px] font-black uppercase text-[#334155]">
-                                {p.position === "GKP" ? "GK" : p.position}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* Price */}
-                      <span className="numeral text-right text-xs font-black text-[#334155]">
-                        {formatPrice(p.value)}
-                      </span>
-
-                      {/* AI Predicted Points */}
-                      <span className="numeral text-right text-xs font-black text-[#92400E] bg-[#FFFBEB] px-1.5 py-0.5 rounded border border-[#FDE68A]">
-                        {formatStat(p.predicted_total_points)}
-                      </span>
-
-                      {/* Upcoming fixtures */}
-                      <div className="flex justify-center">
-                        <UpcomingFixtures
-                          player={p}
-                          variant="inline"
-                          maxFixtures={3}
-                          className="hidden sm:inline-flex"
-                        />
-                      </div>
-
-                      {/* Add/Remove button */}
-                      <div className="flex justify-end">
-                        <button
-                          onClick={() => handleTogglePlayer(p)}
-                          disabled={disabled}
-                          title={
-                            inSquad
-                              ? "Remove from squad"
-                              : check.allowed
-                                ? "Add to squad"
-                                : check.reason ?? "Cannot add"
-                          }
-                          className={cn(
-                            "flex h-7 w-7 items-center justify-center rounded-lg font-black transition-all cursor-pointer",
-                            inSquad
-                              ? "bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] border border-[#FCA5A5]"
-                              : check.allowed
-                                ? "bg-[#10B981] text-white hover:bg-[#059669] shadow-sm"
-                                : "bg-[#F1F5F9] text-[#94A3B8] cursor-not-allowed",
-                          )}
-                        >
-                          {inSquad ? (
-                            <X size={14} />
-                          ) : (
-                            <Plus size={14} />
-                          )}
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT: Pitch + Bench */}
-        <div className="order-1 lg:order-2 flex flex-col gap-4">
-          {/* Pitch */}
-          {sq.squad.length > 0 ? (
-            <Pitch className="min-h-[340px] sm:min-h-[420px]">
-              {/* GK Row */}
-              <PitchRow>
-                {startGKP.map((p) => (
-                  <PlayerToken
-                    key={getPlayerId(p)}
-                    player={p}
-                    isCaptain={
-                      sq.effectiveCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveCaptain)
-                        : false
-                    }
-                    isViceCaptain={
-                      sq.effectiveViceCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveViceCaptain)
-                        : false
-                    }
-                    onClick={() => handlePitchTokenClick(p)}
-                  />
-                ))}
-                {Array.from({ length: emptyGK }).map((_, i) => (
-                  <EmptySlot key={`e-gk-${i}`} label="GK" />
-                ))}
-              </PitchRow>
-
-              {/* DEF Row */}
-              <PitchRow>
-                {startDEF.map((p) => (
-                  <PlayerToken
-                    key={getPlayerId(p)}
-                    player={p}
-                    isCaptain={
-                      sq.effectiveCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveCaptain)
-                        : false
-                    }
-                    isViceCaptain={
-                      sq.effectiveViceCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveViceCaptain)
-                        : false
-                    }
-                    onClick={() => handlePitchTokenClick(p)}
-                  />
-                ))}
-                {Array.from({ length: emptyDEF }).map((_, i) => (
-                  <EmptySlot key={`e-def-${i}`} label="DEF" />
-                ))}
-              </PitchRow>
-
-              {/* MID Row */}
-              <PitchRow>
-                {startMID.map((p) => (
-                  <PlayerToken
-                    key={getPlayerId(p)}
-                    player={p}
-                    isCaptain={
-                      sq.effectiveCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveCaptain)
-                        : false
-                    }
-                    isViceCaptain={
-                      sq.effectiveViceCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveViceCaptain)
-                        : false
-                    }
-                    onClick={() => handlePitchTokenClick(p)}
-                  />
-                ))}
-                {Array.from({ length: emptyMID }).map((_, i) => (
-                  <EmptySlot key={`e-mid-${i}`} label="MID" />
-                ))}
-              </PitchRow>
-
-              {/* FWD Row */}
-              <PitchRow>
-                {startFWD.map((p) => (
-                  <PlayerToken
-                    key={getPlayerId(p)}
-                    player={p}
-                    isCaptain={
-                      sq.effectiveCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveCaptain)
-                        : false
-                    }
-                    isViceCaptain={
-                      sq.effectiveViceCaptain
-                        ? getPlayerId(p) ===
-                          getPlayerId(sq.effectiveViceCaptain)
-                        : false
-                    }
-                    onClick={() => handlePitchTokenClick(p)}
-                  />
-                ))}
-                {Array.from({ length: emptyFWD }).map((_, i) => (
-                  <EmptySlot key={`e-fwd-${i}`} label="FWD" />
-                ))}
-              </PitchRow>
-            </Pitch>
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-chunky-xl border-2 border-dashed border-[#A7F3D0] bg-white px-6 py-16 text-center sm:py-24 shadow-card">
-              <Shield size={48} className="mb-4 text-[#10B981]" />
-              <p className="font-display text-2xl font-black text-[#0F172A]">
-                Build Your Team Squad
-              </p>
-              <p className="mt-2 max-w-xs text-sm font-bold text-[#475569]">
-                Select players from the list or click <span className="text-[#059669] font-black">Auto Pick</span> to let AI generate your optimal XI.
-              </p>
-            </div>
+            </>
           )}
+        </div>
+      </div>
 
-          {/* Substitutes */}
-          <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-3.5 sm:p-4 shadow-card">
+      {/* FLOATING ACTIVE SWAP / ERROR BANNER */}
+      <AnimatePresence>
+        {(swapSelectedPlayer || swapErrorMessage) && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-4 rounded-2xl border-2 border-[#10B981] bg-[#0F172A] p-3.5 text-white shadow-xl z-30"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white font-black">
+                  <ArrowUpDown size={16} />
+                </div>
+                <div>
+                  {swapSelectedPlayer ? (
+                    <>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black text-white">
+                          Swap Mode: {swapSelectedPlayer.name}
+                        </span>
+                        <span className="rounded bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-300">
+                          {normalizePosition(swapSelectedPlayer.position)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-medium text-slate-300">
+                        Click or drag to another player to substitute.
+                      </p>
+                    </>
+                  ) : (
+                    <span className="text-xs font-black text-white">Notice</span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSwapSelectedPlayer(null);
+                  setSwapErrorMessage(null);
+                }}
+                className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-black text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
+              >
+                <X size={14} />
+                <span>Dismiss</span>
+              </button>
+            </div>
+
+            {swapErrorMessage && (
+              <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-red-500/20 border border-red-500/40 px-3 py-1.5 text-xs font-bold text-red-200">
+                <AlertTriangle size={14} className="shrink-0 text-red-400" />
+                <span>{swapErrorMessage}</span>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* MAIN SQUAD BUILDER WORKSPACE */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px]">
+        {/* PITCH & BENCH AREA */}
+        <div className="flex flex-col gap-4">
+          {/* Pitch Container */}
+          <Pitch className="min-h-[460px] sm:min-h-[540px]">
+            {/* Formation Tag Pill on Pitch */}
+            <div className="flex justify-center -mb-2">
+              <span className="rounded-full bg-slate-900/80 backdrop-blur-xs px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-emerald-500/40 shadow-sm">
+                Active Formation • {sq.formation}
+              </span>
+            </div>
+
+            {/* GOALKEEPER ROW */}
+            <PitchRow>
+              {startGKP.map((p) => {
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : draggingPlayer
+                    ? sq.canSwapPlayers(draggingPlayer, p)
+                    : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
+                const isDragTgt = dragOverPlayerId === getPlayerId(p);
+
+                return (
+                  <PlayerToken
+                    key={getPlayerId(p)}
+                    player={p}
+                    isCaptain={
+                      sq.effectiveCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveCaptain)
+                        : false
+                    }
+                    isViceCaptain={
+                      sq.effectiveViceCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveViceCaptain)
+                        : false
+                    }
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    isDragging={draggingPlayer ? getPlayerId(draggingPlayer) === getPlayerId(p) : false}
+                    isDragTarget={isDragTgt}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOverPlayer(e, p)}
+                    onDrop={handleDropOnPlayer}
+                    onClick={() => handlePlayerClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      if (swapSelectedPlayer) {
+                        const res = sq.swapPlayers(swapSelectedPlayer, p);
+                        if (res.success) {
+                          setSwapSelectedPlayer(null);
+                          setSwapErrorMessage(null);
+                        } else {
+                          setSwapErrorMessage(res.reason ?? "Cannot swap.");
+                        }
+                      }
+                    }}
+                  />
+                );
+              })}
+              {Array.from({ length: emptyGK }).map((_, i) => (
+                <EmptySlot
+                  key={`e-gk-${i}`}
+                  label="GK"
+                  onClick={() => handleEmptySlotClick("GK")}
+                />
+              ))}
+            </PitchRow>
+
+            {/* DEFENDER ROW */}
+            <PitchRow>
+              {startDEF.map((p) => {
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : draggingPlayer
+                    ? sq.canSwapPlayers(draggingPlayer, p)
+                    : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
+                const isDragTgt = dragOverPlayerId === getPlayerId(p);
+
+                return (
+                  <PlayerToken
+                    key={getPlayerId(p)}
+                    player={p}
+                    isCaptain={
+                      sq.effectiveCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveCaptain)
+                        : false
+                    }
+                    isViceCaptain={
+                      sq.effectiveViceCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveViceCaptain)
+                        : false
+                    }
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    isDragging={draggingPlayer ? getPlayerId(draggingPlayer) === getPlayerId(p) : false}
+                    isDragTarget={isDragTgt}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOverPlayer(e, p)}
+                    onDrop={handleDropOnPlayer}
+                    onClick={() => handlePlayerClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      if (swapSelectedPlayer) {
+                        const res = sq.swapPlayers(swapSelectedPlayer, p);
+                        if (res.success) {
+                          setSwapSelectedPlayer(null);
+                          setSwapErrorMessage(null);
+                        } else {
+                          setSwapErrorMessage(res.reason ?? "Cannot swap.");
+                        }
+                      }
+                    }}
+                  />
+                );
+              })}
+              {Array.from({ length: emptyDEF }).map((_, i) => (
+                <EmptySlot
+                  key={`e-def-${i}`}
+                  label="DEF"
+                  onClick={() => handleEmptySlotClick("DEF")}
+                />
+              ))}
+            </PitchRow>
+
+            {/* MIDFIELDER ROW */}
+            <PitchRow>
+              {startMID.map((p) => {
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : draggingPlayer
+                    ? sq.canSwapPlayers(draggingPlayer, p)
+                    : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
+                const isDragTgt = dragOverPlayerId === getPlayerId(p);
+
+                return (
+                  <PlayerToken
+                    key={getPlayerId(p)}
+                    player={p}
+                    isCaptain={
+                      sq.effectiveCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveCaptain)
+                        : false
+                    }
+                    isViceCaptain={
+                      sq.effectiveViceCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveViceCaptain)
+                        : false
+                    }
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    isDragging={draggingPlayer ? getPlayerId(draggingPlayer) === getPlayerId(p) : false}
+                    isDragTarget={isDragTgt}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOverPlayer(e, p)}
+                    onDrop={handleDropOnPlayer}
+                    onClick={() => handlePlayerClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      if (swapSelectedPlayer) {
+                        const res = sq.swapPlayers(swapSelectedPlayer, p);
+                        if (res.success) {
+                          setSwapSelectedPlayer(null);
+                          setSwapErrorMessage(null);
+                        } else {
+                          setSwapErrorMessage(res.reason ?? "Cannot swap.");
+                        }
+                      }
+                    }}
+                  />
+                );
+              })}
+              {Array.from({ length: emptyMID }).map((_, i) => (
+                <EmptySlot
+                  key={`e-mid-${i}`}
+                  label="MID"
+                  onClick={() => handleEmptySlotClick("MID")}
+                />
+              ))}
+            </PitchRow>
+
+            {/* FORWARD ROW */}
+            <PitchRow>
+              {startFWD.map((p) => {
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : draggingPlayer
+                    ? sq.canSwapPlayers(draggingPlayer, p)
+                    : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
+                const isDragTgt = dragOverPlayerId === getPlayerId(p);
+
+                return (
+                  <PlayerToken
+                    key={getPlayerId(p)}
+                    player={p}
+                    isCaptain={
+                      sq.effectiveCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveCaptain)
+                        : false
+                    }
+                    isViceCaptain={
+                      sq.effectiveViceCaptain
+                        ? getPlayerId(p) === getPlayerId(sq.effectiveViceCaptain)
+                        : false
+                    }
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    isDragging={draggingPlayer ? getPlayerId(draggingPlayer) === getPlayerId(p) : false}
+                    isDragTarget={isDragTgt}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOverPlayer(e, p)}
+                    onDrop={handleDropOnPlayer}
+                    onClick={() => handlePlayerClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      if (swapSelectedPlayer) {
+                        const res = sq.swapPlayers(swapSelectedPlayer, p);
+                        if (res.success) {
+                          setSwapSelectedPlayer(null);
+                          setSwapErrorMessage(null);
+                        } else {
+                          setSwapErrorMessage(res.reason ?? "Cannot swap.");
+                        }
+                      }
+                    }}
+                  />
+                );
+              })}
+              {Array.from({ length: emptyFWD }).map((_, i) => (
+                <EmptySlot
+                  key={`e-fwd-${i}`}
+                  label="FWD"
+                  onClick={() => handleEmptySlotClick("FWD")}
+                />
+              ))}
+            </PitchRow>
+          </Pitch>
+
+          {/* BENCH DUGOUT */}
+          <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-card">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-xs font-black uppercase text-[#64748B]">
                 <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#64748B]" />
-                Substitutes
+                Substitutes Bench (1 GK + 3 Outfield)
               </h2>
               <span className="numeral text-xs font-black text-[#475569]">
-                {sq.bench.length}/4
+                {sq.bench.length}/4 Subs
               </span>
             </div>
 
             <div className="grid grid-cols-4 gap-2 sm:gap-4">
-              {benchSlots.map((p, idx) => {
+              {benchSlots.map((slot, idx) => {
+                const p = slot.player;
                 if (!p) {
                   return (
                     <div
                       key={`bench-empty-${idx}`}
                       className="flex flex-col items-center gap-1"
                     >
-                      <EmptySlot label={idx === 0 ? "GK" : `SUB ${idx}`} />
+                      <EmptySlot
+                        label={slot.label}
+                        onClick={() => handleEmptySlotClick(slot.isGk ? "GK" : "")}
+                      />
                     </div>
                   );
                 }
+
+                const isSelected = swapSelectedPlayer
+                  ? getPlayerId(p) === getPlayerId(swapSelectedPlayer)
+                  : false;
+                const checkSwap = swapSelectedPlayer
+                  ? sq.canSwapPlayers(swapSelectedPlayer, p)
+                  : draggingPlayer
+                    ? sq.canSwapPlayers(draggingPlayer, p)
+                    : null;
+                const isValidSwap = checkSwap ? checkSwap.allowed && !isSelected : false;
+                const isInvalidSwap = checkSwap ? !checkSwap.allowed && !isSelected : false;
+                const isDragTgt = dragOverPlayerId === getPlayerId(p);
+
                 return (
                   <PlayerToken
                     key={getPlayerId(p)}
                     player={p}
-                    benchLabel={idx === 0 ? "1st Sub" : `Sub ${idx + 1}`}
-                    isFirstSub={idx === 0}
-                    onClick={() => sq.removePlayer(p)}
+                    benchLabel={slot.label}
+                    isFirstSub={slot.isFirstSub}
+                    isSelected={isSelected}
+                    isValidSwapTarget={isValidSwap}
+                    isInvalidSwapTarget={isInvalidSwap}
+                    isDragging={draggingPlayer ? getPlayerId(draggingPlayer) === getPlayerId(p) : false}
+                    isDragTarget={isDragTgt}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOverPlayer(e, p)}
+                    onDrop={handleDropOnPlayer}
+                    onClick={() => handlePlayerClick(p)}
+                    onRemove={() => sq.removePlayer(p)}
+                    onQuickSwap={() => {
+                      if (swapSelectedPlayer) {
+                        const res = sq.swapPlayers(swapSelectedPlayer, p);
+                        if (res.success) {
+                          setSwapSelectedPlayer(null);
+                          setSwapErrorMessage(null);
+                        } else {
+                          setSwapErrorMessage(res.reason ?? "Cannot swap.");
+                        }
+                      }
+                    }}
                   />
                 );
               })}
             </div>
           </div>
+        </div>
 
-          {/* Squad list summary sidebar */}
-          {sq.squad.length > 0 && (
-            <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-3.5 sm:p-4 shadow-card">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="flex items-center gap-2 text-xs font-black uppercase text-[#64748B]">
-                  <Users size={14} className="text-[#10B981]" />
-                  Your Squad Summary
-                </h2>
-                <div className="flex items-center gap-2">
-                  <Badge tone={sq.isFull ? "teal" : "neutral"}>
-                    {sq.squad.length}/{sq.maxSize}
-                  </Badge>
-                  <span className="numeral text-xs font-black text-[#92400E]">
-                    {formatStat(sq.totalStartingXp)} xPts
-                  </span>
-                </div>
-              </div>
-
-              {/* Starting XI */}
-              <div className="mb-3">
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#059669]">
-                  Starting XI
+        {/* SIDEBAR: Squad Status & Player Quick-Actions */}
+        <div className="flex flex-col gap-4">
+          {/* SQUAD VALIDATION CARD */}
+          <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-card">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-xs font-black uppercase text-[#64748B]">
+                <Sparkles size={14} className="text-[#10B981]" />
+                Squad Readiness
+              </h2>
+              {sq.isValidSquad ? (
+                <span className="flex items-center gap-1 text-[11px] font-black text-emerald-600">
+                  <CheckCircle2 size={13} />
+                  Ready
                 </span>
-                <div className="mt-1 flex flex-col gap-0.5">
+              ) : (
+                <span className="flex items-center gap-1 text-[11px] font-black text-amber-600">
+                  <AlertTriangle size={13} />
+                  In Progress
+                </span>
+              )}
+            </div>
+
+            {/* Validation items */}
+            <div className="flex flex-col gap-2 text-xs font-bold text-slate-700">
+              <div className="flex items-center justify-between">
+                <span>Total Players:</span>
+                <span
+                  className={cn(
+                    "numeral font-black",
+                    sq.squad.length === 15 ? "text-emerald-600" : "text-amber-600",
+                  )}
+                >
+                  {sq.squad.length}/15
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Starting XI:</span>
+                <span
+                  className={cn(
+                    "numeral font-black",
+                    sq.startingXI.length === 11 ? "text-emerald-600" : "text-amber-600",
+                  )}
+                >
+                  {sq.startingXI.length}/11
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Captain Set:</span>
+                <span
+                  className={cn(
+                    "font-black",
+                    sq.effectiveCaptain ? "text-emerald-600" : "text-amber-600",
+                  )}
+                >
+                  {sq.effectiveCaptain ? "Yes (C)" : "Missing"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Vice-Captain Set:</span>
+                <span
+                  className={cn(
+                    "font-black",
+                    sq.effectiveViceCaptain ? "text-emerald-600" : "text-amber-600",
+                  )}
+                >
+                  {sq.effectiveViceCaptain ? "Yes (VC)" : "Missing"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Budget Status:</span>
+                <span
+                  className={cn(
+                    "numeral font-black",
+                    sq.remainingBudget >= 0 ? "text-emerald-600" : "text-red-600",
+                  )}
+                >
+                  £{sq.remainingBudget.toFixed(1)}m remaining
+                </span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="mt-4 flex flex-col gap-2">
+              <Button
+                variant="primary"
+                className="w-full"
+                onClick={() => {
+                  setPickerTargetPos(undefined);
+                  setReplacingPlayer(null);
+                  setPickerOpen(true);
+                }}
+              >
+                <span>Add / Browse Players</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* SQUAD LIST BREAKDOWN */}
+          {sq.squad.length > 0 && (
+            <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-card">
+              <h2 className="mb-2.5 text-xs font-black uppercase text-[#64748B]">
+                Selected Players ({sq.squad.length})
+              </h2>
+
+              {/* Starters list */}
+              <div className="mb-3">
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block mb-1">
+                  Starting XI ({sq.startingXI.length})
+                </span>
+                <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
                   {sq.startingXI.map((p) => {
                     const isCap =
                       sq.effectiveCaptain &&
-                      getPlayerId(p) ===
-                        getPlayerId(sq.effectiveCaptain);
+                      getPlayerId(p) === getPlayerId(sq.effectiveCaptain);
                     const isVC =
                       sq.effectiveViceCaptain &&
-                      getPlayerId(p) ===
-                        getPlayerId(sq.effectiveViceCaptain);
+                      getPlayerId(p) === getPlayerId(sq.effectiveViceCaptain);
+
                     return (
-                      <SquadListRow
+                      <div
                         key={getPlayerId(p)}
-                        player={p}
-                        isCaptain={!!isCap}
-                        isViceCaptain={!!isVC}
-                        onRemove={() => sq.removePlayer(p)}
-                        onDetail={() => setDetailPlayer(p)}
-                      />
+                        onClick={() => handlePlayerClick(p)}
+                        className="flex items-center justify-between rounded-lg p-1.5 hover:bg-slate-50 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs font-black text-slate-900 truncate">
+                            {p.name}
+                          </span>
+                          {isCap && (
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-black text-slate-950">
+                              C
+                            </span>
+                          )}
+                          {isVC && (
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[9px] font-black text-white">
+                              VC
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {formatPrice(p.value)}
+                          </span>
+                          <span className="numeral text-xs font-black text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded">
+                            {formatInt(p.predicted_total_points)} xP
+                          </span>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Bench */}
+              {/* Bench list */}
               {sq.bench.length > 0 && (
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">
-                    Bench
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                    Bench ({sq.bench.length})
                   </span>
-                  <div className="mt-1 flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
                     {sq.bench.map((p, idx) => (
-                      <SquadListRow
+                      <div
                         key={getPlayerId(p)}
-                        player={p}
-                        isFirstSub={idx === 0}
-                        onRemove={() => sq.removePlayer(p)}
-                        onDetail={() => setDetailPlayer(p)}
-                      />
+                        onClick={() => handlePlayerClick(p)}
+                        className="flex items-center justify-between rounded-lg p-1.5 hover:bg-slate-50 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[10px] font-black uppercase text-slate-400">
+                            {idx === 0 ? "GK" : `S${idx}`}
+                          </span>
+                          <span className="text-xs font-black text-slate-700 truncate">
+                            {p.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {formatPrice(p.value)}
+                          </span>
+                          <span className="numeral text-xs font-black text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {formatInt(p.predicted_total_points)} xP
+                          </span>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -858,7 +971,68 @@ export default function Squad() {
         </div>
       </div>
 
-      {/* Player Detail Drawer */}
+      {/* PLAYER ACTION MODAL (FPL Card) */}
+      <PlayerActionModal
+        player={actionPlayer}
+        isStarter={
+          actionPlayer
+            ? sq.startingXI.some((p) => getPlayerId(p) === getPlayerId(actionPlayer))
+            : false
+        }
+        isCaptain={
+          actionPlayer && sq.effectiveCaptain
+            ? getPlayerId(actionPlayer) === getPlayerId(sq.effectiveCaptain)
+            : false
+        }
+        isViceCaptain={
+          actionPlayer && sq.effectiveViceCaptain
+            ? getPlayerId(actionPlayer) === getPlayerId(sq.effectiveViceCaptain)
+            : false
+        }
+        onClose={() => setActionPlayer(null)}
+        onMakeCaptain={() => {
+          if (actionPlayer) sq.setCaptain(actionPlayer);
+        }}
+        onMakeViceCaptain={() => {
+          if (actionPlayer) sq.setViceCaptain(actionPlayer);
+        }}
+        onStartSwap={() => {
+          if (actionPlayer) {
+            setSwapSelectedPlayer(actionPlayer);
+            setSwapErrorMessage(null);
+          }
+        }}
+        onReplace={() => {
+          if (actionPlayer) {
+            handleOpenReplace(actionPlayer);
+          }
+        }}
+        onViewDetails={() => {
+          if (actionPlayer) setDetailPlayer(actionPlayer);
+        }}
+        onRemove={() => {
+          if (actionPlayer) sq.removePlayer(actionPlayer);
+        }}
+      />
+
+      {/* PLAYER PICKER MODAL / DRAWER */}
+      <PlayerPickerModal
+        open={pickerOpen}
+        onClose={() => {
+          setPickerOpen(false);
+          setReplacingPlayer(null);
+        }}
+        targetPosition={pickerTargetPos}
+        replacingPlayer={replacingPlayer}
+        players={players}
+        loading={loading}
+        error={error}
+        onRetry={refetch}
+        sq={sq}
+        onSelectPlayer={handlePickerSelect}
+      />
+
+      {/* FULL PLAYER DETAIL DRAWER */}
       <Drawer
         open={detailPlayer !== null}
         onClose={() => setDetailPlayer(null)}
@@ -866,41 +1040,11 @@ export default function Squad() {
         {detailPlayer && (
           <div className="flex flex-col gap-4">
             <PlayerDetailPanel player={detailPlayer} />
-            <div className="sticky bottom-0 bg-white pt-3 pb-1 border-t border-[#E2E8F0]">
-              {sq.isInSquad(detailPlayer) ? (
-                <Button
-                  variant="secondary"
-                  className="w-full !border-[#FCA5A5] !text-[#DC2626] hover:!bg-[#FEF2F2] font-black"
-                  onClick={() => {
-                    sq.removePlayer(detailPlayer);
-                    setDetailPlayer(null);
-                  }}
-                >
-                  <Trash2 size={15} />
-                  Remove from Squad
-                </Button>
-              ) : (
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  disabled={!sq.canAddPlayer(detailPlayer).allowed}
-                  onClick={() => {
-                    sq.addPlayer(detailPlayer);
-                    setDetailPlayer(null);
-                  }}
-                >
-                  <Plus size={15} />
-                  {sq.canAddPlayer(detailPlayer).allowed
-                    ? "Add to Squad"
-                    : sq.canAddPlayer(detailPlayer).reason ?? "Cannot Add"}
-                </Button>
-              )}
-            </div>
           </div>
         )}
       </Drawer>
 
-      {/* Reset Modal */}
+      {/* RESET SQUAD MODAL */}
       <AnimatePresence>
         {showResetConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -908,15 +1052,14 @@ export default function Squad() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-[#0F172A]/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-[#0F172A]/40 backdrop-blur-xs"
               onClick={() => setShowResetConfirm(false)}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-full max-w-sm rounded-chunky-xl border border-[#E2E8F0] bg-white p-6 shadow-card-hover"
+              className="relative z-10 w-full max-w-sm rounded-chunky-xl border border-[#E2E8F0] bg-white p-6 shadow-card-hover text-[#0F172A]"
             >
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FEF2F2] text-[#DC2626]">
@@ -926,7 +1069,7 @@ export default function Squad() {
                   <h3 className="font-display text-lg font-black text-[#0F172A]">
                     Reset Squad?
                   </h3>
-                  <p className="text-sm font-bold text-[#475569]">
+                  <p className="text-xs font-bold text-[#475569]">
                     This will clear all {sq.squad.length} selected players.
                   </p>
                 </div>
@@ -955,89 +1098,5 @@ export default function Squad() {
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-function SquadListRow({
-  player,
-  isCaptain = false,
-  isViceCaptain = false,
-  isFirstSub = false,
-  onRemove,
-  onDetail,
-}: {
-  player: PlayerRecord;
-  isCaptain?: boolean;
-  isViceCaptain?: boolean;
-  isFirstSub?: boolean;
-  onRemove: () => void;
-  onDetail: () => void;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -6 }}
-      animate={{ opacity: 1, x: 0 }}
-      className={cn(
-        "flex items-center gap-2 rounded-lg px-2 py-1.5 group transition-colors",
-        isFirstSub && "border-l-2 border-[#10B981]",
-        "hover:bg-[#F1F5F9]",
-      )}
-    >
-      <button
-        className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer text-left"
-        onClick={onDetail}
-      >
-        <PlayerAvatar
-          name={player.name}
-          photoUrl={player.photo_url}
-          size="sm"
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 truncate">
-            <span className="truncate text-xs font-black text-[#0F172A]">
-              {player.name ?? "N/A"}
-            </span>
-            {isCaptain && (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#F59E0B] text-[9px] font-black text-[#0F172A] shrink-0">
-                C
-              </span>
-            )}
-            {isViceCaptain && (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#0EA5E9] text-[9px] font-black text-white shrink-0">
-                V
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <TeamBadge
-              team={player.team}
-              logoUrl={player.team_logo_url}
-              size="sm"
-            />
-            {player.position && (
-              <span className="text-[9px] font-bold text-[#64748B]">
-                {player.position === "GKP" ? "GK" : player.position}
-              </span>
-            )}
-          </div>
-        </div>
-      </button>
-
-      <span className="numeral text-[10px] font-bold text-[#475569] hidden sm:block">
-        {formatPrice(player.value)}
-      </span>
-
-      <span className="numeral text-xs font-black text-[#92400E]">
-        {formatStat(player.predicted_total_points)}
-      </span>
-
-      <button
-        onClick={onRemove}
-        aria-label={`Remove ${player.name ?? "player"}`}
-        className="shrink-0 rounded-md p-1 text-[#64748B] opacity-0 group-hover:opacity-100 hover:bg-[#FEF2F2] hover:text-[#DC2626] transition-all cursor-pointer"
-      >
-        <Trash2 size={12} />
-      </button>
-    </motion.div>
   );
 }

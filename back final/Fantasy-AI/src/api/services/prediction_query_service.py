@@ -7,6 +7,8 @@ directly, and so the API layer stays a thin translation layer over it.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 import pandas as pd
 
@@ -221,11 +223,39 @@ def _to_native(value: object) -> object:
     return value
 
 
+def _round_prediction(value: object) -> int | None:
+    """Round a predicted points value to the nearest integer using standard half-up rounding.
+
+    Examples:
+        7.384 -> 7
+        5.921 -> 6
+        10.147 -> 10
+        10.5 -> 11
+        -10.5 -> -11
+    """
+    if _is_missing(value):
+        return None
+    try:
+        val_float = float(value)  # type: ignore[arg-type]
+        return int(
+            Decimal(str(val_float)).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
+        )
+    except (ValueError, TypeError, decimal.InvalidOperation):
+        return value  # type: ignore[return-value]
+
+
 def _row_to_dict(row: pd.Series) -> dict:
     """Convert a pandas row to a JSON-serializable dict (NaN -> None).
 
     Safely handles nested containers (like upcoming_fixtures lists) without
     raising ValueError on pandas missing-value checks.
+
+    Predicted points values (e.g. ``predicted_total_points``) are rounded
+    to nearest whole integers at this final serialization boundary, while
+    preserving internal floating-point precision in the underlying DataFrames
+    for sorting, ranking, metrics, and diagnostics.
 
     Args:
         row: The row to convert.
@@ -235,5 +265,13 @@ def _row_to_dict(row: pd.Series) -> dict:
     """
     res = {}
     for key, value in row.items():
-        res[key] = _to_native(value)
+        native_val = _to_native(value)
+        if (
+            isinstance(key, str)
+            and key.startswith("predicted_")
+            and not key.startswith("predicted_for_gw")
+        ):
+            res[key] = _round_prediction(native_val)
+        else:
+            res[key] = native_val
     return res

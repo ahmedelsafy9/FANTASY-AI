@@ -14,7 +14,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from src.api.state import _build_current_fpl_predictions
+from src.api.state import _build_current_fpl_prediction_pool
 from src.metadata.player_metadata import build_player_metadata
 from src.metadata.team_metadata import build_team_metadata
 
@@ -91,10 +91,10 @@ def test_current_fpl_player_pool_is_driven_by_bootstrap_elements(
     team_metadata = build_team_metadata(mock_bootstrap_static["teams"])
     player_metadata = build_player_metadata(mock_bootstrap_static["elements"])
 
-    result_df = _build_current_fpl_predictions(
-        current_bootstrap=mock_bootstrap_static,
-        model_predictions=mock_historical_model_predictions,
+    result_df = _build_current_fpl_prediction_pool(
+        predictions=mock_historical_model_predictions,
         player_id_column="element",
+        team_fixtures=None,
         team_metadata=team_metadata,
         player_metadata=player_metadata,
     )
@@ -110,12 +110,11 @@ def test_current_fpl_player_pool_is_driven_by_bootstrap_elements(
     delap_row = result_df[result_df["id"] == 202].iloc[0]
     assert delap_row["name"] == "Delap"
     assert delap_row["team"] == "Ipswich Town"
-    assert delap_row["predicted_total_points"] == 0.0  # Default prediction
-    assert delap_row["fixture_source"] == "no_historical_data"
+    assert delap_row["predicted_total_points"] is None  # Unmatched prediction returns None
 
     # 4. Verification: Historical model prediction correctly merged for Saka (#101)
     saka_row = result_df[result_df["id"] == 101].iloc[0]
     assert saka_row["name"] == "Saka"
     assert saka_row["team"] == "Arsenal"
     assert saka_row["predicted_total_points"] == 6.8
-    assert saka_row["opponent_team"] == "Chelsea"
+

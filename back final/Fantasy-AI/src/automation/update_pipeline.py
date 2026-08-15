@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from src.automation.data_versioning import DataVersionManager
@@ -34,6 +35,7 @@ from src.prediction.loader import load_model
 from src.training.dataset import prepare_split_dataset
 from src.training.factory import build_default_model_specs
 from src.training.persistence import save_best_model
+from src.training.promotion_scorer import compute_fpl_metrics
 from src.training.report_writer import write_comparison_report
 from src.training.trainer import ModelTrainer
 
@@ -61,6 +63,10 @@ class AutomationRunResult:
             live "best model" (only possible if ``retrain_attempted``).
         new_model_version: Version ID registered for the newly trained
             model candidate, if retraining ran.
+        promotion_reason: Human-readable explanation of the promotion
+            decision.
+        dry_run: Whether this run was in dry-run mode (no model
+            promotion or file writes for promotion).
         notes: Any additional human-readable notes about the run.
     """
 
@@ -74,6 +80,8 @@ class AutomationRunResult:
     retrain_attempted: bool = False
     retrain_promoted: bool = False
     new_model_version: str | None = None
+    promotion_reason: str = ""
+    dry_run: bool = False
     notes: list[str] = field(default_factory=list)
 
 
@@ -87,7 +95,12 @@ class AutomationOrchestrator:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def run(self, retrain: bool = False, ingest_live: bool = True) -> AutomationRunResult:
+    def run(
+        self,
+        retrain: bool = False,
+        ingest_live: bool = True,
+        dry_run: bool | None = None,
+    ) -> AutomationRunResult:
         """Run one full automation cycle.
 
         Args:
@@ -98,12 +111,20 @@ class AutomationOrchestrator:
             ingest_live: If ``True``, attempt to pull the latest
                 finished Gameweek from the live FPL API and merge it
                 into the historical dataset before reprocessing.
+            dry_run: If ``True``, evaluate everything but do not
+                promote models. Overrides settings if provided.
 
         Returns:
             AutomationRunResult: A summary of what happened.
         """
         settings = self._settings
         result = AutomationRunResult(generated_at=datetime.now(timezone.utc))
+
+        # Resolve dry_run: explicit argument > settings > False
+        is_dry_run = dry_run if dry_run is not None else settings.automation.dry_run
+        result.dry_run = is_dry_run
+        if is_dry_run:
+            logger.info("=== DRY RUN MODE — no model promotion will occur ===")
 
         raw_merged_path, team_mapping = self._refresh_historical_data(settings, ingest_live, result)
         self._version_raw_data(settings, raw_merged_path, result)
@@ -113,7 +134,7 @@ class AutomationOrchestrator:
         self._version_engineered_data(settings, engineered_path, result)
 
         if retrain:
-            self._retrain_and_maybe_promote(settings, engineered_path, result)
+            self._retrain_and_maybe_promote(settings, engineered_path, result, is_dry_run)
 
         logger.info("Automation run complete: %s", result)
         return result
@@ -155,12 +176,16 @@ class AutomationOrchestrator:
         download_dir = settings.paths.raw_data_dir / "vaastav"
 
         previous_seasons: set[str] = set()
+        rows_before = 0
         if raw_merged_path.exists():
             try:
-                previous_seasons = set(
-                    pd.read_csv(raw_merged_path, usecols=["season"], low_memory=False)[
-                        "season"
-                    ].unique()
+                existing = pd.read_csv(raw_merged_path, low_memory=False)
+                previous_seasons = set(existing["season"].unique()) if "season" in existing.columns else set()
+                rows_before = len(existing)
+                logger.info(
+                    "Existing dataset: %d rows, seasons=%s",
+                    rows_before,
+                    sorted(previous_seasons),
                 )
             except (ValueError, KeyError):
                 pass
@@ -169,6 +194,15 @@ class AutomationOrchestrator:
             download_dir=download_dir, raw_dataset_path=raw_merged_path, report_path=report_path
         )
         result.historical_data_updated = bool(set(build_result.seasons) - previous_seasons)
+
+        # Log post-build statistics
+        if raw_merged_path.exists():
+            rows_after = len(pd.read_csv(raw_merged_path, usecols=[0], low_memory=False))
+            logger.info(
+                "Post-build dataset: %d rows (delta=%+d)",
+                rows_after,
+                rows_after - rows_before,
+            )
 
         mapping_service = TeamMappingService(
             settings.paths.external_data_dir / settings.fixture_aware.team_mapping_cache_path
@@ -195,14 +229,35 @@ class AutomationOrchestrator:
             live_data = fpl_source.load(live_download_dir)
             fpl_source.validate(live_data)
 
+            # Idempotency check: detect if this GW was already ingested
+            latest_gw = live_data["GW"].iloc[0] if "GW" in live_data.columns else None
+            if latest_gw is not None and raw_merged_path.exists():
+                existing = pd.read_csv(raw_merged_path, low_memory=False)
+                if "GW" in existing.columns:
+                    existing_gws = set(existing["GW"].unique())
+                    if int(latest_gw) in existing_gws:
+                        logger.info(
+                            "GW %d already present in dataset (%d existing GWs). "
+                            "Merge will deduplicate.",
+                            int(latest_gw),
+                            len(existing_gws),
+                        )
+
             historical = pd.read_csv(raw_merged_path, low_memory=False)
+            rows_before_merge = len(historical)
             merged = append_live_gameweek(
                 historical, live_data, duplicate_key_columns=settings.validation.duplicate_key_columns
             )
             merged.to_csv(raw_merged_path, index=False)
 
-            latest_gw = live_data["GW"].iloc[0] if "GW" in live_data.columns else None
             result.live_gameweek_ingested = int(latest_gw) if latest_gw is not None else None
+            logger.info(
+                "Live merge: %d rows before, %d live rows, %d rows after (delta=%+d)",
+                rows_before_merge,
+                len(live_data),
+                len(merged),
+                len(merged) - rows_before_merge,
+            )
             result.notes.append(f"Merged {len(live_data)} live row(s) into the historical dataset.")
 
             teams = fpl_source.get_teams(live_download_dir)
@@ -315,23 +370,49 @@ class AutomationOrchestrator:
         result.engineered_data_version = entry.version_id
 
     def _retrain_and_maybe_promote(
-        self, settings: Settings, engineered_path: Path, result: AutomationRunResult
+        self,
+        settings: Settings,
+        engineered_path: Path,
+        result: AutomationRunResult,
+        dry_run: bool = False,
     ) -> None:
         """Train candidate models and promote the winner only if it's actually better.
+
+        Uses the configured promotion strategy:
+        - ``"composite"`` (default): FPL-aware multi-metric scoring.
+        - ``"primary_metric"``: Legacy single-metric comparison.
 
         Args:
             settings: Application settings.
             engineered_path: Path to the engineered dataset CSV.
             result: The in-progress run result, updated in place.
+            dry_run: If True, evaluate but do not promote.
         """
         result.retrain_attempted = True
         data = pd.read_csv(engineered_path, low_memory=False)
+
+        # Log training data diagnostics
+        if "GW" in data.columns:
+            gw_min = int(data["GW"].min())
+            gw_max = int(data["GW"].max())
+            logger.info(
+                "Training data: %d rows, GW range=[%d, %d]",
+                len(data), gw_min, gw_max,
+            )
+        if "season" in data.columns:
+            seasons = sorted(data["season"].dropna().unique())
+            logger.info("Training data seasons: %s", seasons)
 
         try:
             split = prepare_split_dataset(data, settings.training)
         except ValueError as exc:
             result.notes.append(f"Retraining skipped: could not prepare training data: {exc}")
             return
+
+        logger.info(
+            "Training split: %d train rows, %d test rows, %d features",
+            len(split.X_train), len(split.X_test), len(split.feature_columns),
+        )
 
         model_specs, skipped_models = build_default_model_specs(settings.training)
         trainer = ModelTrainer(model_specs=model_specs, settings=settings.training)
@@ -354,25 +435,65 @@ class AutomationOrchestrator:
         best_result = next(
             r for r in training_result.results if r.name == training_result.best_model_name
         )
-        new_metric = getattr(best_result.metrics, settings.training.primary_metric)
 
+        # ---------------------------------------------------------------
+        # Promotion decision
+        # ---------------------------------------------------------------
         should_promote = True
+        promotion_reason = "First model — no prior best to compare against."
+
         if best_model_path.exists() and best_metadata_path.exists():
             try:
                 current = load_model(best_model_path, best_metadata_path)
-                current_metric = current.metrics.get(settings.training.primary_metric)
-                if current_metric is not None:
-                    lower_is_better = settings.training.primary_metric in {"mae", "rmse"}
-                    improvement = (
-                        current_metric - new_metric if lower_is_better else new_metric - current_metric
+
+                if settings.training.promotion_strategy == "composite":
+                    should_promote, promotion_reason = self._composite_promotion_check(
+                        training_result, best_result, current, settings
                     )
-                    should_promote = improvement >= settings.automation.retrain_min_improvement
-                    result.notes.append(
-                        f"Candidate {settings.training.primary_metric}={new_metric:.4f} vs "
-                        f"current {current_metric:.4f} (improvement={improvement:.4f})."
+                else:
+                    should_promote, promotion_reason = self._legacy_promotion_check(
+                        best_result, current, settings
                     )
+
             except FantasyAIError:
-                should_promote = True  # No valid existing model to compare against.
+                should_promote = True
+                promotion_reason = "No valid existing model to compare against."
+
+        result.promotion_reason = promotion_reason
+        result.notes.append(f"Promotion decision: {promotion_reason}")
+
+        # ---------------------------------------------------------------
+        # Dry-run gate
+        # ---------------------------------------------------------------
+        if dry_run:
+            should_promote = False
+            result.notes.append(
+                "DRY RUN: model would have been promoted but dry-run mode prevented it."
+                if should_promote else
+                "DRY RUN: model evaluated but not promoted (dry-run mode)."
+            )
+
+        # ---------------------------------------------------------------
+        # Version and maybe promote
+        # ---------------------------------------------------------------
+        version_metadata = {
+            "model_name": training_result.best_model_name,
+            "metrics": {
+                "mae": best_result.metrics.mae,
+                "rmse": best_result.metrics.rmse,
+                "r2": best_result.metrics.r2,
+            },
+            "promotion_reason": promotion_reason,
+        }
+
+        # Add FPL metrics to version metadata if composite scoring was used
+        if training_result.composite_scores:
+            for score in training_result.composite_scores:
+                if score.model_name == best_result.name:
+                    version_metadata["fpl_metrics"] = score.fpl_metrics.to_dict()
+                    version_metadata["composite_score"] = score.composite_score
+                    version_metadata["eligible"] = score.eligible
+                    break
 
         version_manager = ModelVersionManager(
             settings.paths.models_dir / "versions",
@@ -381,14 +502,7 @@ class AutomationOrchestrator:
         entry = version_manager.register_model(
             candidate_model_path,
             candidate_metadata_path,
-            extra_metadata={
-                "model_name": training_result.best_model_name,
-                "metrics": {
-                    "mae": best_result.metrics.mae,
-                    "rmse": best_result.metrics.rmse,
-                    "r2": best_result.metrics.r2,
-                },
-            },
+            extra_metadata=version_metadata,
         )
         result.new_model_version = entry.version_id
 
@@ -399,8 +513,147 @@ class AutomationOrchestrator:
         else:
             result.notes.append(
                 f"New model version '{entry.version_id}' registered but NOT promoted "
-                "(insufficient improvement over current best)."
+                f"({promotion_reason})."
             )
 
         candidate_model_path.unlink(missing_ok=True)
         candidate_metadata_path.unlink(missing_ok=True)
+
+    def _composite_promotion_check(
+        self,
+        training_result,
+        best_result,
+        current,
+        settings: Settings,
+    ) -> tuple[bool, str]:
+        """Check whether the new model beats the current best using composite scoring.
+
+        Args:
+            training_result: Full training result with composite scores.
+            best_result: The best new candidate's ModelResult.
+            current: The currently deployed LoadedModel.
+            settings: Application settings.
+
+        Returns:
+            tuple[bool, str]: (should_promote, reason).
+        """
+        # Find the new model's composite score
+        new_composite = 0.0
+        new_fpl = None
+        for score in training_result.composite_scores:
+            if score.model_name == best_result.name:
+                new_composite = score.composite_score
+                new_fpl = score.fpl_metrics
+                break
+
+        # Compute FPL metrics for the current best model using the same test set
+        if training_result.y_test is not None and best_result.predictions is not None:
+            # Load current model and predict on the same test features
+            # We compare using the new candidate's FPL metrics vs current's known metrics
+            current_rmse = current.metrics.get("rmse")
+            current_mae = current.metrics.get("mae")
+            current_recall_6 = current.metrics.get("recall_6")
+            current_spearman = current.metrics.get("spearman_rho")
+
+            if new_fpl is not None:
+                improvements = []
+                regressions = []
+
+                if current_rmse is not None:
+                    if new_fpl.rmse < current_rmse:
+                        improvements.append(f"RMSE {current_rmse:.4f}→{new_fpl.rmse:.4f}")
+                    elif new_fpl.rmse > current_rmse:
+                        regressions.append(f"RMSE {current_rmse:.4f}→{new_fpl.rmse:.4f}")
+
+                if current_mae is not None:
+                    if new_fpl.mae < current_mae:
+                        improvements.append(f"MAE {current_mae:.4f}→{new_fpl.mae:.4f}")
+                    elif new_fpl.mae > current_mae:
+                        regressions.append(f"MAE {current_mae:.4f}→{new_fpl.mae:.4f}")
+
+                if current_recall_6 is not None:
+                    if new_fpl.recall_6 > current_recall_6:
+                        improvements.append(f"≥6recall {current_recall_6:.4f}→{new_fpl.recall_6:.4f}")
+                    elif new_fpl.recall_6 < current_recall_6:
+                        regressions.append(f"≥6recall {current_recall_6:.4f}→{new_fpl.recall_6:.4f}")
+
+                if current_spearman is not None:
+                    if new_fpl.spearman_rho > current_spearman:
+                        improvements.append(
+                            f"Spearman {current_spearman:.4f}→{new_fpl.spearman_rho:.4f}"
+                        )
+                    elif new_fpl.spearman_rho < current_spearman:
+                        regressions.append(
+                            f"Spearman {current_spearman:.4f}→{new_fpl.spearman_rho:.4f}"
+                        )
+
+                # Decision: promote if there are improvements and no critical regressions
+                # The composite score already handles this, but we need a simple yes/no
+                # Use the min_improvement threshold on composite score
+                min_improvement = settings.automation.retrain_min_improvement
+
+                # If current model has no composite score, the new one always wins
+                current_composite = current.metrics.get("composite_score", None)
+
+                if current_composite is not None:
+                    improvement = new_composite - current_composite
+                    should_promote = improvement >= min_improvement
+                    reason = (
+                        f"Composite score: {current_composite:.4f}→{new_composite:.4f} "
+                        f"(Δ={improvement:+.4f}, threshold={min_improvement}). "
+                        f"Improvements: [{', '.join(improvements) or 'none'}]. "
+                        f"Regressions: [{', '.join(regressions) or 'none'}]."
+                    )
+                else:
+                    # Current model was trained with legacy strategy — promote if new
+                    # composite score indicates improvement on key metrics
+                    should_promote = True
+                    reason = (
+                        f"Current model lacks composite score (legacy). "
+                        f"New composite={new_composite:.4f}. "
+                        f"Improvements: [{', '.join(improvements) or 'none'}]. "
+                        f"Regressions: [{', '.join(regressions) or 'none'}]."
+                    )
+
+                logger.info("Composite promotion check: %s", reason)
+                return should_promote, reason
+
+        # Fallback to legacy if composite scoring data is unavailable
+        return self._legacy_promotion_check(best_result, current, settings)
+
+    def _legacy_promotion_check(
+        self,
+        best_result,
+        current,
+        settings: Settings,
+    ) -> tuple[bool, str]:
+        """Legacy single-metric promotion check.
+
+        Args:
+            best_result: The best new candidate's ModelResult.
+            current: The currently deployed LoadedModel.
+            settings: Application settings.
+
+        Returns:
+            tuple[bool, str]: (should_promote, reason).
+        """
+        metric_name = settings.training.primary_metric
+        new_metric = getattr(best_result.metrics, metric_name)
+        current_metric = current.metrics.get(metric_name)
+
+        if current_metric is None:
+            return True, f"Current model has no {metric_name} recorded."
+
+        lower_is_better = metric_name in {"mae", "rmse"}
+        improvement = (
+            current_metric - new_metric if lower_is_better else new_metric - current_metric
+        )
+        should_promote = improvement >= settings.automation.retrain_min_improvement
+
+        reason = (
+            f"Candidate {metric_name}={new_metric:.4f} vs "
+            f"current {current_metric:.4f} "
+            f"(improvement={improvement:.4f}, "
+            f"threshold={settings.automation.retrain_min_improvement})."
+        )
+        return should_promote, reason

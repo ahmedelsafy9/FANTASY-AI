@@ -250,10 +250,16 @@ def test_run_with_retrain_does_not_promote_a_worse_model(
     first_best_bytes = best_model_path.read_bytes()
 
     # Artificially make the current best model look unbeatable by rewriting its
-    # metadata with a near-perfect MAE, then re-run retraining: it must not promote.
+    # metadata with near-perfect metrics, then re-run retraining: it must not promote.
     best_metadata_path = isolated_settings.paths.models_dir / "best_model_metadata.json"
     metadata = json.loads(best_metadata_path.read_text())
     metadata["metrics"]["mae"] = 0.0000001
+    metadata["metrics"]["rmse"] = 0.0000001
+    metadata["metrics"]["spearman_rho"] = 0.9999
+    metadata["metrics"]["recall_6"] = 0.9999
+    metadata["metrics"]["recall_10"] = 0.9999
+    metadata["metrics"]["precision_6"] = 0.9999
+    metadata["metrics"]["composite_score"] = 0.9999
     best_metadata_path.write_text(json.dumps(metadata))
 
     result = orchestrator.run(retrain=True, ingest_live=False)

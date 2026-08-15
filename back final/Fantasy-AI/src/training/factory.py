@@ -89,4 +89,36 @@ def build_default_model_specs(
         logger.warning("Skipping LightGBM: %s", reason)
         skipped["lightgbm"] = reason
 
+    try:
+        import torch  # noqa: F401 — presence check only
+
+        from src.training.deep_learning import DeepLearningConfig, TabularMLPRegressor
+
+        dl_config = DeepLearningConfig(
+            hidden_layers=settings.dl_hidden_layers,
+            dropout=settings.dl_dropout,
+            learning_rate=settings.dl_learning_rate,
+            weight_decay=settings.dl_weight_decay,
+            batch_size=settings.dl_batch_size,
+            epochs=settings.dl_epochs,
+            patience=settings.dl_patience,
+            use_batch_norm=settings.dl_use_batch_norm,
+            loss_beta=settings.dl_loss_beta,
+            high_score_weight_power=settings.dl_high_score_weight_power,
+            use_discrete_sample_weights=settings.dl_use_discrete_sample_weights,
+            random_state=settings.random_state,
+        )
+
+        specs.append(
+            ModelSpec(
+                name="deep_learning_weighted_huber",
+                build=lambda: TabularMLPRegressor(config=dl_config),
+            )
+        )
+    except ImportError as exc:
+        reason = f"torch (PyTorch) is not installed ({exc})."
+        logger.warning("Skipping Deep Learning: %s", reason)
+        skipped["deep_learning_weighted_huber"] = reason
+
     return specs, skipped
+

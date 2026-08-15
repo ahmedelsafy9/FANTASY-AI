@@ -24,6 +24,14 @@ def write_comparison_report(result: TrainingResult, report_path: Path) -> None:
 
     sorted_results = sorted(result.results, key=lambda r: r.metrics.mae)
 
+    # Build a lookup from model name to composite scores (if available)
+    composite_lookup: dict = {}
+    if result.composite_scores:
+        for score in result.composite_scores:
+            composite_lookup[score.model_name] = score
+
+    has_composite = bool(composite_lookup)
+
     lines: list[str] = [
         "# Fantasy-AI — Machine Learning Baseline Comparison Report",
         "",
@@ -36,16 +44,57 @@ def write_comparison_report(result: TrainingResult, report_path: Path) -> None:
         "",
         "## Model Comparison",
         "",
-        "| Model | MAE ↓ | RMSE ↓ | R² ↑ | Train Time (s) |",
-        "|-------|-------|--------|------|----------------|",
     ]
+
+    if has_composite:
+        lines.append(
+            "| Model | MAE ↓ | RMSE ↓ | R² ↑ | Spearman ρ ↑ | ≥6 Recall ↑ | ≥10 Recall ↑ "
+            "| ≥6 Precision ↑ | Composite ↑ | Train Time (s) |"
+        )
+        lines.append(
+            "|-------|-------|--------|------|-------------|-------------|-------------|"
+            "---------------|-------------|----------------|"
+        )
+    else:
+        lines.append("| Model | MAE ↓ | RMSE ↓ | R² ↑ | Train Time (s) |")
+        lines.append("|-------|-------|--------|------|----------------|")
+
     for model_result in sorted_results:
         marker = " 🏆" if model_result.name == result.best_model_name else ""
-        lines.append(
-            f"| {model_result.name}{marker} | {model_result.metrics.mae:.4f} | "
-            f"{model_result.metrics.rmse:.4f} | {model_result.metrics.r2:.4f} | "
-            f"{model_result.train_seconds:.2f} |"
-        )
+        if has_composite and model_result.name in composite_lookup:
+            cs = composite_lookup[model_result.name]
+            fm = cs.fpl_metrics
+            eligible_marker = "" if cs.eligible else " ⛔"
+            lines.append(
+                f"| {model_result.name}{marker}{eligible_marker} "
+                f"| {model_result.metrics.mae:.4f} "
+                f"| {model_result.metrics.rmse:.4f} "
+                f"| {model_result.metrics.r2:.4f} "
+                f"| {fm.spearman_rho:.4f} "
+                f"| {fm.recall_6:.4f} "
+                f"| {fm.recall_10:.4f} "
+                f"| {fm.precision_6:.4f} "
+                f"| {cs.composite_score:.4f} "
+                f"| {model_result.train_seconds:.2f} |"
+            )
+        else:
+            lines.append(
+                f"| {model_result.name}{marker} | {model_result.metrics.mae:.4f} | "
+                f"{model_result.metrics.rmse:.4f} | {model_result.metrics.r2:.4f} | "
+                f"{model_result.train_seconds:.2f} |"
+            )
+
+    if has_composite:
+        # Add gate failure details
+        gate_failures = [
+            (score.model_name, score.gate_failures)
+            for score in result.composite_scores
+            if score.gate_failures
+        ]
+        if gate_failures:
+            lines += ["", "### Eligibility Gate Failures", ""]
+            for name, failures in gate_failures:
+                lines.append(f"- **{name}**: {', '.join(failures)}")
 
     if result.skipped_models:
         lines += ["", "## Skipped Models", "", "| Model | Reason |", "|-------|--------|"]

@@ -44,6 +44,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Skip pulling the latest Gameweek from the live FPL API; refresh "
         "historical data only.",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run the full pipeline including retraining, but do NOT promote "
+        "the new model to best_model. Useful for validating the pipeline "
+        "without affecting production.",
+    )
     return parser.parse_args(argv)
 
 
@@ -63,19 +70,27 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
 
     orchestrator = AutomationOrchestrator(settings)
-    result = orchestrator.run(retrain=args.retrain, ingest_live=not args.no_live)
+    result = orchestrator.run(
+        retrain=args.retrain,
+        ingest_live=not args.no_live,
+        dry_run=args.dry_run,
+    )
 
     logger.info("=== Automation Run Summary ===")
     logger.info("Historical data updated: %s", result.historical_data_updated)
     logger.info("Live Gameweek ingested: %s", result.live_gameweek_ingested)
     logger.info("Raw data version: %s (changed=%s)", result.raw_data_version, result.raw_data_changed)
     logger.info("Engineered data version: %s", result.engineered_data_version)
+    if result.dry_run:
+        logger.info("Mode: DRY RUN (no promotion)")
     if result.retrain_attempted:
         logger.info(
             "Retrain: attempted=True, promoted=%s, new_version=%s",
             result.retrain_promoted,
             result.new_model_version,
         )
+        if result.promotion_reason:
+            logger.info("Promotion reason: %s", result.promotion_reason)
     for note in result.notes:
         logger.info("Note: %s", note)
 

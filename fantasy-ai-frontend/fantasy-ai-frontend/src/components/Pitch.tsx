@@ -10,29 +10,117 @@ export function Pitch({ children, className }: PitchProps) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-chunky-xl border-4 border-pitch-dark pitch-surface shadow-card-hover",
+        "relative overflow-hidden rounded-2xl border-4 border-[#0F5124] pitch-surface shadow-2xl transition-all",
         className,
       )}
     >
-      {/* Pitch markings */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        {/* Border */}
-        <div className="absolute inset-4 rounded-chunky-lg border-2 border-white/35" />
-        {/* Halfway line */}
-        <div className="absolute left-4 right-4 top-1/2 h-0.5 bg-white/35" />
-        {/* Center circle */}
-        <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/35 sm:h-28 sm:w-28" />
-        {/* Center dot */}
-        <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45" />
-        {/* Top penalty area */}
-        <div className="absolute left-1/2 top-4 h-[18%] w-[42%] -translate-x-1/2 border-b-2 border-l-2 border-r-2 border-white/30 sm:w-[36%]" />
-        {/* Bottom penalty area */}
-        <div className="absolute bottom-4 left-1/2 h-[18%] w-[42%] -translate-x-1/2 border-l-2 border-r-2 border-t-2 border-white/30 sm:w-[36%]" />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-black/20" />
-      </div>
+      {/* SVG Pitch Markings Overlay */}
+      <svg
+        className="absolute inset-0 h-full w-full pointer-events-none opacity-80"
+        viewBox="0 0 400 600"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {/* Outer Boundary Line */}
+        <rect
+          x="16"
+          y="16"
+          width="368"
+          height="568"
+          rx="6"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="2.5"
+        />
 
-      {/* Formation content */}
-      <div className="relative z-10 flex flex-col gap-4 px-4 py-6 sm:gap-6 sm:px-8 sm:py-8">
+        {/* Halfway Line */}
+        <line
+          x1="16"
+          y1="300"
+          x2="384"
+          y2="300"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+        />
+
+        {/* Centre Circle */}
+        <circle
+          cx="200"
+          cy="300"
+          r="48"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+        />
+        {/* Centre Spot */}
+        <circle cx="200" cy="300" r="3.5" fill="#FFFFFF" />
+
+        {/* Top Goal Area & Penalty Box */}
+        <rect
+          x="100"
+          y="16"
+          width="200"
+          height="95"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+        />
+        <rect
+          x="145"
+          y="16"
+          width="110"
+          height="35"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+        />
+        <circle cx="200" cy="78" r="3" fill="#FFFFFF" />
+        <path
+          d="M 160 111 A 45 45 0 0 0 240 111"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+        />
+
+        {/* Bottom Goal Area & Penalty Box */}
+        <rect
+          x="100"
+          y="489"
+          width="200"
+          height="95"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+        />
+        <rect
+          x="145"
+          y="549"
+          width="110"
+          height="35"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+        />
+        <circle cx="200" cy="522" r="3" fill="#FFFFFF" />
+        <path
+          d="M 160 489 A 45 45 0 0 1 240 489"
+          fill="none"
+          stroke="#FFFFFF"
+          strokeWidth="2"
+        />
+
+        {/* Corner Arcs */}
+        <path d="M 16 32 A 16 16 0 0 0 32 16" fill="none" stroke="#FFFFFF" strokeWidth="2" />
+        <path d="M 368 16 A 16 16 0 0 0 384 32" fill="none" stroke="#FFFFFF" strokeWidth="2" />
+        <path d="M 16 568 A 16 16 0 0 1 32 584" fill="none" stroke="#FFFFFF" strokeWidth="2" />
+        <path d="M 368 584 A 16 16 0 0 1 384 568" fill="none" stroke="#FFFFFF" strokeWidth="2" />
+      </svg>
+
+      {/* Subtle Vignette Gradient for Depth */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/25 pointer-events-none" />
+
+      {/* Formation Content */}
+      <div className="relative z-10 flex flex-col justify-between py-6 px-2 sm:px-6 min-h-[500px] sm:min-h-[580px]">
         {children}
       </div>
     </div>
