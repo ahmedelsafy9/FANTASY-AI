@@ -1,7 +1,9 @@
+import React, { useState } from "react";
 import { X, Plus, ArrowUpDown } from "lucide-react";
 import type { PlayerRecord } from "@/types/api";
 import { PlayerAvatar, TeamBadge } from "@/components/identity";
-import { formatPrice, formatStat } from "@/lib/format";
+import { formatPrice, formatInt } from "@/lib/format";
+import { normalizePosition } from "@/hooks/useSquad";
 import { cn } from "@/lib/utils";
 
 interface PlayerTokenProps {
@@ -13,9 +15,16 @@ interface PlayerTokenProps {
   isSelected?: boolean;
   isValidSwapTarget?: boolean;
   isInvalidSwapTarget?: boolean;
+  isDragging?: boolean;
+  isDragTarget?: boolean;
   onClick?: () => void;
   onRemove?: () => void;
   onQuickSwap?: () => void;
+  onDragStart?: (e: React.DragEvent, player: PlayerRecord) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent, targetPlayer: PlayerRecord) => void;
   className?: string;
 }
 
@@ -28,11 +37,20 @@ export function PlayerToken({
   isSelected = false,
   isValidSwapTarget = false,
   isInvalidSwapTarget = false,
+  isDragging = false,
+  isDragTarget = false,
   onClick,
   onRemove,
   onQuickSwap,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragLeave,
+  onDrop,
   className,
 }: PlayerTokenProps) {
+  const [isHovered, setIsHovered] = useState(false);
+
   const displayName = player.name
     ? player.name.length > 12
       ? player.name.split(/[.\s]/).pop() ?? player.name.slice(0, 10)
@@ -40,12 +58,34 @@ export function PlayerToken({
     : "N/A";
 
   const price = getRawPrice(player);
+  const pos = normalizePosition(player.position);
+  const posLabel = pos === "GKP" ? "GK" : pos;
 
   return (
     <div
+      draggable={!isInvalidSwapTarget}
+      onDragStart={(e) => {
+        if (onDragStart) {
+          onDragStart(e, player);
+        }
+      }}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (onDragOver) onDragOver(e);
+      }}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (onDrop) onDrop(e, player);
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={cn(
-        "group relative flex flex-col items-center gap-1 focus:outline-none cursor-pointer select-none transition-all duration-150",
-        isInvalidSwapTarget && "opacity-40 grayscale pointer-events-auto cursor-not-allowed",
+        "group relative flex flex-col items-center gap-1 focus:outline-none cursor-grab active:cursor-grabbing select-none transition-all duration-150",
+        isDragging && "opacity-40 scale-95",
+        isDragTarget && "scale-110 z-30 ring-4 ring-amber-400 rounded-2xl shadow-glow-gold",
+        isInvalidSwapTarget && "opacity-35 grayscale pointer-events-auto cursor-not-allowed",
         isSelected && "z-30 scale-105",
         isValidSwapTarget && "z-20",
         className,
@@ -72,7 +112,7 @@ export function PlayerToken({
       >
         {/* Selected Badge */}
         {isSelected && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 rounded-full bg-emerald-500 px-2 py-0.5 text-[8px] font-black uppercase text-white shadow-md border border-white tracking-wider animate-pulse">
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 rounded-full bg-emerald-500 px-2 py-0.5 text-[8px] font-black uppercase text-white shadow-md border border-white tracking-wider animate-pulse whitespace-nowrap">
             SELECTED
           </div>
         )}
@@ -96,7 +136,7 @@ export function PlayerToken({
         {isCaptain && !isSelected && (
           <div
             className="absolute -left-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-[11px] font-black text-slate-950 shadow-md border-2 border-white animate-bounce-sm"
-            title="Captain (2x Points)"
+            title="Captain (2× Points)"
           >
             C
           </div>
@@ -112,7 +152,7 @@ export function PlayerToken({
           </div>
         )}
 
-        {/* Remove Button (Top-Right) - only show when not in active swap selection */}
+        {/* Remove Button (Top-Right) */}
         {onRemove && !isSelected && !isValidSwapTarget && (
           <button
             type="button"
@@ -121,7 +161,10 @@ export function PlayerToken({
               onRemove();
             }}
             title={`Remove ${player.name ?? "player"} from squad`}
-            className="absolute -right-2 -top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-md border-2 border-white hover:bg-red-700 hover:scale-110 active:scale-90 transition-all cursor-pointer"
+            className={cn(
+              "absolute -right-2 -top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-md border-2 border-white hover:bg-red-700 hover:scale-110 active:scale-90 transition-all cursor-pointer",
+              isHovered ? "opacity-100" : "opacity-0 sm:opacity-0",
+            )}
           >
             <X size={13} strokeWidth={3} />
           </button>
@@ -136,7 +179,7 @@ export function PlayerToken({
               if (onQuickSwap) onQuickSwap();
               else if (onClick) onClick();
             }}
-            className="absolute -bottom-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black uppercase text-white shadow-lg border border-white hover:bg-emerald-500 hover:scale-110 active:scale-95 transition-all cursor-pointer"
+            className="absolute -bottom-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black uppercase text-white shadow-lg border border-white hover:bg-emerald-500 hover:scale-110 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
             title="Click to swap with selected player"
           >
             <ArrowUpDown size={10} strokeWidth={3} />
@@ -152,19 +195,21 @@ export function PlayerToken({
         )}
       </div>
 
-      {/* Name Pill */}
+      {/* Name Pill with Position Chip */}
       <button
+        type="button"
         onClick={onClick}
         className={cn(
-          "mt-0.5 max-w-[96px] truncate rounded bg-white px-2 py-0.5 text-center font-display text-[11px] font-black text-slate-900 shadow-sm border border-slate-200 transition-colors hover:bg-slate-50 cursor-pointer",
+          "mt-0.5 max-w-[100px] truncate rounded bg-white px-2 py-0.5 text-center font-display text-[11px] font-black text-slate-900 shadow-sm border border-slate-200 transition-colors hover:bg-slate-50 cursor-pointer flex items-center justify-center gap-1",
           isSelected && "bg-emerald-100 text-emerald-950 border-emerald-400 font-extrabold",
           isValidSwapTarget && "bg-amber-100 text-amber-950 border-amber-400 font-extrabold",
         )}
       >
-        {displayName}
+        <span className="truncate">{displayName}</span>
+        <span className="text-[8px] font-bold text-slate-500 shrink-0">({posLabel})</span>
       </button>
 
-      {/* Stats Bar (Price + AI Points) */}
+      {/* Stats Bar (Price + AI Points as whole integer) */}
       <div
         onClick={onClick}
         className="flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-950/95 px-2.5 py-0.5 shadow-md hover:bg-slate-900 transition-colors cursor-pointer"
@@ -174,7 +219,7 @@ export function PlayerToken({
         </span>
         <span className="text-[9px] text-slate-600">•</span>
         <span className="numeral text-[10px] font-black text-amber-400">
-          {formatStat(player.predicted_total_points)}
+          {formatInt(player.predicted_total_points)} xP
         </span>
       </div>
     </div>
@@ -193,19 +238,34 @@ interface EmptySlotProps {
   isHighlightTarget?: boolean;
   targetBadgeLabel?: string;
   onClick?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
   className?: string;
 }
 
 export function EmptySlot({
   label,
   isHighlightTarget = false,
-  targetBadgeLabel = "MOVE TO XI",
+  targetBadgeLabel = "MOVE HERE",
   onClick,
+  onDragOver,
+  onDragLeave,
+  onDrop,
   className,
 }: EmptySlotProps) {
   return (
     <button
       onClick={onClick}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (onDragOver) onDragOver(e);
+      }}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => {
+        e.preventDefault();
+        if (onDrop) onDrop(e);
+      }}
       type="button"
       title={`Click to select a ${label} player`}
       className={cn(

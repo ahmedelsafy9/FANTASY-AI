@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, ShieldAlert, Mail, Info, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -81,7 +81,7 @@ export function LoginModal() {
     setAuthError(null);
   }, [isLoginModalOpen]);
 
-  const handleTestSubmit = (e: React.FormEvent) => {
+  const handleTestSubmit = (e: FormEvent) => {
     e.preventDefault();
     setAuthError(null);
     const email = testEmail.trim().toLowerCase();
