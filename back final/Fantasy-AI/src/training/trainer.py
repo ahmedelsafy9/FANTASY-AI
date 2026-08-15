@@ -5,6 +5,8 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 
+import numpy as np
+
 from src.config.logging_config import get_logger
 from src.config.settings import TrainingSettings
 from src.training.dataset import SplitDataset
@@ -170,6 +172,7 @@ class ModelTrainer:
                         model=model,
                         metrics=metrics,
                         train_seconds=train_seconds,
+                        predictions=np.asarray(predictions).ravel(),
                     )
                 )
 
@@ -210,12 +213,20 @@ class ModelTrainer:
         # Select best model
         # -----------------------------------------------------------
 
-        best = self._select_best(results)
+        y_test_arr = split.y_test.to_numpy()
+        composite_scores = []
+
+        if self._settings.promotion_strategy == "composite":
+            best, composite_scores = self._select_best_composite(
+                results, y_test_arr
+            )
+        else:
+            best = self._select_best_legacy(results)
 
         logger.info(
-            "Selected best model '%s' using primary metric '%s'.",
+            "Selected best model '%s' (strategy='%s').",
             best.name,
-            self._settings.primary_metric,
+            self._settings.promotion_strategy,
         )
 
         # -----------------------------------------------------------
@@ -231,13 +242,52 @@ class ModelTrainer:
             results=results,
             best_model_name=best.name,
             skipped_models=skipped_models,
+            y_test=y_test_arr,
+            composite_scores=composite_scores,
         )
 
-    def _select_best(
+    def _select_best_composite(
+        self,
+        results: list[ModelResult],
+        y_test: np.ndarray,
+    ) -> tuple[ModelResult, list]:
+        """Select the best model using FPL-aware composite scoring.
+
+        Args:
+            results: Successfully trained model results.
+            y_test: Ground-truth test targets.
+
+        Returns:
+            tuple[ModelResult, list]: The best model and all composite
+            scores.
+        """
+        from src.training.promotion_scorer import select_best_model_fpl
+
+        logger.info(
+            "Selecting best model using composite FPL scoring..."
+        )
+
+        candidate_names = [r.name for r in results]
+        candidate_predictions = [r.predictions for r in results]
+
+        best_idx, all_scores = select_best_model_fpl(
+            candidate_names=candidate_names,
+            candidate_predictions=candidate_predictions,
+            y_test=y_test,
+            weights=self._settings.promotion_metric_weights,
+            gates=self._settings.promotion_gates,
+        )
+
+        return results[best_idx], all_scores
+
+    def _select_best_legacy(
         self,
         results: list[ModelResult],
     ) -> ModelResult:
-        """Select the best model according to the configured metric.
+        """Select the best model according to the configured primary metric.
+
+        This is the legacy single-metric selection, preserved for
+        backward compatibility.
 
         Args:
             results: Successfully trained model results.

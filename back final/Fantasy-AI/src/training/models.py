@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable
 
+import numpy as np
+
 
 @dataclass(frozen=True)
 class RegressionMetrics:
@@ -51,12 +53,15 @@ class ModelResult:
         model: The fitted estimator.
         metrics: Evaluation metrics computed on the held-out test set.
         train_seconds: Wall-clock time spent fitting the model.
+        predictions: Raw predictions on the test set (stored for
+            composite scoring at promotion time).
     """
 
     name: str
     model: Any = field(repr=False)
     metrics: RegressionMetrics
     train_seconds: float
+    predictions: np.ndarray = field(default=None, repr=False)
 
 
 @dataclass
@@ -75,9 +80,13 @@ class TrainingResult:
             successfully trained (a model whose library is not
             installed is skipped, not failed).
         best_model_name: Name of the model selected as best, according
-            to the configured primary metric.
+            to the configured promotion strategy.
         skipped_models: Names of models that could not be trained
             (e.g. their library is not installed), with a reason.
+        y_test: Ground-truth test targets, stored for FPL-aware
+            composite scoring at promotion time.
+        composite_scores: Per-model composite scoring breakdown,
+            populated when ``promotion_strategy="composite"`` is used.
     """
 
     generated_at: datetime
@@ -88,3 +97,6 @@ class TrainingResult:
     results: list[ModelResult] = field(default_factory=list)
     best_model_name: str = ""
     skipped_models: dict[str, str] = field(default_factory=dict)
+    y_test: np.ndarray = field(default=None, repr=False)
+    composite_scores: list[Any] = field(default_factory=list)
+

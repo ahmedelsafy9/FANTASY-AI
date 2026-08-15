@@ -51,7 +51,7 @@ def save_best_model(
         model_path,
     )
 
-    metadata = {
+    metadata: dict = {
         "model_name": best_result.name,
         "generated_at": result.generated_at.isoformat(),
         "target_column": result.target_column,
@@ -65,6 +65,21 @@ def save_best_model(
             "r2": best_result.metrics.r2,
         },
     }
+
+    # Add FPL-specific metrics if composite scoring was used
+    if result.composite_scores:
+        for score in result.composite_scores:
+            if score.model_name == best_result.name:
+                fpl_dict = score.fpl_metrics.to_dict()
+                metadata["metrics"]["spearman_rho"] = fpl_dict.get("spearman_rho", 0.0)
+                metadata["metrics"]["recall_6"] = fpl_dict.get("recall_6", 0.0)
+                metadata["metrics"]["recall_10"] = fpl_dict.get("recall_10", 0.0)
+                metadata["metrics"]["precision_6"] = fpl_dict.get("precision_6", 0.0)
+                metadata["metrics"]["top_20_recall"] = fpl_dict.get("top_20_recall", 0.0)
+                metadata["composite_score"] = score.composite_score
+                metadata["promotion_strategy"] = "composite"
+                break
+
     ensure_directory(metadata_path.parent)
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     logger.info("Saved model metadata to %s.", metadata_path)

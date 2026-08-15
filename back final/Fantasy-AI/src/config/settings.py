@@ -76,6 +76,40 @@ def _env_int(var_name: str, default: int) -> int:
         return default
 
 
+def _parse_weight_str(raw: str) -> dict[str, float]:
+    """Parse a weight configuration string like ``"rmse:0.25,mae:0.15"``."""
+    result: dict[str, float] = {}
+    for pair in raw.split(","):
+        pair = pair.strip()
+        if ":" not in pair:
+            continue
+        parts = pair.split(":", 1)
+        try:
+            result[parts[0].strip()] = float(parts[1].strip())
+        except (ValueError, IndexError):
+            continue
+    return result
+
+
+def _parse_gate_str(raw: str) -> dict[str, tuple[str, float]]:
+    """Parse a gate configuration string like ``"rmse:<=:3.0,recall_6:>=:0.05"``."""
+    result: dict[str, tuple[str, float]] = {}
+    for entry in raw.split(","):
+        entry = entry.strip()
+        parts = entry.split(":")
+        if len(parts) != 3:
+            continue
+        try:
+            metric = parts[0].strip()
+            op = parts[1].strip()
+            threshold = float(parts[2].strip())
+            if op in ("<=", ">="):
+                result[metric] = (op, threshold)
+        except (ValueError, IndexError):
+            continue
+    return result
+
+
 @dataclass(frozen=True)
 class Paths:
     """Filesystem layout of the project.
@@ -567,6 +601,46 @@ class TrainingSettings:
         ).lower() == "true"
     )
 
+    # Model promotion strategy
+    #
+    # "composite" (default): Uses a weighted combination of RMSE, MAE,
+    #     Spearman correlation, >=6 recall, >=10 recall, and >=6 precision.
+    #     This ensures models are evaluated on accuracy AND ranking/
+    #     high-score detection, which is critical for FPL.
+    # "primary_metric" (legacy): Uses only the single metric specified
+    #     by ``primary_metric`` above (backward compatible).
+    promotion_strategy: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_PROMOTION_STRATEGY", "composite"
+        )
+    )
+
+    # Composite promotion metric weights.
+    # Keys: rmse, mae, spearman_rho, recall_6, recall_10, precision_6
+    # Values: relative weight (will be normalized internally).
+    # Set via env var as "rmse:0.25,mae:0.15,..."
+    promotion_metric_weights: dict[str, float] = field(
+        default_factory=lambda: _parse_weight_str(
+            _env_str(
+                "FANTASY_AI_PROMOTION_WEIGHTS",
+                "rmse:0.25,mae:0.15,spearman_rho:0.20,"
+                "recall_6:0.20,recall_10:0.10,precision_6:0.10",
+            )
+        )
+    )
+
+    # Eligibility gates for promotion.
+    # A model failing any gate is ineligible regardless of composite score.
+    # Set via env var as "rmse:<=:3.0,recall_6:>=:0.05"
+    promotion_gates: dict[str, tuple[str, float]] = field(
+        default_factory=lambda: _parse_gate_str(
+            _env_str(
+                "FANTASY_AI_PROMOTION_GATES",
+                "rmse:<=:3.0,recall_6:>=:0.05",
+            )
+        )
+    )
+
 
 @dataclass(frozen=True)
 class PredictionSettings:
@@ -633,6 +707,11 @@ class AutomationSettings:
     )
     fpl_api_fixtures_path: str = field(
         default_factory=lambda: _env_str("FANTASY_AI_FPL_FIXTURES_PATH", "fixtures/")
+    )
+    dry_run: bool = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_DRY_RUN", "false"
+        ).lower() == "true"
     )
 
 

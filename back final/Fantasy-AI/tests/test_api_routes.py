@@ -257,3 +257,50 @@ def test_predict_and_player_routes_with_nested_list_columns(client: TestClient) 
     assert res_player.json()["data"]["name"] == "Salah"
 
 
+def test_api_responses_contain_integer_predictions(client: TestClient) -> None:
+    """All prediction endpoints must return integer predicted points (e.g. 9.2 -> 9, 6.5 -> 7)."""
+    # 1. /predict (full list)
+    res_predict = client.get("/predict")
+    assert res_predict.status_code == 200
+    predictions = res_predict.json()["predictions"]
+    # Haaland was 9.2 -> 9, BenchWarmer was 8.0 -> 8, Salah was 6.5 -> 7, Kane was 5.1 -> 5
+    haaland = next(p for p in predictions if p["name"] == "Haaland")
+    salah = next(p for p in predictions if p["name"] == "Salah")
+    assert haaland["predicted_total_points"] == 9
+    assert isinstance(haaland["predicted_total_points"], int)
+    assert salah["predicted_total_points"] == 7
+    assert isinstance(salah["predicted_total_points"], int)
+
+    # 2. /predict?player_id=2 (single player)
+    res_single = client.get("/predict?player_id=2")
+    assert res_single.status_code == 200
+    assert res_single.json()["predictions"][0]["predicted_total_points"] == 9
+    assert isinstance(res_single.json()["predictions"][0]["predicted_total_points"], int)
+
+    # 3. /top_players
+    res_top = client.get("/top_players?limit=2")
+    assert res_top.status_code == 200
+    top_players = res_top.json()["predictions"]
+    assert top_players[0]["predicted_total_points"] == 9
+    assert isinstance(top_players[0]["predicted_total_points"], int)
+    assert top_players[1]["predicted_total_points"] == 8
+    assert isinstance(top_players[1]["predicted_total_points"], int)
+
+    # 4. /captain
+    res_cap = client.get("/captain")
+    assert res_cap.status_code == 200
+    captain_rec = res_cap.json()["recommendation"]
+    assert captain_rec["predicted_total_points"] == 9
+    assert isinstance(captain_rec["predicted_total_points"], int)
+
+    # 5. /player/{id}
+    res_player = client.get("/player/2")
+    assert res_player.status_code == 200
+    player_data = res_player.json()["data"]
+    assert player_data["predicted_total_points"] == 9
+    assert isinstance(player_data["predicted_total_points"], int)
+    # Actual FPL points must remain unchanged
+    assert player_data["total_points"] == 11
+
+
+
