@@ -148,13 +148,65 @@ def test_cors_production_multiple_origins_and_whitespace(monkeypatch: pytest.Mon
 
 
 def test_cors_roosters_frontend_origin_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The deployed frontend domain https://fantasy-ai-roosters.vercel.app must be allowed."""
+    """The deployed production domain https://fantasy-ai-roosters.vercel.app must be allowed."""
     monkeypatch.setenv("FANTASY_AI_ENV", "production")
     monkeypatch.delenv("FANTASY_AI_CORS_ORIGINS", raising=False)
     client = _build_client()
 
     response = client.get("/", headers={"Origin": "https://fantasy-ai-roosters.vercel.app"})
     assert response.headers.get("access-control-allow-origin") == "https://fantasy-ai-roosters.vercel.app"
+
+
+def test_cors_vercel_preview_origin_allowed_in_production(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vercel preview deployment URLs (https://*.vercel.app) must be allowed via regex in production."""
+    monkeypatch.setenv("FANTASY_AI_ENV", "production")
+    client = _build_client()
+
+    preview_origin = "https://fantasy-ai-9qkn-pr2gagmsn-ahmedelsafy9s-projects.vercel.app"
+    response = client.get("/top_players", headers={"Origin": preview_origin})
+    assert response.headers.get("access-control-allow-origin") == preview_origin
+
+    another_preview = "https://branch-preview-42.vercel.app"
+    response2 = client.get("/", headers={"Origin": another_preview})
+    assert response2.headers.get("access-control-allow-origin") == another_preview
+
+
+def test_cors_vercel_preview_options_preflight(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Preflight OPTIONS request from a Vercel preview origin must succeed with CORS headers."""
+    monkeypatch.setenv("FANTASY_AI_ENV", "production")
+    client = _build_client()
+
+    preview_origin = "https://fantasy-ai-9qkn-pr2gagmsn-ahmedelsafy9s-projects.vercel.app"
+    response = client.options(
+        "/top_players?limit=3",
+        headers={
+            "Origin": preview_origin,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Content-Type,Authorization",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == preview_origin
+    allowed_methods = response.headers.get("access-control-allow-methods", "")
+    assert "GET" in allowed_methods
+    assert "OPTIONS" in allowed_methods
+
+
+def test_cors_rejects_malicious_domains_spoofing_vercel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Domains that try to mimic vercel.app must be strictly rejected."""
+    monkeypatch.setenv("FANTASY_AI_ENV", "production")
+    client = _build_client()
+
+    spoofed_origins = [
+        "https://evil-vercel.app",
+        "https://vercel.app.attacker.com",
+        "http://insecure-preview.vercel.app",  # HTTP instead of HTTPS
+        "https://fakevercel.app",
+        "https://evil.com",
+    ]
+    for origin in spoofed_origins:
+        response = client.get("/", headers={"Origin": origin})
+        assert "access-control-allow-origin" not in {k.lower() for k in response.headers}
 
 
 def test_cors_does_not_allow_credentials_by_default(client: TestClient) -> None:

@@ -278,11 +278,11 @@ def create_app() -> FastAPI:
 
     if is_production:
         allowed_origins = list(settings.api.cors_allowed_origins)
-        if not allowed_origins:
+        if not allowed_origins and not settings.api.cors_allow_origin_regex:
             logger.warning(
-                "FANTASY_AI_ENV=production but FANTASY_AI_CORS_ORIGINS is not set — "
-                "no browser origin will be able to call this API. Set it to your "
-                "production frontend origin(s), comma-separated."
+                "FANTASY_AI_ENV=production but neither FANTASY_AI_CORS_ORIGINS nor "
+                "FANTASY_AI_CORS_ORIGIN_REGEX is configured — no browser origin will "
+                "be able to call this API."
             )
     else:
         # Development: default local dev origins + any configured origins
@@ -293,6 +293,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
+        allow_origin_regex=settings.api.cors_allow_origin_regex,
         allow_credentials=settings.api.cors_allow_credentials,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],

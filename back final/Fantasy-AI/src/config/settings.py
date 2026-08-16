@@ -57,6 +57,15 @@ def _env_str(var_name: str, default: str) -> str:
     return os.environ.get(var_name, default)
 
 
+def _env_optional_str(var_name: str, default: str | None = None) -> str | None:
+    """Resolve an optional string setting, allowing environment override."""
+    raw = os.environ.get(var_name)
+    if raw is None:
+        return default
+    val = raw.strip()
+    return val if val else None
+
+
 def _env_int(var_name: str, default: int) -> int:
     """Resolve an integer setting, allowing environment override.
 
@@ -685,6 +694,12 @@ class ApiSettings:
         default_factory=lambda: _env_tuple(
             "FANTASY_AI_CORS_ORIGINS",
             "https://fantasy-ai-roosters.vercel.app",
+        )
+    )
+    cors_allow_origin_regex: str | None = field(
+        default_factory=lambda: _env_optional_str(
+            "FANTASY_AI_CORS_ORIGIN_REGEX",
+            r"^https://.*\.vercel\.app$",
         )
     )
     cors_allow_credentials: bool = field(
