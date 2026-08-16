@@ -171,14 +171,47 @@ def test_cors_vercel_preview_origin_allowed_in_production(monkeypatch: pytest.Mo
     assert response2.headers.get("access-control-allow-origin") == another_preview
 
 
-def test_cors_vercel_preview_options_preflight(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Preflight OPTIONS request from a Vercel preview origin must succeed with CORS headers."""
+def test_cors_predict_from_production_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GET /predict from the production Vercel origin must receive CORS headers."""
+    monkeypatch.setenv("FANTASY_AI_ENV", "production")
+    client = _build_client()
+
+    response = client.get("/predict", headers={"Origin": "https://fantasy-ai-roosters.vercel.app"})
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://fantasy-ai-roosters.vercel.app"
+
+
+def test_cors_predict_and_endpoints_from_vercel_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GET /predict, GET /top_players, and GET /captain from a Vercel Preview origin must receive CORS headers."""
+    monkeypatch.setenv("FANTASY_AI_ENV", "production")
+    client = _build_client()
+
+    preview_origin = "https://fantasy-ai-9qkn-pr2gagmsn-ahmedelsafy9s-projects.vercel.app"
+
+    # 1. GET /predict
+    r_predict = client.get("/predict", headers={"Origin": preview_origin})
+    assert r_predict.status_code == 200
+    assert r_predict.headers.get("access-control-allow-origin") == preview_origin
+
+    # 2. GET /top_players
+    r_top = client.get("/top_players?limit=3", headers={"Origin": preview_origin})
+    assert r_top.status_code == 200
+    assert r_top.headers.get("access-control-allow-origin") == preview_origin
+
+    # 3. GET /captain
+    r_captain = client.get("/captain", headers={"Origin": preview_origin})
+    assert r_captain.status_code == 200
+    assert r_captain.headers.get("access-control-allow-origin") == preview_origin
+
+
+def test_cors_predict_options_preflight_from_vercel_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    """OPTIONS preflight on /predict from a Vercel preview origin must succeed with 200 and CORS headers."""
     monkeypatch.setenv("FANTASY_AI_ENV", "production")
     client = _build_client()
 
     preview_origin = "https://fantasy-ai-9qkn-pr2gagmsn-ahmedelsafy9s-projects.vercel.app"
     response = client.options(
-        "/top_players?limit=3",
+        "/predict",
         headers={
             "Origin": preview_origin,
             "Access-Control-Request-Method": "GET",
@@ -190,6 +223,16 @@ def test_cors_vercel_preview_options_preflight(monkeypatch: pytest.MonkeyPatch) 
     allowed_methods = response.headers.get("access-control-allow-methods", "")
     assert "GET" in allowed_methods
     assert "OPTIONS" in allowed_methods
+
+
+def test_cors_predict_rejects_untrusted_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GET /predict from an unrelated untrusted origin must NOT receive an ACAO header."""
+    monkeypatch.setenv("FANTASY_AI_ENV", "production")
+    client = _build_client()
+
+    response = client.get("/predict", headers={"Origin": "https://untrusted-site.com"})
+    assert response.status_code == 200
+    assert "access-control-allow-origin" not in {k.lower() for k in response.headers}
 
 
 def test_cors_rejects_malicious_domains_spoofing_vercel(monkeypatch: pytest.MonkeyPatch) -> None:
