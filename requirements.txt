@@ -13,6 +13,7 @@ lightgbm>=4.3,<5.0
 fastapi>=0.110,<1.0
 uvicorn[standard]>=0.29,<1.0
 pydantic>=2.6,<3.0
+slowapi>=0.1.9,<1.0
 
 # API hardening (rate limiting)
 slowapi>=0.1.9,<0.2
