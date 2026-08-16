@@ -83,10 +83,67 @@ def test_download_fetches_bootstrap_and_latest_live_event(
     assert (destination / "event_2_live.json").exists()
 
 
-def test_download_raises_when_no_finished_event(
+def test_download_succeeds_when_no_finished_event(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """download() must raise DataSourceError if no Gameweek has finished yet."""
+    """download() must succeed and save bootstrap_static.json even when no Gameweek has finished yet."""
+    bootstrap = _bootstrap_payload(finished_events=[])
+
+    def fake_get(url: str, timeout: int = 30):
+        if "bootstrap-static" in url:
+            return _FakeResponse(bootstrap)
+        raise AssertionError(f"Unexpected URL requested when no GW finished: {url}")
+
+    monkeypatch.setattr(
+        "src.data_collection.sources.fpl_api_source.requests.get", fake_get
+    )
+
+    source = FPLApiDataSource(base_url=BASE_URL)
+    destination = tmp_path / "fpl_api"
+    metadata = source.download(destination)
+
+    assert metadata.extra["latest_finished_event"] is None
+    assert metadata.records_count == 2
+    assert (destination / "bootstrap_static.json").exists()
+    assert not list(destination.glob("event_*_live.json"))
+
+
+def test_download_raises_for_malformed_bootstrap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """download() must raise DataSourceError if the bootstrap response is malformed."""
+    def fake_get(url: str, timeout: int = 30):
+        return _FakeResponse({"unexpected_key": []})
+
+    monkeypatch.setattr(
+        "src.data_collection.sources.fpl_api_source.requests.get", fake_get
+    )
+
+    source = FPLApiDataSource(base_url=BASE_URL)
+    with pytest.raises(DataSourceError, match="Malformed bootstrap-static payload"):
+        source.download(tmp_path / "fpl_api")
+
+
+def test_download_raises_for_network_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """download() must raise DataSourceError if the network request fails."""
+    def fake_get(url: str, timeout: int = 30):
+        return _FakeResponse({}, status_code=503)
+
+    monkeypatch.setattr(
+        "src.data_collection.sources.fpl_api_source.requests.get", fake_get
+    )
+
+    source = FPLApiDataSource(base_url=BASE_URL, max_retries=1)
+    with pytest.raises(DataSourceError, match="Unexpected status 503"):
+        source.download(tmp_path / "fpl_api")
+
+
+def test_load_raises_when_no_finished_event(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """load() must raise DataSourceError if no Gameweek has finished yet."""
     bootstrap = _bootstrap_payload(finished_events=[])
 
     def fake_get(url: str, timeout: int = 30):
@@ -97,8 +154,11 @@ def test_download_raises_when_no_finished_event(
     )
 
     source = FPLApiDataSource(base_url=BASE_URL)
-    with pytest.raises(DataSourceError):
-        source.download(tmp_path / "fpl_api")
+    destination = tmp_path / "fpl_api"
+    source.download(destination)
+
+    with pytest.raises(DataSourceError, match="No finished Gameweek found"):
+        source.load(destination)
 
 
 def test_load_flattens_live_stats_with_player_identity(
@@ -191,3 +251,46 @@ def test_update_detects_advanced_gameweek(
     assert metadata.extra["previous_finished_event"] == 1
     assert metadata.extra["latest_finished_event"] == 2
     assert metadata.extra["advanced"] is True
+
+
+def test_update_when_no_finished_event(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """update() must work cleanly when no Gameweek has finished yet."""
+    destination = tmp_path / "fpl_api"
+    bootstrap = _bootstrap_payload(finished_events=[])
+
+    def fake_get(url: str, timeout: int = 30):
+        return _FakeResponse(bootstrap)
+
+    monkeypatch.setattr(
+        "src.data_collection.sources.fpl_api_source.requests.get", fake_get
+    )
+
+    source = FPLApiDataSource(base_url=BASE_URL)
+    metadata = source.update(destination)
+
+    assert metadata.extra["latest_finished_event"] is None
+    assert metadata.extra["advanced"] is False
+    assert (destination / "bootstrap_static.json").exists()
+
+
+def test_find_latest_finished_event_multiple_finished() -> None:
+    bootstrap = {"events": [{"id": 1, "finished": True}, {"id": 4, "finished": True}, {"id": 2, "finished": False}]}
+    assert FPLApiDataSource._find_latest_finished_event(bootstrap) == 4
+
+
+def test_find_latest_finished_event_none_finished() -> None:
+    bootstrap = {"events": [{"id": 1, "finished": False}, {"id": 2, "finished": False}]}
+    assert FPLApiDataSource._find_latest_finished_event(bootstrap) is None
+
+
+def test_find_latest_finished_event_malformed_bootstrap() -> None:
+    with pytest.raises(DataSourceError, match="expected JSON object"):
+        FPLApiDataSource._find_latest_finished_event(["not a dict"])  # type: ignore[arg-type]
+
+    with pytest.raises(DataSourceError, match="'events' array missing"):
+        FPLApiDataSource._find_latest_finished_event({"no_events": []})
+
+    with pytest.raises(DataSourceError, match="Malformed event object"):
+        FPLApiDataSource._find_latest_finished_event({"events": ["not a dict"]})

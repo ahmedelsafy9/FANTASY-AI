@@ -225,7 +225,25 @@ class AutomationOrchestrator:
                 max_retries=settings.data_sources.request_max_retries,
             )
             live_download_dir = settings.paths.raw_data_dir / "fpl_api"
-            fpl_source.update(live_download_dir)
+            new_metadata = fpl_source.update(live_download_dir)
+            latest_finished_event = new_metadata.extra.get("latest_finished_event")
+
+            teams = fpl_source.get_teams(live_download_dir)
+            team_mapping = mapping_service.build_mapping(teams)
+            mapping_service.save(team_mapping)
+            result.opponent_mapping_teams = len(team_mapping)
+
+            if latest_finished_event is None:
+                logger.info(
+                    "No finished Gameweek found in current season yet; "
+                    "reference data updated, live match stats merge skipped."
+                )
+                result.notes.append(
+                    "No finished Gameweek found in current season yet; "
+                    "live match stats merge skipped."
+                )
+                return raw_merged_path, team_mapping
+
             live_data = fpl_source.load(live_download_dir)
             fpl_source.validate(live_data)
 
@@ -259,11 +277,6 @@ class AutomationOrchestrator:
                 len(merged) - rows_before_merge,
             )
             result.notes.append(f"Merged {len(live_data)} live row(s) into the historical dataset.")
-
-            teams = fpl_source.get_teams(live_download_dir)
-            team_mapping = mapping_service.build_mapping(teams)
-            mapping_service.save(team_mapping)
-            result.opponent_mapping_teams = len(team_mapping)
         except FantasyAIError as exc:
             logger.warning("Live Gameweek ingestion failed; continuing with historical data only: %s", exc)
             result.notes.append(f"Live ingestion failed and was skipped: {exc}")

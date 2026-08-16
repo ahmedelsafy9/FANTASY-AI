@@ -83,7 +83,7 @@ class FPLApiDataSource(DataSource):
     # ------------------------------------------------------------------
 
     def download(self, destination: Path) -> DataSourceMetadata:
-        """Fetch bootstrap reference data and the latest finished event's stats.
+        """Fetch bootstrap reference data and the latest finished event's stats (if any).
 
         Args:
             destination: Directory the raw JSON payloads should be
@@ -91,45 +91,53 @@ class FPLApiDataSource(DataSource):
 
         Returns:
             DataSourceMetadata: Metadata including which Gameweek
-            (event) was fetched.
+            (event) was fetched (or None if no Gameweek has finished yet).
 
         Raises:
-            DataSourceError: If either request fails, or no finished
-                Gameweek is found yet (e.g. before the season starts).
+            DataSourceError: If the bootstrap-static request fails or payload is malformed.
         """
         ensure_directory(destination)
 
         bootstrap = self._get_json(f"{self._base_url}/{self._events_path}")
+        if not isinstance(bootstrap, dict):
+            raise DataSourceError("Malformed bootstrap-static response from FPL API.")
+
         (destination / _BOOTSTRAP_FILENAME).write_text(
             json.dumps(bootstrap), encoding="utf-8"
         )
 
         latest_event_id = self._find_latest_finished_event(bootstrap)
-        if latest_event_id is None:
-            raise DataSourceError(
-                "No finished Gameweek found in bootstrap-static events; "
-                "the season may not have started yet."
-            )
 
-        live_path = self._live_event_path_template.format(event_id=latest_event_id)
-        live_data = self._get_json(f"{self._base_url}/{live_path}")
-        live_filename = _LIVE_EVENT_FILENAME_TEMPLATE.format(event_id=latest_event_id)
-        (destination / live_filename).write_text(json.dumps(live_data), encoding="utf-8")
+        if latest_event_id is not None:
+            live_path = self._live_event_path_template.format(event_id=latest_event_id)
+            live_data = self._get_json(f"{self._base_url}/{live_path}")
+            live_filename = _LIVE_EVENT_FILENAME_TEMPLATE.format(event_id=latest_event_id)
+            (destination / live_filename).write_text(json.dumps(live_data), encoding="utf-8")
+            records_count = len(live_data.get("elements", []))
+            logger.info(
+                "Downloaded %s: Gameweek %d, %d player record(s).",
+                self.name,
+                latest_event_id,
+                records_count,
+            )
+        else:
+            records_count = len(bootstrap.get("elements", []))
+            logger.info(
+                "Downloaded %s bootstrap reference data (%d players, %d teams); "
+                "no Gameweek has finished yet.",
+                self.name,
+                records_count,
+                len(bootstrap.get("teams", [])),
+            )
 
         metadata = DataSourceMetadata(
             name=self.name,
             source_url=self._base_url,
             retrieved_at=datetime.now(timezone.utc),
-            records_count=len(live_data.get("elements", [])),
+            records_count=records_count,
             extra={"latest_finished_event": latest_event_id},
         )
         self._write_metadata(destination, metadata)
-        logger.info(
-            "Downloaded %s: Gameweek %d, %d player record(s).",
-            self.name,
-            latest_event_id,
-            metadata.records_count,
-        )
         return metadata
 
     def load(self, source_path: Path) -> pd.DataFrame:
@@ -396,10 +404,25 @@ class FPLApiDataSource(DataSource):
         Returns:
             int | None: The latest finished event's ID, or ``None`` if
             none have finished yet.
+
+        Raises:
+            DataSourceError: If the bootstrap-static payload is malformed.
         """
-        finished_events = [
-            event["id"] for event in bootstrap.get("events", []) if event.get("finished")
-        ]
+        if not isinstance(bootstrap, dict):
+            raise DataSourceError("Malformed bootstrap-static payload: expected JSON object.")
+        events = bootstrap.get("events")
+        if events is None or not isinstance(events, list):
+            raise DataSourceError("Malformed bootstrap-static payload: 'events' array missing or not a list.")
+
+        finished_events: list[int] = []
+        for event in events:
+            if not isinstance(event, dict):
+                raise DataSourceError(f"Malformed event object in events array: {event!r}")
+            if event.get("finished"):
+                event_id = event.get("id")
+                if isinstance(event_id, int):
+                    finished_events.append(event_id)
+
         return max(finished_events) if finished_events else None
 
     @staticmethod

@@ -108,6 +108,48 @@ def _env_tuple(var_name: str, default: str = "") -> tuple[str, ...]:
     return tuple(v.strip() for v in raw.split(",") if v.strip())
 
 
+def _parse_weight_str(weight_str: str) -> dict[str, float]:
+    """Parse comma-separated 'metric:weight' string into a dict."""
+    if not weight_str or not weight_str.strip():
+        return {}
+    weights: dict[str, float] = {}
+    for item in weight_str.split(","):
+        item = item.strip()
+        if not item or ":" not in item:
+            continue
+        parts = item.split(":")
+        if len(parts) == 2:
+            try:
+                weights[parts[0].strip()] = float(parts[1].strip())
+            except ValueError:
+                continue
+    return weights
+
+
+def _parse_gate_str(gate_str: str) -> dict[str, tuple[str, float]]:
+    """Parse comma-separated 'metric:op:val' string into a dict."""
+    if not gate_str or not gate_str.strip():
+        return {}
+    gates: dict[str, tuple[str, float]] = {}
+    valid_ops = {"<=", ">=", "<", ">"}
+    for item in gate_str.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        parts = item.split(":")
+        if len(parts) == 3:
+            metric = parts[0].strip()
+            op = parts[1].strip()
+            if op not in valid_ops:
+                continue
+            try:
+                val = float(parts[2].strip())
+                gates[metric] = (op, val)
+            except ValueError:
+                continue
+    return gates
+
+
 @dataclass(frozen=True)
 class Paths:
     """Filesystem layout of the project.
@@ -530,6 +572,68 @@ class TrainingSettings:
     boosted_learning_rate: float = field(
         default_factory=lambda: float(_env_str("FANTASY_AI_BOOSTED_LEARNING_RATE", "0.05"))
     )
+    season_weight_min: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_SEASON_WEIGHT_MIN", "1.0"))
+    )
+    season_weight_max: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_SEASON_WEIGHT_MAX", "3.0"))
+    )
+    season_weight_strategy: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_SEASON_WEIGHT_STRATEGY", "linear")
+    )
+    promotion_strategy: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_PROMOTION_STRATEGY", "composite")
+    )
+    promotion_metric_weights: dict[str, float] = field(
+        default_factory=lambda: _parse_weight_str(
+            _env_str(
+                "FANTASY_AI_PROMOTION_METRIC_WEIGHTS",
+                "rmse:0.25,mae:0.15,spearman_rho:0.20,recall_6:0.20,recall_10:0.10,precision_6:0.10",
+            )
+        )
+    )
+    promotion_gates: dict[str, tuple[str, float]] = field(
+        default_factory=lambda: _parse_gate_str(
+            _env_str("FANTASY_AI_PROMOTION_GATES", "rmse:<=:3.0,recall_6:>=:0.05")
+        )
+    )
+    dl_hidden_layers: tuple[int, ...] = field(
+        default_factory=lambda: tuple(
+            int(x)
+            for x in _env_str("FANTASY_AI_DL_HIDDEN_LAYERS", "256,128,64").split(",")
+            if x
+        )
+    )
+    dl_dropout: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_DROPOUT", "0.2"))
+    )
+    dl_learning_rate: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_LEARNING_RATE", "0.001"))
+    )
+    dl_weight_decay: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_WEIGHT_DECAY", "0.0001"))
+    )
+    dl_batch_size: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_DL_BATCH_SIZE", 512)
+    )
+    dl_epochs: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_DL_EPOCHS", 200)
+    )
+    dl_patience: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_DL_PATIENCE", 15)
+    )
+    dl_use_batch_norm: bool = field(
+        default_factory=lambda: _env_bool("FANTASY_AI_DL_USE_BATCH_NORM", True)
+    )
+    dl_loss_beta: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_LOSS_BETA", "4.0"))
+    )
+    dl_high_score_weight_power: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_HIGH_SCORE_WEIGHT_POWER", "0.0"))
+    )
+    dl_use_discrete_sample_weights: bool = field(
+        default_factory=lambda: _env_bool("FANTASY_AI_DL_USE_DISCRETE_SAMPLE_WEIGHTS", True)
+    )
 
 
 @dataclass(frozen=True)
@@ -611,6 +715,9 @@ class AutomationSettings:
         default_factory=lambda: float(
             _env_str("FANTASY_AI_RETRAIN_MIN_IMPROVEMENT", "0.0")
         )
+    )
+    dry_run: bool = field(
+        default_factory=lambda: _env_bool("FANTASY_AI_DRY_RUN", False)
     )
     max_versions_to_keep: int = field(
         default_factory=lambda: _env_int("FANTASY_AI_MAX_VERSIONS_TO_KEEP", 10)

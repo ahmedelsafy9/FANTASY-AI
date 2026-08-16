@@ -136,6 +136,64 @@ def test_build_app_state_falls_back_gracefully_when_live_api_unreachable(
     assert (state.predictions["photo_url"].isna()).all()
 
 
+def test_build_app_state_with_zero_finished_gameweeks_enriches_successfully(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the season is new and 0 Gameweeks have finished, the API must enrich successfully."""
+    settings = _write_pipeline_artifacts(tmp_path)
+
+    bootstrap = {
+        "events": [{"id": 1, "finished": False, "is_next": True, "deadline_time": "2026-08-21T17:30:00Z"}],
+        "teams": [
+            {"id": 11, "name": "Arsenal", "short_name": "ARS", "code": 3},
+            {"id": 12, "name": "Chelsea", "short_name": "CHE", "code": 8},
+        ],
+        "elements": [
+            {"id": 1, "web_name": "Player One", "first_name": "Player", "second_name": "One", "team": 11, "now_cost": 55, "photo": "1.jpg", "element_type": 3, "status": "a"},
+            {"id": 2, "web_name": "Player Two", "first_name": "Player", "second_name": "Two", "team": 12, "now_cost": 60, "photo": "2.jpg", "element_type": 4, "status": "a"},
+        ],
+    }
+    fixtures = [
+        {"event": 1, "team_h": 11, "team_a": 12, "team_h_difficulty": 2, "team_a_difficulty": 4}
+    ]
+
+    def fake_get(url: str, stream: bool = False, timeout: int = 30, **kwargs: Any):
+        if "bootstrap-static" in url:
+            return _FakeResp(bootstrap)
+        if "fixtures" in url:
+            return _FakeResp(fixtures)
+        raise AssertionError(f"Unexpected URL called: {url}")
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    state = build_app_state(settings)
+
+    assert state.live_metadata_available is True
+    assert len(state.predictions) == 2
+    arsenal_row = state.predictions[state.predictions["team"] == "Arsenal"].iloc[0]
+    assert arsenal_row["predicted_for_gw"] == 1
+    assert arsenal_row["fixture_source"] == "real_fixture"
+    assert arsenal_row["photo_url"] is not None
+    assert arsenal_row["team_logo_url"] is not None
+
+
+def test_build_app_state_falls_back_when_live_api_returns_malformed_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the live API returns malformed bootstrap data, startup must fall back to historical gracefully."""
+    settings = _write_pipeline_artifacts(tmp_path)
+
+    def fake_get(url: str, stream: bool = False, timeout: int = 30, **kwargs: Any):
+        return _FakeResp({"invalid": "data"})
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    state = build_app_state(settings)
+
+    assert state.live_metadata_available is False
+    assert len(state.predictions) == 2
+
+
 def test_bruno_vs_hall_prediction_alignment_and_cross_season_reassignment(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
