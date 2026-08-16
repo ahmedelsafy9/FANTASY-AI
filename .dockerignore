@@ -1,38 +1,72 @@
 # Git
 .git/
 .gitignore
+.gitattributes
 
-# Python
-__pycache__/
-*.py[cod]
+# Python virtual environments
+**/.venv/
+**/venv/
+**/env/
 .venv/
 venv/
+
+# Python cache
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+**/*.pyd
+
+# Environment files
 .env
 .env.*
 !.env.example
 
-# Development
-.pytest_cache/
-.mypy_cache/
-.coverage
-htmlcov/
+# Testing / Development
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+**/.tox/
+**/.nox/
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # Logs
-logs/
-*.log
+**/logs/
+**/*.log
 
-# Unnecessary data
-data/raw/
-data/versions/
+# Raw datasets
+back final/Fantasy-AI/data/raw/
 
-# Tests & scripts
-tests/
-scripts/
+# Unneeded processed dataset
+back final/Fantasy-AI/data/processed/vaastav_cleaned.csv
+
+# Tests / scripts / notebooks / reports
+back final/Fantasy-AI/tests/
+back final/Fantasy-AI/scripts/
+back final/Fantasy-AI/notebooks/
+back final/Fantasy-AI/reports/
+
+# Model experiments and diagnostics
+back final/Fantasy-AI/models/experiments/
+back final/Fantasy-AI/models/diagnostic_model_comparison.csv
 
 # Frontend
 fantasy-ai-frontend/
 
-# Deployment files
+# Deployment
 fly.toml
+
+# Temporary files
+**/*.tmp
+**/*.temp
+**/*.bak
+**/*.DS_Store
+
+# Documentation
+**/*.md

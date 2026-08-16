@@ -682,7 +682,10 @@ class ApiSettings:
     # nothing wildcard-y is ever allowed automatically.
     # ------------------------------------------------------------------
     cors_allowed_origins: tuple[str, ...] = field(
-        default_factory=lambda: _env_tuple("FANTASY_AI_CORS_ORIGINS")
+        default_factory=lambda: _env_tuple(
+            "FANTASY_AI_CORS_ORIGINS",
+            "https://fantasy-ai-roosters.vercel.app",
+        )
     )
     cors_allow_credentials: bool = field(
         default_factory=lambda: _env_bool("FANTASY_AI_CORS_ALLOW_CREDENTIALS", False)

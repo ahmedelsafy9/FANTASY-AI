@@ -74,10 +74,17 @@ def client() -> TestClient:
 # ---------------------------------------------------------------------------
 
 
-def test_cors_allows_known_dev_origin(client: TestClient) -> None:
-    """A recognized local dev origin gets CORS headers back (dev default)."""
-    response = client.get("/", headers={"Origin": "http://localhost:5173"})
-    assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
+def test_cors_allows_all_default_dev_origins(client: TestClient) -> None:
+    """All 4 standard local dev origins must get CORS headers back in development."""
+    dev_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+    for origin in dev_origins:
+        response = client.get("/", headers={"Origin": origin})
+        assert response.headers.get("access-control-allow-origin") == origin
 
 
 def test_cors_rejects_unknown_origin(client: TestClient) -> None:
@@ -86,22 +93,92 @@ def test_cors_rejects_unknown_origin(client: TestClient) -> None:
     assert "access-control-allow-origin" not in {k.lower() for k in response.headers}
 
 
+def test_cors_options_preflight_request(client: TestClient) -> None:
+    """Preflight OPTIONS request from an allowed origin must return 200 and CORS headers."""
+    response = client.options(
+        "/top_players",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Content-Type,Authorization",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
+    allowed_methods = response.headers.get("access-control-allow-methods", "")
+    assert "GET" in allowed_methods
+    assert "OPTIONS" in allowed_methods
+
+
+def test_cors_options_preflight_rejects_unknown_origin(client: TestClient) -> None:
+    """Preflight OPTIONS request from an unknown origin must not return ACAO header."""
+    response = client.options(
+        "/top_players",
+        headers={
+            "Origin": "https://untrusted.site",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert "access-control-allow-origin" not in {k.lower() for k in response.headers}
+
+
+def test_cors_production_multiple_origins_and_whitespace(monkeypatch: pytest.MonkeyPatch) -> None:
+    """In production, multiple comma-separated origins with whitespace/empty items are parsed cleanly."""
+    monkeypatch.setenv("FANTASY_AI_ENV", "production")
+    monkeypatch.setenv(
+        "FANTASY_AI_CORS_ORIGINS",
+        "  https://frontend-alpha.vercel.app  , ,  https://app.fantasyai.com , ",
+    )
+    client = _build_client()
+
+    # Localhost should NOT be allowed in production
+    res_local = client.get("/", headers={"Origin": "http://localhost:5173"})
+    assert "access-control-allow-origin" not in {k.lower() for k in res_local.headers}
+
+    # Configured origins must be allowed
+    res_1 = client.get("/", headers={"Origin": "https://frontend-alpha.vercel.app"})
+    assert res_1.headers.get("access-control-allow-origin") == "https://frontend-alpha.vercel.app"
+
+    res_2 = client.get("/", headers={"Origin": "https://app.fantasyai.com"})
+    assert res_2.headers.get("access-control-allow-origin") == "https://app.fantasyai.com"
+
+    # Unlisted origin rejected
+    res_unlisted = client.get("/", headers={"Origin": "https://other.com"})
+    assert "access-control-allow-origin" not in {k.lower() for k in res_unlisted.headers}
+
+
+def test_cors_roosters_frontend_origin_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The deployed frontend domain https://fantasy-ai-roosters.vercel.app must be allowed."""
+    monkeypatch.setenv("FANTASY_AI_ENV", "production")
+    monkeypatch.delenv("FANTASY_AI_CORS_ORIGINS", raising=False)
+    client = _build_client()
+
+    response = client.get("/", headers={"Origin": "https://fantasy-ai-roosters.vercel.app"})
+    assert response.headers.get("access-control-allow-origin") == "https://fantasy-ai-roosters.vercel.app"
+
+
 def test_cors_does_not_allow_credentials_by_default(client: TestClient) -> None:
     """Without FANTASY_AI_CORS_ALLOW_CREDENTIALS=true, no ACAC header is sent."""
     response = client.get("/", headers={"Origin": "http://localhost:5173"})
     assert "access-control-allow-credentials" not in {k.lower() for k in response.headers}
 
 
-def test_cors_production_env_does_not_allow_localhost(monkeypatch: pytest.MonkeyPatch) -> None:
-    """In production, localhost dev origins must not be trusted."""
-    monkeypatch.setenv("FANTASY_AI_ENV", "production")
-    monkeypatch.setenv("FANTASY_AI_CORS_ORIGINS", "https://myapp.example.com")
+def test_cors_allows_credentials_when_explicitly_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When FANTASY_AI_CORS_ALLOW_CREDENTIALS=true, ACAC header is sent."""
+    monkeypatch.setenv("FANTASY_AI_CORS_ALLOW_CREDENTIALS", "true")
     client = _build_client()
     response = client.get("/", headers={"Origin": "http://localhost:5173"})
-    assert "access-control-allow-origin" not in {k.lower() for k in response.headers}
+    assert response.headers.get("access-control-allow-credentials") == "true"
 
-    response = client.get("/", headers={"Origin": "https://myapp.example.com"})
-    assert response.headers.get("access-control-allow-origin") == "https://myapp.example.com"
+
+def test_env_tuple_parser_handles_whitespace_and_empty() -> None:
+    """_env_tuple should strip whitespace and ignore empty elements."""
+    from src.config.settings import _env_tuple
+    import os
+
+    os.environ["_TEST_TUPLE"] = " http://a.com, , http://b.com ,   ,http://c.com "
+    result = _env_tuple("_TEST_TUPLE")
+    assert result == ("http://a.com", "http://b.com", "http://c.com")
 
 
 # ---------------------------------------------------------------------------
