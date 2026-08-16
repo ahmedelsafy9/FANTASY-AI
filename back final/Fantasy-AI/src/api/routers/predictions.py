@@ -57,19 +57,22 @@ def predict(
 
 @router.get("/top_players", response_model=PredictionListResponse)
 def top_players(
-    limit: int = Query(default=10, ge=1, description="Maximum number of players to return."),
+    request: Request,
+    limit: int = Query(default=10, ge=1, le=1000, description="Maximum number of players to return."),
     prediction_service: PredictionQueryService = Depends(get_prediction_query_service),
 ) -> PredictionListResponse:
     """Return the top players by predicted next-Gameweek points.
 
     Args:
+        request: The current request (used to read app settings).
         limit: Maximum number of players to return.
         prediction_service: Injected prediction query service.
 
     Returns:
         PredictionListResponse: The top ``limit`` predictions, highest first.
     """
-    top = prediction_service.get_top(limit)
+    max_limit = request.app.state.fantasy_ai_state.settings.api.top_players_max_limit
+    top = prediction_service.get_top(min(limit, max_limit))
     return PredictionListResponse(
         count=len(top),
         predicted_for_gw_note=(

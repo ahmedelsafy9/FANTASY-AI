@@ -76,38 +76,36 @@ def _env_int(var_name: str, default: int) -> int:
         return default
 
 
-def _parse_weight_str(raw: str) -> dict[str, float]:
-    """Parse a weight configuration string like ``"rmse:0.25,mae:0.15"``."""
-    result: dict[str, float] = {}
-    for pair in raw.split(","):
-        pair = pair.strip()
-        if ":" not in pair:
-            continue
-        parts = pair.split(":", 1)
-        try:
-            result[parts[0].strip()] = float(parts[1].strip())
-        except (ValueError, IndexError):
-            continue
-    return result
+def _env_bool(var_name: str, default: bool) -> bool:
+    """Resolve a boolean setting, allowing environment override.
+
+    Accepts (case-insensitively) "true"/"false", "1"/"0", "yes"/"no".
+
+    Args:
+        var_name: Name of the environment variable.
+        default: Default value used when unset or unrecognized.
+
+    Returns:
+        bool: The resolved value.
+    """
+    raw = os.environ.get(var_name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"true", "1", "yes"}
 
 
-def _parse_gate_str(raw: str) -> dict[str, tuple[str, float]]:
-    """Parse a gate configuration string like ``"rmse:<=:3.0,recall_6:>=:0.05"``."""
-    result: dict[str, tuple[str, float]] = {}
-    for entry in raw.split(","):
-        entry = entry.strip()
-        parts = entry.split(":")
-        if len(parts) != 3:
-            continue
-        try:
-            metric = parts[0].strip()
-            op = parts[1].strip()
-            threshold = float(parts[2].strip())
-            if op in ("<=", ">="):
-                result[metric] = (op, threshold)
-        except (ValueError, IndexError):
-            continue
-    return result
+def _env_tuple(var_name: str, default: str = "") -> tuple[str, ...]:
+    """Resolve a comma-separated list setting, allowing environment override.
+
+    Args:
+        var_name: Name of the environment variable.
+        default: Default comma-separated value used when unset.
+
+    Returns:
+        tuple[str, ...]: The resolved, non-empty, whitespace-trimmed values.
+    """
+    raw = _env_str(var_name, default)
+    return tuple(v.strip() for v in raw.split(",") if v.strip())
 
 
 @dataclass(frozen=True)
@@ -515,7 +513,7 @@ class TrainingSettings:
         default_factory=lambda: _env_int("FANTASY_AI_RANDOM_STATE", 42)
     )
     primary_metric: str = field(
-        default_factory=lambda: _env_str("FANTASY_AI_PRIMARY_METRIC", "rmse")
+        default_factory=lambda: _env_str("FANTASY_AI_PRIMARY_METRIC", "mae")
     )
     random_forest_n_estimators: int = field(
         default_factory=lambda: _env_int("FANTASY_AI_RF_N_ESTIMATORS", 300)
@@ -531,114 +529,6 @@ class TrainingSettings:
     )
     boosted_learning_rate: float = field(
         default_factory=lambda: float(_env_str("FANTASY_AI_BOOSTED_LEARNING_RATE", "0.05"))
-    )
-    season_weight_max: float = field(
-        default_factory=lambda: float(
-            _env_str("FANTASY_AI_SEASON_WEIGHT_MAX", "3.0")
-        )
-    )
-    season_weight_min: float = field(
-        default_factory=lambda: float(
-            _env_str("FANTASY_AI_SEASON_WEIGHT_MIN", "1.0")
-        )
-    )
-    season_weight_strategy: str = field(
-        default_factory=lambda: _env_str(
-            "FANTASY_AI_SEASON_WEIGHT_STRATEGY", "linear"
-        )
-    )
-
-    # Deep Learning (PyTorch MLP) hyperparameters
-    dl_hidden_layers: tuple[int, ...] = field(
-        default_factory=lambda: tuple(
-            int(s)
-            for s in _env_str("FANTASY_AI_DL_HIDDEN_LAYERS", "256,128,64").split(",")
-            if s
-        )
-    )
-    dl_dropout: float = field(
-        default_factory=lambda: float(
-            _env_str("FANTASY_AI_DL_DROPOUT", "0.2")
-        )
-    )
-    dl_learning_rate: float = field(
-        default_factory=lambda: float(
-            _env_str("FANTASY_AI_DL_LEARNING_RATE", "1e-3")
-        )
-    )
-    dl_weight_decay: float = field(
-        default_factory=lambda: float(
-            _env_str("FANTASY_AI_DL_WEIGHT_DECAY", "1e-4")
-        )
-    )
-    dl_batch_size: int = field(
-        default_factory=lambda: _env_int("FANTASY_AI_DL_BATCH_SIZE", 512)
-    )
-    dl_epochs: int = field(
-        default_factory=lambda: _env_int("FANTASY_AI_DL_EPOCHS", 200)
-    )
-    dl_patience: int = field(
-        default_factory=lambda: _env_int("FANTASY_AI_DL_PATIENCE", 15)
-    )
-    dl_use_batch_norm: bool = field(
-        default_factory=lambda: _env_str(
-            "FANTASY_AI_DL_USE_BATCH_NORM", "true"
-        ).lower() == "true"
-    )
-    dl_loss_beta: float = field(
-        default_factory=lambda: float(
-            _env_str("FANTASY_AI_DL_LOSS_BETA", "4.0")
-        )
-    )
-    dl_high_score_weight_power: float = field(
-        default_factory=lambda: float(
-            _env_str("FANTASY_AI_DL_HIGH_SCORE_WEIGHT_POWER", "0.0")
-        )
-    )
-    dl_use_discrete_sample_weights: bool = field(
-        default_factory=lambda: _env_str(
-            "FANTASY_AI_DL_USE_DISCRETE_SAMPLE_WEIGHTS", "true"
-        ).lower() == "true"
-    )
-
-    # Model promotion strategy
-    #
-    # "composite" (default): Uses a weighted combination of RMSE, MAE,
-    #     Spearman correlation, >=6 recall, >=10 recall, and >=6 precision.
-    #     This ensures models are evaluated on accuracy AND ranking/
-    #     high-score detection, which is critical for FPL.
-    # "primary_metric" (legacy): Uses only the single metric specified
-    #     by ``primary_metric`` above (backward compatible).
-    promotion_strategy: str = field(
-        default_factory=lambda: _env_str(
-            "FANTASY_AI_PROMOTION_STRATEGY", "composite"
-        )
-    )
-
-    # Composite promotion metric weights.
-    # Keys: rmse, mae, spearman_rho, recall_6, recall_10, precision_6
-    # Values: relative weight (will be normalized internally).
-    # Set via env var as "rmse:0.25,mae:0.15,..."
-    promotion_metric_weights: dict[str, float] = field(
-        default_factory=lambda: _parse_weight_str(
-            _env_str(
-                "FANTASY_AI_PROMOTION_WEIGHTS",
-                "rmse:0.25,mae:0.15,spearman_rho:0.20,"
-                "recall_6:0.20,recall_10:0.10,precision_6:0.10",
-            )
-        )
-    )
-
-    # Eligibility gates for promotion.
-    # A model failing any gate is ineligible regardless of composite score.
-    # Set via env var as "rmse:<=:3.0,recall_6:>=:0.05"
-    promotion_gates: dict[str, tuple[str, float]] = field(
-        default_factory=lambda: _parse_gate_str(
-            _env_str(
-                "FANTASY_AI_PROMOTION_GATES",
-                "rmse:<=:3.0,recall_6:>=:0.05",
-            )
-        )
     )
 
 
@@ -680,6 +570,34 @@ class ApiSettings:
             _env_str("FANTASY_AI_CAPTAIN_MIN_MINUTES_AVG", "60.0")
         )
     )
+    # ------------------------------------------------------------------
+    # CORS. Localhost dev origins are always allowed (harmless — they only
+    # let a developer's own machine call the API). Production frontend
+    # origin(s) must be supplied explicitly via FANTASY_AI_CORS_ORIGINS
+    # (comma-separated, e.g. "https://myapp.vercel.app,https://myapp.com");
+    # nothing wildcard-y is ever allowed automatically.
+    # ------------------------------------------------------------------
+    cors_allowed_origins: tuple[str, ...] = field(
+        default_factory=lambda: _env_tuple("FANTASY_AI_CORS_ORIGINS")
+    )
+    cors_allow_credentials: bool = field(
+        default_factory=lambda: _env_bool("FANTASY_AI_CORS_ALLOW_CREDENTIALS", False)
+    )
+    # ------------------------------------------------------------------
+    # Rate limiting. Every route (including "/") shares this default
+    # unless overridden per-route. "memory://" only rate-limits within a
+    # single running process/instance — fine for a single Fly.io machine,
+    # NOT sufficient once there is more than one instance/worker or on
+    # a per-invocation serverless platform. Point
+    # FANTASY_AI_RATE_LIMIT_STORAGE_URI at a shared store (e.g.
+    # "redis://<host>:6379") for multi-instance deployments.
+    # ------------------------------------------------------------------
+    rate_limit_default: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_RATE_LIMIT_DEFAULT", "60/minute")
+    )
+    rate_limit_storage_uri: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_RATE_LIMIT_STORAGE_URI", "memory://")
+    )
 
 
 @dataclass(frozen=True)
@@ -707,11 +625,6 @@ class AutomationSettings:
     )
     fpl_api_fixtures_path: str = field(
         default_factory=lambda: _env_str("FANTASY_AI_FPL_FIXTURES_PATH", "fixtures/")
-    )
-    dry_run: bool = field(
-        default_factory=lambda: _env_str(
-            "FANTASY_AI_DRY_RUN", "false"
-        ).lower() == "true"
     )
 
 

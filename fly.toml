@@ -1,12 +1,25 @@
-# fly.toml app configuration file generated for fantasy-ai on 2026-08-09T11:25:16Z
+# fly.toml app configuration file for fantasy-ai
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
+# Build context is the repo root (this file's directory); the actual
+# backend lives at "back final/Fantasy-AI/" — see ../Dockerfile, which
+# is written to account for that.
 
 app = 'fantasy-ai'
 primary_region = 'iad'
 
 [build]
+  dockerfile = 'Dockerfile'
+
+# Non-secret defaults. Secrets (none currently required by this app,
+# but e.g. FANTASY_AI_RATE_LIMIT_STORAGE_URI's redis credentials if you
+# add one later) belong in `fly secrets set`, never here.
+[env]
+  FANTASY_AI_ENV = 'production'
+  # Set your real frontend origin(s) before first deploy — with this
+  # unset, no browser can call the API (see src/api/main.py CORS logic).
+  # FANTASY_AI_CORS_ORIGINS = 'https://your-frontend.example.com'
 
 [http_service]
   internal_port = 8080
@@ -15,6 +28,20 @@ primary_region = 'iad'
   auto_start_machines = true
   min_machines_running = 0
   processes = ['app']
+
+  # NOTE: GET / always returns HTTP 200, even when the model/dataset
+  # failed to load at startup (it reports {"status": "not_ready"} in
+  # the body instead) — this is an intentional, tested app design
+  # (liveness, not readiness). This check therefore confirms the
+  # process is alive and serving, not that predictions are usable.
+  # Monitor the "status" field in the response body separately if you
+  # need true readiness alerting.
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    timeout = "5s"
+    path = "/"
 
 [[vm]]
   memory = '1gb'

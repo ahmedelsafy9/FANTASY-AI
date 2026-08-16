@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 
 from src.api.dependencies import get_player_service
 from src.api.schemas import PlayerResponse
@@ -14,7 +14,7 @@ router = APIRouter(tags=["players"])
 
 @router.get("/player/{player_id}", response_model=PlayerResponse)
 def get_player(
-    player_id: str,
+    player_id: str = Path(..., min_length=1, max_length=64, description="The player's identifier."),
     player_service: PlayerService = Depends(get_player_service),
 ) -> PlayerResponse:
     """Return a player's most recently known state.

@@ -7,6 +7,17 @@ Run locally with:
 Swagger UI is served at ``/swagger`` (configurable via
 ``FANTASY_AI_API_DOCS_URL``); the raw OpenAPI schema is always at
 ``/openapi.json``.
+
+Authentication: this API is intentionally public and read-only. Every
+route only serves precomputed, publicly-available FPL predictions —
+there is no user data, no write endpoints, and no training/automation
+endpoint is wired into this app (those exist only as separate
+offline scripts under ``scripts/``). The frontend's Google OAuth
+"login" is a client-side-only UI gate — it is NOT enforced by this
+backend and provides no real access control; do not treat it as
+authentication when reasoning about this API's security. If that
+changes (e.g. per-user data is added), real server-side auth will be
+required here — it intentionally hasn't been added preemptively.
 """
 
 from __future__ import annotations
@@ -14,8 +25,11 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import JSONResponse
 
 from src.api.routers import players, predictions
@@ -26,6 +40,39 @@ from src.config.settings import get_settings
 from src.core.exceptions import FantasyAIError
 
 logger = get_logger(__name__)
+
+
+def _get_client_ip(request: Request) -> str:
+    """Resolve the real client IP for rate-limiting, safely.
+
+    Deliberately does NOT trust ``X-Forwarded-For`` — that header can
+    contain client-supplied, spoofable values, especially with more
+    than one hop in front of the app.
+
+    On Fly.io, the app sits behind Fly's own edge proxy, so the raw
+    ASGI/TCP peer (``request.client.host``) is Fly's internal proxy,
+    not the real client — using it directly would make every request
+    look like it comes from the same source, collapsing the per-IP
+    limit into one global limit shared by all users. Fly's edge sets
+    the ``Fly-Client-IP`` header itself (overwriting anything a client
+    tries to send), so unlike ``X-Forwarded-For`` it can be trusted
+    when this app is actually deployed on Fly.
+
+    Falls back to the raw TCP peer when the header is absent (local
+    dev, tests, or any environment that isn't Fly's proxy).
+
+    Args:
+        request: The incoming request.
+
+    Returns:
+        str: The best-available client IP for rate-limiting purposes.
+    """
+    fly_client_ip = request.headers.get("Fly-Client-IP")
+    if fly_client_ip:
+        return fly_client_ip
+    if request.client and request.client.host:
+        return request.client.host
+    return "127.0.0.1"
 
 
 @asynccontextmanager
@@ -66,6 +113,7 @@ def create_app() -> FastAPI:
         FastAPI: The configured application.
     """
     settings = get_settings()
+    is_production = settings.environment.lower() == "production"
 
     app = FastAPI(
         title=settings.api.title,
@@ -73,6 +121,35 @@ def create_app() -> FastAPI:
         docs_url=settings.api.docs_url,
         lifespan=lifespan,
     )
+
+    # ------------------------------------------------------------------
+    # Rate limiting (abuse / scraping protection on public read endpoints).
+    #
+    # NOTE: with the default "memory://" storage this only limits requests
+    # within a single running process. That's fine for a single instance
+    # but is NOT sufficient once the app runs as multiple
+    # instances/workers (or per-invocation serverless) — in that case set
+    # FANTASY_AI_RATE_LIMIT_STORAGE_URI to a shared store (e.g. Redis)
+    # before relying on this alone.
+    # ------------------------------------------------------------------
+
+    if is_production and settings.api.rate_limit_storage_uri.startswith("memory://"):
+        logger.warning(
+            "Rate limiting is using in-memory storage in a production environment. "
+            "This only limits requests per-instance. If this deploys as more than "
+            "one instance/worker, set FANTASY_AI_RATE_LIMIT_STORAGE_URI to a shared "
+            "store (e.g. redis://...) or the limit is trivially bypassed by hitting "
+            "different instances."
+        )
+
+    limiter = Limiter(
+        key_func=_get_client_ip,
+        storage_uri=settings.api.rate_limit_storage_uri,
+        default_limits=[settings.api.rate_limit_default],
+    )
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
 
     # ------------------------------------------------------------------
     # Routers
@@ -145,26 +222,81 @@ def create_app() -> FastAPI:
         return await call_next(request)
 
     # ------------------------------------------------------------------
+    # Security headers
+    # ------------------------------------------------------------------
+    # This is a pure JSON API with no HTML/JS pages of its own, so headers
+    # aimed at browser-rendered content (Content-Security-Policy,
+    # X-Frame-Options, Permissions-Policy) have no meaningful effect here
+    # and are intentionally omitted rather than added for the sake of a
+    # checklist. The headers below all apply to plain API responses.
+    # ------------------------------------------------------------------
+
+    @app.middleware("http")
+    async def add_security_headers(request, call_next):
+        """Attach headers relevant to a JSON-only API to every response."""
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=63072000; includeSubDomains"
+            )
+        return response
+
+    # ------------------------------------------------------------------
+    # Safe error responses
+    # ------------------------------------------------------------------
+    # Unhandled exceptions are logged with full detail server-side and
+    # returned to the client as a generic message only — no stack traces,
+    # file paths, or exception text ever reach the response body.
+    # ------------------------------------------------------------------
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("Unhandled error while processing %s %s", request.method, request.url.path)
+        return JSONResponse(status_code=500, content={"detail": "Internal server error."})
+
+    # ------------------------------------------------------------------
     # CORS
     # ------------------------------------------------------------------
     # Note: CORSMiddleware is added LAST so that Starlette wraps it around
     # all custom @app.middleware("http") handlers, ensuring CORS headers
     # are attached to ALL responses (including 503 errors and OPTIONS preflights).
+    #
+    # Production origins come only from FANTASY_AI_CORS_ORIGINS (no
+    # wildcards). Localhost origins/regex are dev conveniences and are
+    # only added outside of FANTASY_AI_ENV=production. allow_credentials
+    # defaults to False since this API has no cookie/session-based auth;
+    # set FANTASY_AI_CORS_ALLOW_CREDENTIALS=true only if that changes.
     # ------------------------------------------------------------------
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
+    allowed_origins = list(settings.api.cors_allowed_origins)
+    allow_origin_regex = None
+
+    if not is_production:
+        allowed_origins += [
             "http://localhost:5173",
             "http://localhost:5174",
             "http://127.0.0.1:5173",
             "http://127.0.0.1:5174",
             "http://localhost:3000",
             "http://127.0.0.1:3000",
-        ],
-        allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
-        allow_credentials=True,
-        allow_methods=["*"],
+        ]
+        allow_origin_regex = r"http://(localhost|127\.0\.0\.1)(:\d+)?"
+
+    if is_production and not allowed_origins:
+        logger.warning(
+            "FANTASY_AI_ENV=production but FANTASY_AI_CORS_ORIGINS is not set — "
+            "no browser origin will be able to call this API. Set it to your "
+            "production frontend origin(s), comma-separated."
+        )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_origin_regex=allow_origin_regex,
+        allow_credentials=settings.api.cors_allow_credentials,
+        allow_methods=["GET", "OPTIONS"],
         allow_headers=["*"],
     )
 
