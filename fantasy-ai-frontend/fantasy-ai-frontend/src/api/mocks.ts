@@ -125,7 +125,7 @@ export function getMock(kind: string, arg?: string): any {
       return {
         count: list.length,
         predicted_for_gw_note:
-          "predicted_for_gw reflects each player's own most recent match, so it may differ slightly between players who have played a different number of games.",
+          "predicted for gw reflects each player's own most recent match, so it may differ slightly between players who have played a different number of games.",
         predictions: list,
       } satisfies PredictionListResponse;
     }
@@ -135,7 +135,7 @@ export function getMock(kind: string, arg?: string): any {
       return {
         count: list.length,
         predicted_for_gw_note:
-          "predicted_for_gw reflects each player's own most recent match, so it may differ slightly between players who have played a different number of games.",
+          "predicted for gw reflects each player's own most recent match, so it may differ slightly between players who have played a different number of games.",
         predictions: list,
       } satisfies PredictionListResponse;
     }

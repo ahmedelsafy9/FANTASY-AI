@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Activity, Cpu, Users } from "lucide-react";
+import { Activity, Users } from "lucide-react";
 import type { HealthResponse } from "@/types/api";
 
 interface GameweekOverviewProps {
@@ -16,12 +16,6 @@ export function GameweekOverview({ health, gameweek }: GameweekOverviewProps) {
       color: "text-[#059669] bg-[#ECFDF5]",
     },
     {
-      icon: Cpu,
-      label: "Active Model",
-      value: health?.model_name ?? "N/A",
-      color: "text-[#92400E] bg-[#FFFBEB]",
-    },
-    {
       icon: Users,
       label: "Players Tracked",
       value: typeof health?.player_count === "number" ? health.player_count.toLocaleString() : "N/A",
@@ -31,7 +25,7 @@ export function GameweekOverview({ health, gameweek }: GameweekOverviewProps) {
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {items.map((item, i) => (
           <motion.div
             key={item.label}
