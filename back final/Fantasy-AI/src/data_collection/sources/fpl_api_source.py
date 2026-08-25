@@ -1,7 +1,7 @@
 """Data source implementation for the official Fantasy Premier League API.
 
 Provides live, current-season data — specifically, per-player stats
-for the most recently *finished* Gameweek — used to keep the
+for the most recently *completed* Gameweek — used to keep the
 historical dataset up to date without waiting for the Vaastav
 repository to be manually updated (see Sprint 9's automation
 pipeline).
@@ -13,6 +13,13 @@ Two endpoints are used:
   recently finished.
 - ``event/{event_id}/live/`` — every player's stats for one specific
   Gameweek.
+
+**Gameweek completion detection** uses a multi-signal approach:
+the FPL API's ``finished`` flag is the gold standard, but it can be
+delayed 1-3 days after all matches are played (until bonus points are
+confirmed).  A fallback heuristic detects a Gameweek whose deadline
+has passed and whose live endpoint already contains real player stats,
+even when ``finished`` is still ``False``.
 """
 
 from __future__ import annotations
@@ -83,7 +90,12 @@ class FPLApiDataSource(DataSource):
     # ------------------------------------------------------------------
 
     def download(self, destination: Path) -> DataSourceMetadata:
-        """Fetch bootstrap reference data and the latest finished event's stats (if any).
+        """Fetch bootstrap reference data and the latest completed event's stats (if any).
+
+        Uses a multi-signal approach to detect the latest completed
+        Gameweek: the ``finished`` flag is the gold standard, but a
+        fallback heuristic (``is_current`` + past deadline + live data
+        available) is used when ``finished`` hasn't flipped yet.
 
         Args:
             destination: Directory the raw JSON payloads should be
@@ -91,7 +103,7 @@ class FPLApiDataSource(DataSource):
 
         Returns:
             DataSourceMetadata: Metadata including which Gameweek
-            (event) was fetched (or None if no Gameweek has finished yet).
+            (event) was fetched (or None if no Gameweek has completed yet).
 
         Raises:
             DataSourceError: If the bootstrap-static request fails or payload is malformed.
@@ -106,7 +118,35 @@ class FPLApiDataSource(DataSource):
             json.dumps(bootstrap), encoding="utf-8"
         )
 
-        latest_event_id = self._find_latest_finished_event(bootstrap)
+        latest_event_id, is_provisional = self._find_latest_completed_event(bootstrap)
+
+        # If provisional detection found a candidate, validate that the live
+        # endpoint actually contains real player data before accepting it.
+        if latest_event_id is not None and is_provisional:
+            if self._probe_live_data(latest_event_id):
+                data_checked = self._is_data_checked(bootstrap, latest_event_id)
+                if not data_checked:
+                    logger.warning(
+                        "GW%d detected via heuristic (finished=False, data_checked=False, "
+                        "but is_current with past deadline and live data available). "
+                        "Bonus points may not yet be confirmed; stats may change slightly "
+                        "on the next run after the FPL API finalizes this Gameweek.",
+                        latest_event_id,
+                    )
+                else:
+                    logger.info(
+                        "GW%d detected via heuristic (finished=False but data_checked=True "
+                        "and live data available). Proceeding with ingestion.",
+                        latest_event_id,
+                    )
+            else:
+                logger.info(
+                    "GW%d deadline has passed but live endpoint has no player data yet; "
+                    "matches may not have started. Skipping.",
+                    latest_event_id,
+                )
+                latest_event_id = None
+                is_provisional = False
 
         if latest_event_id is not None:
             live_path = self._live_event_path_template.format(event_id=latest_event_id)
@@ -114,17 +154,19 @@ class FPLApiDataSource(DataSource):
             live_filename = _LIVE_EVENT_FILENAME_TEMPLATE.format(event_id=latest_event_id)
             (destination / live_filename).write_text(json.dumps(live_data), encoding="utf-8")
             records_count = len(live_data.get("elements", []))
+            detection_note = " (provisional — finished flag not yet set)" if is_provisional else ""
             logger.info(
-                "Downloaded %s: Gameweek %d, %d player record(s).",
+                "Downloaded %s: Gameweek %d, %d player record(s)%s.",
                 self.name,
                 latest_event_id,
                 records_count,
+                detection_note,
             )
         else:
             records_count = len(bootstrap.get("elements", []))
             logger.info(
                 "Downloaded %s bootstrap reference data (%d players, %d teams); "
-                "no Gameweek has finished yet.",
+                "no Gameweek has completed yet.",
                 self.name,
                 records_count,
                 len(bootstrap.get("teams", [])),
@@ -135,7 +177,10 @@ class FPLApiDataSource(DataSource):
             source_url=self._base_url,
             retrieved_at=datetime.now(timezone.utc),
             records_count=records_count,
-            extra={"latest_finished_event": latest_event_id},
+            extra={
+                "latest_finished_event": latest_event_id,
+                "detection_provisional": is_provisional if latest_event_id is not None else False,
+            },
         )
         self._write_metadata(destination, metadata)
         return metadata
@@ -148,7 +193,7 @@ class FPLApiDataSource(DataSource):
                 :meth:`download`.
 
         Returns:
-            pd.DataFrame: One row per player for the latest finished
+            pd.DataFrame: One row per player for the latest completed
             Gameweek, with columns aligned to the historical dataset's
             schema where possible (``element``, ``name``, ``team``,
             ``GW``, ``season``, ``value``, and every raw stat field).
@@ -164,9 +209,9 @@ class FPLApiDataSource(DataSource):
             )
         bootstrap = json.loads(bootstrap_path.read_text(encoding="utf-8"))
 
-        latest_event_id = self._find_latest_finished_event(bootstrap)
+        latest_event_id, _is_provisional = self._find_latest_completed_event(bootstrap)
         if latest_event_id is None:
-            raise DataSourceError("No finished Gameweek found in the downloaded bootstrap data.")
+            raise DataSourceError("No completed Gameweek found in the downloaded bootstrap data.")
 
         live_filename = _LIVE_EVENT_FILENAME_TEMPLATE.format(event_id=latest_event_id)
         live_path = source_path / live_filename
@@ -395,15 +440,35 @@ class FPLApiDataSource(DataSource):
         return _do_get()
 
     @staticmethod
-    def _find_latest_finished_event(bootstrap: dict[str, Any]) -> int | None:
-        """Find the highest-numbered finished Gameweek in bootstrap-static events.
+    def _find_latest_completed_event(
+        bootstrap: dict[str, Any],
+    ) -> tuple[int | None, bool]:
+        """Find the latest completed Gameweek using multi-signal detection.
+
+        Detection strategy:
+
+        1. **Primary**: events with ``finished=True`` — the FPL API's
+           gold-standard completion flag.
+        2. **Fallback**: if no ``finished`` events are found, checks for
+           an event that is ``is_current=True`` with a ``deadline_time``
+           in the past. This heuristic catches the common case where all
+           matches have been played but the FPL backend hasn't flipped
+           ``finished`` yet (typically delayed 1-3 days until bonus
+           points are confirmed).
+
+        The caller should validate the fallback result (e.g. by probing
+        the live endpoint) before trusting it.
 
         Args:
             bootstrap: The parsed bootstrap-static JSON payload.
 
         Returns:
-            int | None: The latest finished event's ID, or ``None`` if
-            none have finished yet.
+            tuple[int | None, bool]: ``(event_id, is_provisional)``.
+            ``event_id`` is the latest completed event's ID, or ``None``
+            if no Gameweek qualifies. ``is_provisional`` is ``True``
+            when the detection used the fallback heuristic (caller
+            should verify with live data and warn about unconfirmed
+            bonus points).
 
         Raises:
             DataSourceError: If the bootstrap-static payload is malformed.
@@ -412,8 +477,13 @@ class FPLApiDataSource(DataSource):
             raise DataSourceError("Malformed bootstrap-static payload: expected JSON object.")
         events = bootstrap.get("events")
         if events is None or not isinstance(events, list):
-            raise DataSourceError("Malformed bootstrap-static payload: 'events' array missing or not a list.")
+            raise DataSourceError(
+                "Malformed bootstrap-static payload: 'events' array missing or not a list."
+            )
 
+        # ---------------------------------------------------------------
+        # Primary: collect events whose ``finished`` flag is True.
+        # ---------------------------------------------------------------
         finished_events: list[int] = []
         for event in events:
             if not isinstance(event, dict):
@@ -423,7 +493,99 @@ class FPLApiDataSource(DataSource):
                 if isinstance(event_id, int):
                     finished_events.append(event_id)
 
-        return max(finished_events) if finished_events else None
+        if finished_events:
+            return max(finished_events), False
+
+        # ---------------------------------------------------------------
+        # Fallback: look for is_current=True with a deadline in the past.
+        #
+        # The FPL API marks one event as ``is_current`` (the "active"
+        # Gameweek) and another as ``is_next`` (the upcoming one). When
+        # all GW-N matches have been played but ``finished`` hasn't
+        # flipped yet, GW-N remains ``is_current`` and GW-(N+1) is
+        # ``is_next``. Checking that the deadline is past ensures we
+        # don't misidentify a Gameweek whose matches haven't started.
+        # ---------------------------------------------------------------
+        now = datetime.now(timezone.utc)
+        for event in events:
+            if not event.get("is_current"):
+                continue
+            event_id = event.get("id")
+            if not isinstance(event_id, int):
+                continue
+            deadline_str = event.get("deadline_time")
+            if not deadline_str:
+                continue
+            try:
+                deadline = datetime.fromisoformat(
+                    deadline_str.replace("Z", "+00:00")
+                )
+            except ValueError:
+                continue
+            if deadline < now:
+                logger.info(
+                    "No finished events found, but GW%d is current with "
+                    "deadline %s (past). Using fallback heuristic.",
+                    event_id,
+                    deadline_str,
+                )
+                return event_id, True
+
+        return None, False
+
+    def _probe_live_data(self, event_id: int) -> bool:
+        """Check whether the live endpoint for an event has real player stats.
+
+        Used to validate the fallback heuristic: even if a Gameweek's
+        deadline has passed, the live endpoint may not yet have any
+        data if matches haven't actually started.
+
+        Args:
+            event_id: The Gameweek event ID to probe.
+
+        Returns:
+            bool: ``True`` if the live endpoint returned at least one
+            player element with ``total_points > 0``.
+        """
+        try:
+            live_path = self._live_event_path_template.format(event_id=event_id)
+            live_data = self._get_json(f"{self._base_url}/{live_path}")
+            elements = live_data.get("elements", []) if isinstance(live_data, dict) else []
+            has_real_data = any(
+                (el.get("stats") or {}).get("total_points", 0) > 0
+                for el in elements
+                if isinstance(el, dict)
+            )
+            logger.info(
+                "Live data probe for GW%d: %d element(s), has_real_data=%s.",
+                event_id,
+                len(elements),
+                has_real_data,
+            )
+            return has_real_data
+        except (DataSourceError, requests.RequestException) as exc:
+            logger.warning("Live data probe for GW%d failed: %s", event_id, exc)
+            return False
+
+    @staticmethod
+    def _is_data_checked(bootstrap: dict[str, Any], event_id: int) -> bool:
+        """Check whether an event's ``data_checked`` flag is ``True``.
+
+        ``data_checked`` indicates that FPL has confirmed bonus points
+        and finalized stats for the Gameweek.
+
+        Args:
+            bootstrap: The parsed bootstrap-static JSON payload.
+            event_id: The event ID to check.
+
+        Returns:
+            bool: ``True`` if the event's ``data_checked`` flag is set.
+        """
+        event = next(
+            (e for e in bootstrap.get("events", []) if e.get("id") == event_id),
+            None,
+        )
+        return bool(event.get("data_checked")) if event else False
 
     @staticmethod
     def _infer_season(bootstrap: dict[str, Any], event_id: int) -> str:

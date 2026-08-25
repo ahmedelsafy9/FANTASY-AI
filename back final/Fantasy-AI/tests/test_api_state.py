@@ -386,3 +386,45 @@ def test_missing_and_ambiguous_predictions_return_null(
     assert delap_row["value"] == 55
 
 
+def test_build_app_state_multi_season_excludes_historical_players_in_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When live API is unreachable, build_app_state must only serve players
+    from the latest season in vaastav_features.csv, not historical players."""
+    settings = _write_pipeline_artifacts(tmp_path)
+
+    # Multi-season data: older season 2021-22 has retired player 999 (Zaha),
+    # latest season 2022-23 has active player 1 (Salah).
+    multi_season_df = pd.DataFrame(
+        {
+            "element": [999, 1],
+            "name": ["Wilfried Zaha", "Mohamed Salah"],
+            "season": ["2021-22", "2022-23"],
+            "GW": [38, 1],
+            "team": ["Crystal Palace", "Liverpool"],
+            "opponent_team": ["Man Utd", "Chelsea"],
+            "minutes_avg_last_3": [90.0, 90.0],
+            "total_points_avg_last_3": [8.0, 10.0],
+        }
+    )
+    multi_season_df.to_csv(
+        settings.paths.processed_data_dir / "vaastav_features.csv", index=False
+    )
+
+    def fake_get(url: str, stream: bool = False, timeout: int = 30, **kwargs: Any):
+        raise ConnectionError("simulated network outage")
+
+    monkeypatch.setattr("requests.get", fake_get)
+
+    state = build_app_state(settings)
+
+    # Must contain ONLY the current season player (Salah, GW 1 -> predicted 2)
+    assert len(state.predictions) == 1
+    assert state.predictions.iloc[0]["element"] == 1
+    assert state.predictions.iloc[0]["name"] == "Mohamed Salah"
+    assert state.predictions.iloc[0]["predicted_for_gw"] == 2
+    # Zaha (from 2021-22) must NOT be present
+    assert 999 not in state.predictions["element"].values
+
+
+
