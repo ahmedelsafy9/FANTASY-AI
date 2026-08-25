@@ -157,7 +157,7 @@ def test_load_raises_when_no_finished_event(
     destination = tmp_path / "fpl_api"
     source.download(destination)
 
-    with pytest.raises(DataSourceError, match="No finished Gameweek found"):
+    with pytest.raises(DataSourceError, match="No completed Gameweek found"):
         source.load(destination)
 
 
@@ -277,20 +277,88 @@ def test_update_when_no_finished_event(
 
 def test_find_latest_finished_event_multiple_finished() -> None:
     bootstrap = {"events": [{"id": 1, "finished": True}, {"id": 4, "finished": True}, {"id": 2, "finished": False}]}
-    assert FPLApiDataSource._find_latest_finished_event(bootstrap) == 4
+    event_id, is_provisional = FPLApiDataSource._find_latest_completed_event(bootstrap)
+    assert event_id == 4
+    assert is_provisional is False
 
 
 def test_find_latest_finished_event_none_finished() -> None:
     bootstrap = {"events": [{"id": 1, "finished": False}, {"id": 2, "finished": False}]}
-    assert FPLApiDataSource._find_latest_finished_event(bootstrap) is None
+    event_id, is_provisional = FPLApiDataSource._find_latest_completed_event(bootstrap)
+    assert event_id is None
+    assert is_provisional is False
 
 
 def test_find_latest_finished_event_malformed_bootstrap() -> None:
     with pytest.raises(DataSourceError, match="expected JSON object"):
-        FPLApiDataSource._find_latest_finished_event(["not a dict"])  # type: ignore[arg-type]
+        FPLApiDataSource._find_latest_completed_event(["not a dict"])  # type: ignore[arg-type]
 
     with pytest.raises(DataSourceError, match="'events' array missing"):
-        FPLApiDataSource._find_latest_finished_event({"no_events": []})
+        FPLApiDataSource._find_latest_completed_event({"no_events": []})
 
     with pytest.raises(DataSourceError, match="Malformed event object"):
-        FPLApiDataSource._find_latest_finished_event({"events": ["not a dict"]})
+        FPLApiDataSource._find_latest_completed_event({"events": ["not a dict"]})
+
+
+def test_find_latest_completed_event_fallback_heuristic() -> None:
+    """Fallback: is_current=True + deadline in past → provisional detection."""
+    bootstrap = {
+        "events": [
+            {
+                "id": 1,
+                "finished": False,
+                "is_current": True,
+                "deadline_time": "2020-01-01T12:00:00Z",
+            },
+            {
+                "id": 2,
+                "finished": False,
+                "is_current": False,
+                "deadline_time": "2099-01-01T12:00:00Z",
+            },
+        ]
+    }
+    event_id, is_provisional = FPLApiDataSource._find_latest_completed_event(bootstrap)
+    assert event_id == 1
+    assert is_provisional is True
+
+
+def test_find_latest_completed_event_fallback_skipped_future_deadline() -> None:
+    """Fallback should NOT trigger if deadline is in the future."""
+    bootstrap = {
+        "events": [
+            {
+                "id": 1,
+                "finished": False,
+                "is_current": True,
+                "deadline_time": "2099-12-31T23:59:59Z",
+            },
+        ]
+    }
+    event_id, is_provisional = FPLApiDataSource._find_latest_completed_event(bootstrap)
+    assert event_id is None
+    assert is_provisional is False
+
+
+def test_find_latest_completed_event_finished_takes_priority() -> None:
+    """When finished=True exists, the fallback heuristic is never used."""
+    bootstrap = {
+        "events": [
+            {
+                "id": 1,
+                "finished": True,
+                "is_current": False,
+                "deadline_time": "2020-01-01T12:00:00Z",
+            },
+            {
+                "id": 2,
+                "finished": False,
+                "is_current": True,
+                "deadline_time": "2020-06-01T12:00:00Z",
+            },
+        ]
+    }
+    event_id, is_provisional = FPLApiDataSource._find_latest_completed_event(bootstrap)
+    assert event_id == 1
+    assert is_provisional is False
+

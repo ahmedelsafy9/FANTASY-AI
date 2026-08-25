@@ -12,15 +12,14 @@ primary_region = 'iad'
 [build]
   dockerfile = 'Dockerfile'
 
-# Non-secret defaults. Secrets belong in `fly secrets set`, never here.
+# Non-secret defaults. Secrets (none currently required by this app,
+# but e.g. FANTASY_AI_RATE_LIMIT_STORAGE_URI's redis credentials if you
+# add one later) belong in `fly secrets set`, never here.
 [env]
   FANTASY_AI_ENV = 'production'
-  FANTASY_AI_AUTH_DB_PATH = '/data/auth.db'
-
-[mounts]
-  source = 'fantasy_ai_data'
-  destination = '/data'
-  initial_size = '1gb'
+  # Set your real frontend origin(s) before first deploy — with this
+  # unset, no browser can call the API (see src/api/main.py CORS logic).
+  # FANTASY_AI_CORS_ORIGINS = 'https://your-frontend.example.com'
 
 [http_service]
   internal_port = 8080
