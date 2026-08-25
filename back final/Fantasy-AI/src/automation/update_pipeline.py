@@ -31,7 +31,10 @@ from src.feature_engineering.factory import build_default_feature_steps
 from src.feature_engineering.pipeline import FeaturePipeline
 from src.preprocessing.factory import build_default_pipeline_steps
 from src.preprocessing.pipeline import PreprocessingPipeline
+from src.prediction.export import export_predictions
 from src.prediction.loader import load_model
+from src.prediction.next_gameweek import build_next_gameweek_rows
+from src.prediction.predictor import PredictionService
 from src.training.dataset import prepare_split_dataset
 from src.training.factory import build_default_model_specs
 from src.training.persistence import save_best_model
@@ -135,6 +138,8 @@ class AutomationOrchestrator:
 
         if retrain:
             self._retrain_and_maybe_promote(settings, engineered_path, result, is_dry_run)
+
+        self._export_predictions(settings, engineered_path)
 
         logger.info("Automation run complete: %s", result)
         return result
@@ -670,3 +675,52 @@ class AutomationOrchestrator:
             f"threshold={settings.automation.retrain_min_improvement})."
         )
         return should_promote, reason
+
+    def _export_predictions(self, settings: Settings, engineered_path: Path) -> Path | None:
+        """Generate and export the canonical predictions.csv artifact if a model is available.
+
+        Args:
+            settings: Application settings.
+            engineered_path: Path to the engineered features CSV.
+
+        Returns:
+            Path | None: Path to predictions.csv if generated, else None.
+        """
+        model_path = settings.paths.models_dir / "best_model.joblib"
+        metadata_path = settings.paths.models_dir / "best_model_metadata.json"
+        if not model_path.exists() or not metadata_path.exists():
+            logger.info("No deployed model found; skipping automated prediction export.")
+            return None
+
+        try:
+            loaded_model = load_model(model_path, metadata_path)
+            data = pd.read_csv(engineered_path, low_memory=False)
+            next_gw_rows = build_next_gameweek_rows(
+                data,
+                player_id_columns=settings.feature_engineering.player_id_columns,
+                chronological_columns=settings.feature_engineering.chronological_columns,
+                max_valid_gameweek=settings.prediction.max_valid_gameweek,
+            )
+            service = PredictionService(loaded_model)
+            predictions = service.predict(next_gw_rows)
+            output_path = settings.paths.processed_data_dir / "predictions.csv"
+            prediction_column = f"predicted_{loaded_model.target_column}"
+            export_predictions(
+                predictions,
+                id_columns=settings.prediction.export_id_columns,
+                prediction_column=prediction_column,
+                output_path=output_path,
+            )
+            logger.info(
+                "Automated prediction export complete: %d prediction(s) saved to %s.",
+                len(predictions),
+                output_path,
+            )
+            return output_path
+        except FantasyAIError as exc:
+            logger.warning("Automated prediction export failed; skipping: %s", exc)
+            return None
+        except Exception as exc:
+            logger.warning("Unexpected error during automated prediction export: %s", exc)
+            return None
+

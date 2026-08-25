@@ -86,6 +86,153 @@ def test_build_next_gameweek_rows_raises_without_chronological_column() -> None:
         )
 
 
+# --- Sprint 10: current-season filtering tests --------------------------------
+
+
+def test_build_next_gw_excludes_historical_players() -> None:
+    """Players from older seasons must NOT appear in current predictions."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 2, 3, 3],
+            "season": ["2021-22", "2021-22", "2022-23", "2022-23"],
+            "GW": [38, 38, 1, 2],
+            "minutes": [90, 90, 90, 90],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+    )
+    # Only element 3 from 2022-23 should appear; elements 1, 2 are old-season only.
+    assert len(result) == 1
+    assert result.iloc[0]["element"] == 3
+    assert result.iloc[0]["predicted_for_gw"] == 3
+
+
+def test_build_next_gw_multi_season_no_duplicates() -> None:
+    """Multiple historical seasons must not cause duplicate player candidates."""
+    df = pd.DataFrame(
+        {
+            "element": [10, 10, 10, 20, 20],
+            "season": ["2020-21", "2021-22", "2022-23", "2021-22", "2022-23"],
+            "GW": [38, 38, 5, 38, 10],
+            "minutes": [90, 90, 90, 90, 90],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+    )
+    # Only 2022-23 rows matter. element 10 at GW5, element 20 at GW10.
+    assert len(result) == 2
+    assert set(result["element"]) == {10, 20}
+    assert set(result["predicted_for_gw"]) == {6, 11}
+
+
+def test_build_next_gw_old_gw38_players_not_rolled_to_gw1() -> None:
+    """GW38 players from old seasons must NOT become fake GW1 predictions
+    when a newer season exists."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 2],
+            "season": ["2021-22", "2022-23"],
+            "GW": [38, 1],
+            "minutes": [90, 90],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+    )
+    # Element 1 from 2021-22 must be excluded entirely.
+    # Element 2 from 2022-23 GW1 -> predicted_for_gw = 2.
+    assert len(result) == 1
+    assert result.iloc[0]["element"] == 2
+    assert result.iloc[0]["predicted_for_gw"] == 2
+
+
+def test_build_next_gw_uses_element_within_single_season() -> None:
+    """Within a single season, 'element' should work as a valid player ID."""
+    df = pd.DataFrame(
+        {
+            "element": [100, 100, 200],
+            "season": ["2026-27"] * 3,
+            "GW": [1, 2, 1],
+            "minutes": [90, 45, 90],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+    )
+    assert len(result) == 2
+    assert set(result["element"]) == {100, 200}
+    # element 100 latest GW is 2 -> predicted 3; element 200 latest GW is 1 -> predicted 2
+    result_sorted = result.sort_values("element").reset_index(drop=True)
+    assert result_sorted.iloc[0]["predicted_for_gw"] == 3  # element 100
+    assert result_sorted.iloc[1]["predicted_for_gw"] == 2  # element 200
+
+
+def test_build_next_gw_preserves_current_player_count() -> None:
+    """The output row count must match the number of unique players in the
+    current season, not the total across all seasons."""
+    old_players = pd.DataFrame(
+        {
+            "element": list(range(1, 501)),
+            "season": ["2021-22"] * 500,
+            "GW": [38] * 500,
+            "minutes": [90] * 500,
+        }
+    )
+    current_players = pd.DataFrame(
+        {
+            "element": list(range(1, 21)),
+            "season": ["2022-23"] * 20,
+            "GW": [1] * 20,
+            "minutes": [90] * 20,
+        }
+    )
+    df = pd.concat([old_players, current_players], ignore_index=True)
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+    )
+    # Must produce exactly 20 rows (current season), not 500+.
+    assert len(result) == 20
+    assert (result["predicted_for_gw"] == 2).all()
+
+
+def test_build_next_gw_single_season_gw38_still_rolls() -> None:
+    """When there is only one season and all players are at GW38,
+    the rollover to GW1 should still work (backward compat)."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 2],
+            "season": ["2022-23", "2022-23"],
+            "GW": [38, 38],
+            "minutes": [90, 90],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+    )
+    assert len(result) == 2
+    assert (result["predicted_for_gw"] == 1).all()
+
+
 # --- PredictionService -----------------------------------------------------------
 
 

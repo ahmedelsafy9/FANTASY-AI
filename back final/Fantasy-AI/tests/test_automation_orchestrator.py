@@ -293,9 +293,52 @@ def test_run_fixes_opponent_strength_domain_mismatch_end_to_end(
     engineered_path = isolated_settings.paths.processed_data_dir / "vaastav_features.csv"
     engineered = pd.read_csv(engineered_path)
 
-    assert "opponent_strength" in engineered.columns
-    # Before the fix, this column would be entirely NaN (the source-column
-    # domain mismatch caused TeamStrengthStep to skip it outright).
     assert engineered["opponent_strength"].notna().any(), (
         "opponent_strength is still all-NaN — the domain-mismatch fix did not take effect"
     )
+
+
+def test_run_exports_canonical_predictions_if_model_present(
+    isolated_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When a trained model is present, an automation run must automatically
+    export an updated canonical predictions.csv matching the new features."""
+    import joblib
+    from sklearn.linear_model import LinearRegression
+
+    _patch_network(
+        monkeypatch,
+        zip_bytes=_build_vaastav_zip(n_gws=5),
+        bootstrap=_bootstrap_payload([1, 2]),
+        live=_live_payload(2),
+    )
+
+    # Place a dummy model in models_dir
+    model = LinearRegression().fit([[90.0]], [5.0])
+    isolated_settings.paths.models_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, isolated_settings.paths.models_dir / "best_model.joblib")
+    (isolated_settings.paths.models_dir / "best_model_metadata.json").write_text(
+        json.dumps(
+            {
+                "model_name": "linear_regression",
+                "feature_columns": ["minutes_avg_last_3"],
+                "target_column": "total_points",
+                "train_medians": {"minutes_avg_last_3": 80.0},
+                "metrics": {"mae": 1.0, "rmse": 1.5, "r2": 0.5},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    orchestrator = AutomationOrchestrator(isolated_settings)
+    orchestrator.run(retrain=False, ingest_live=True)
+
+    predictions_path = isolated_settings.paths.processed_data_dir / "predictions.csv"
+    assert predictions_path.exists(), "predictions.csv was not exported by the automation run"
+
+    preds = pd.read_csv(predictions_path)
+    assert len(preds) == 2
+    assert "predicted_total_points" in preds.columns
+    assert "predicted_for_gw" in preds.columns
+    assert (preds["predicted_for_gw"] == 6).all()  # Latest GW in zip was 5, so next is 6
+
