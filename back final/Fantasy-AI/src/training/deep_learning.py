@@ -48,7 +48,10 @@ class DeepLearningConfig:
     epochs: int = 200
     patience: int = 15
     use_batch_norm: bool = True
-    loss_beta: float = 4.0
+    loss_type: str = "asymmetric_huber"
+    asymmetric_penalty: float = 1.6
+    asymmetric_threshold: float = 3.0
+    loss_beta: float = 3.0
     high_score_weight_power: float = 0.0
     use_discrete_sample_weights: bool = True
     random_state: int = 42
@@ -213,7 +216,18 @@ class TabularMLPRegressor:
             patience=5,
             min_lr=1e-6,
         )
-        loss_fn = nn.SmoothL1Loss(beta=cfg.loss_beta, reduction="none")
+        if cfg.loss_type == "asymmetric_huber":
+            loss_fn = _AsymmetricSmoothL1Loss(
+                beta=cfg.loss_beta,
+                penalty=cfg.asymmetric_penalty,
+                threshold=cfg.asymmetric_threshold,
+            )
+        elif cfg.loss_type == "mse":
+            loss_fn = nn.MSELoss(reduction="none")
+        elif cfg.loss_type == "mae":
+            loss_fn = nn.L1Loss(reduction="none")
+        else:
+            loss_fn = nn.SmoothL1Loss(beta=cfg.loss_beta, reduction="none")
 
         # ---------------------------------------------------------------
         # Training loop
@@ -451,3 +465,43 @@ def _build_mlp(
     layers.append(nn.Linear(prev_dim, 1))
 
     return nn.Sequential(*layers)
+
+
+class _AsymmetricSmoothL1Loss:
+    """Asymmetric Smooth L1 (Huber) loss.
+
+    Penalizes UNDERPREDICTION of high actual target scores (i.e. target >= threshold
+    and pred < target) by a multiplier (`penalty`), while treating normal and
+    overpredicted residuals with standard Huber loss.
+
+    Formula:
+        loss = SmoothL1(pred, target)
+        if target >= threshold and pred < target:
+            loss = loss * penalty
+    """
+
+    def __init__(
+        self,
+        beta: float = 3.0,
+        penalty: float = 1.6,
+        threshold: float = 3.0,
+    ) -> None:
+        import torch.nn as nn
+
+        self.beta = beta
+        self.penalty = penalty
+        self.threshold = threshold
+        self.smooth_l1 = nn.SmoothL1Loss(beta=beta, reduction="none")
+
+    def __call__(self, pred: Any, target: Any) -> Any:
+        import torch
+
+        loss = self.smooth_l1(pred, target)
+        if self.penalty > 1.0:
+            underpred = (pred < target) & (target >= self.threshold)
+            loss = loss * torch.where(
+                underpred,
+                torch.as_tensor(self.penalty, dtype=loss.dtype, device=loss.device),
+                torch.as_tensor(1.0, dtype=loss.dtype, device=loss.device),
+            )
+        return loss
