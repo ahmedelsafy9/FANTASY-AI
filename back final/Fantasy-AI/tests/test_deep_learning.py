@@ -472,3 +472,109 @@ class TestTrainerIntegration:
         result = trainer.run(split, skipped_models={})
         assert len(result.results) == 1
         assert result.results[0].metrics.mae > 0
+
+
+@requires_torch
+class TestAsymmetricLoss:
+    """Tests for the Asymmetric Smooth L1 (Huber) loss module."""
+
+    def test_asymmetric_loss_penalizes_high_score_underprediction(self) -> None:
+        import torch
+        from src.training.deep_learning import _AsymmetricSmoothL1Loss
+
+        loss_fn = _AsymmetricSmoothL1Loss(beta=3.0, penalty=2.0, threshold=3.0)
+
+        # Target = 8.0 (high score >= 3.0), Pred = 4.0 (underprediction)
+        pred_under = torch.tensor([4.0])
+        target_high = torch.tensor([8.0])
+        loss_under = loss_fn(pred_under, target_high)
+
+        # Compare with symmetric smooth L1
+        sym_fn = torch.nn.SmoothL1Loss(beta=3.0, reduction="none")
+        sym_loss = sym_fn(pred_under, target_high)
+
+        assert torch.isclose(loss_under, sym_loss * 2.0)
+
+    def test_asymmetric_loss_does_not_penalize_high_score_overprediction(self) -> None:
+        import torch
+        from src.training.deep_learning import _AsymmetricSmoothL1Loss
+
+        loss_fn = _AsymmetricSmoothL1Loss(beta=3.0, penalty=2.0, threshold=3.0)
+
+        # Target = 8.0, Pred = 10.0 (overprediction on high score)
+        pred_over = torch.tensor([10.0])
+        target_high = torch.tensor([8.0])
+        loss_over = loss_fn(pred_over, target_high)
+
+        sym_fn = torch.nn.SmoothL1Loss(beta=3.0, reduction="none")
+        sym_loss = sym_fn(pred_over, target_high)
+
+        assert torch.isclose(loss_over, sym_loss)
+
+    def test_asymmetric_loss_does_not_penalize_low_score_underprediction(self) -> None:
+        import torch
+        from src.training.deep_learning import _AsymmetricSmoothL1Loss
+
+        loss_fn = _AsymmetricSmoothL1Loss(beta=3.0, penalty=2.0, threshold=3.0)
+
+        # Target = 1.0 (< threshold 3.0), Pred = 0.0 (underprediction on low score)
+        pred_under = torch.tensor([0.0])
+        target_low = torch.tensor([1.0])
+        loss_low = loss_fn(pred_under, target_low)
+
+        sym_fn = torch.nn.SmoothL1Loss(beta=3.0, reduction="none")
+        sym_loss = sym_fn(pred_under, target_low)
+
+        assert torch.isclose(loss_low, sym_loss)
+
+    def test_asymmetric_loss_threshold_boundary(self) -> None:
+        import torch
+        from src.training.deep_learning import _AsymmetricSmoothL1Loss
+
+        loss_fn = _AsymmetricSmoothL1Loss(beta=3.0, penalty=1.6, threshold=3.0)
+
+        # Exactly at threshold 3.0
+        pred = torch.tensor([2.0])
+        target = torch.tensor([3.0])
+        loss = loss_fn(pred, target)
+
+        sym_fn = torch.nn.SmoothL1Loss(beta=3.0, reduction="none")
+        sym_loss = sym_fn(pred, target)
+
+        assert torch.isclose(loss, sym_loss * 1.6)
+
+    def test_asymmetric_loss_model_training_and_serialization(self, tmp_path: Path) -> None:
+        import pickle
+        from src.training.deep_learning import DeepLearningConfig, TabularMLPRegressor
+
+        config = DeepLearningConfig(
+            hidden_layers=(16, 8),
+            loss_type="asymmetric_huber",
+            asymmetric_penalty=1.6,
+            asymmetric_threshold=3.0,
+            loss_beta=3.0,
+            epochs=5,
+            batch_size=16,
+            random_state=42,
+        )
+
+        X, y, sample_weights = _synthetic_dataset(n_rows=50, n_features=5)
+        model = TabularMLPRegressor(config=config)
+        model.fit(X, y, sample_weight=sample_weights)
+
+        preds_before = model.predict(X)
+        assert len(preds_before) == 50
+
+        # Test pickling
+        model_path = tmp_path / "model.pkl"
+        with open(model_path, "wb") as f:
+            pickle.dump(model, f)
+
+        with open(model_path, "rb") as f:
+            loaded_model = pickle.load(f)
+
+        preds_after = loaded_model.predict(X)
+        np.testing.assert_allclose(preds_before, preds_after, rtol=1e-5)
+        assert loaded_model.config.loss_type == "asymmetric_huber"
+        assert loaded_model.config.asymmetric_penalty == 1.6
+

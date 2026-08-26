@@ -529,7 +529,7 @@ class TrainingSettings:
             for c in _env_str(
                 "FANTASY_AI_EXCLUDED_FEATURE_COLUMNS",
                 # Identifier / free-text columns, excluded regardless of timing:
-                "season,name,team,opponent_team,kickoff_time,element,fixture,round,"
+                "season,name,team,opponent_team,kickoff_time,element,fixture,round,id,"
                 # Same-Gameweek MATCH-OUTCOME stats: these are only known AFTER a
                 # match is played, so using them (unlagged) to predict that same
                 # match's total_points is data leakage — total_points is itself a
@@ -543,7 +543,17 @@ class TrainingSettings:
                 "bonus,bps,influence,creativity,threat,ict_index,"
                 "expected_goals,expected_assists,expected_goal_involvements,"
                 "expected_goals_conceded,in_dreamteam,starts,selected,"
-                "transfers_in,transfers_out,transfers_balance",
+                "transfers_in,transfers_out,transfers_balance,"
+                "team_a_score,team_h_score,"
+                # Legacy unlagged match-level stats (not present in modern schema):
+                "attempted_passes,big_chances_created,big_chances_missed,"
+                "clearances_blocks_interceptions,completed_passes,dribbles,"
+                "ea_index,errors_leading_to_goal,errors_leading_to_goal_attempt,"
+                "fouls,key_passes,loaned_in,loaned_out,offside,"
+                "open_play_crosses,penalties_conceded,recoveries,tackled,"
+                "tackles,target_missed,winning_goals,"
+                "mng_clean_sheets,mng_draw,mng_goals_scored,mng_loss,"
+                "mng_underdog_draw,mng_underdog_win,mng_win",
             ).split(",")
             if c
         )
@@ -634,8 +644,17 @@ class TrainingSettings:
     dl_use_batch_norm: bool = field(
         default_factory=lambda: _env_bool("FANTASY_AI_DL_USE_BATCH_NORM", True)
     )
+    dl_loss_type: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_DL_LOSS_TYPE", "asymmetric_huber")
+    )
+    dl_asymmetric_penalty: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_ASYMMETRIC_PENALTY", "1.6"))
+    )
+    dl_asymmetric_threshold: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_ASYMMETRIC_THRESHOLD", "3.0"))
+    )
     dl_loss_beta: float = field(
-        default_factory=lambda: float(_env_str("FANTASY_AI_DL_LOSS_BETA", "4.0"))
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_LOSS_BETA", "3.0"))
     )
     dl_high_score_weight_power: float = field(
         default_factory=lambda: float(_env_str("FANTASY_AI_DL_HIGH_SCORE_WEIGHT_POWER", "0.0"))
