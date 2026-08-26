@@ -51,12 +51,13 @@ def test_pipeline_never_removes_rows() -> None:
     assert result.rows_before == result.rows_after
 
 
-def test_build_default_feature_steps_returns_eleven_steps() -> None:
-    """The factory must build the full standard step sequence, including attacking_contribution."""
+def test_build_default_feature_steps_returns_twelve_steps() -> None:
+    """The factory must build the full standard step sequence, including position_encoding."""
     steps = build_default_feature_steps(FeatureEngineeringSettings())
     names = [step.name for step in steps]
     assert names == [
         "rolling_averages",
+        "position_encoding",
         "player_participation",
         "promoted_and_historical",
         "fixture_difficulty",
@@ -90,6 +91,7 @@ def test_default_pipeline_produces_expected_columns_on_realistic_data() -> None:
             "expected_goals": [0.2, 0.1, 0.3],
             "expected_assists": [0.1, 0.2, 0.0],
             "was_home": [True, False, True],
+            "position": ["MID", "MID", "MID"],
             "kickoff_time": [
                 "2022-08-06T14:00:00Z",
                 "2022-08-13T14:00:00Z",
@@ -110,6 +112,10 @@ def test_default_pipeline_produces_expected_columns_on_realistic_data() -> None:
     expected_columns = [
         "total_points_avg_last_3",
         "minutes_avg_last_5",
+        "is_position_gkp",
+        "is_position_def",
+        "is_position_mid",
+        "is_position_fwd",
         "prev_gw_minutes",
         "prev_gw_played",
         "prev_gw_started",

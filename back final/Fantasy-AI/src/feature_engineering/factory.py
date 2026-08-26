@@ -15,6 +15,7 @@ from src.feature_engineering.steps.fixture_difficulty import FixtureDifficultySt
 from src.feature_engineering.steps.form_index import FormIndexStep
 from src.feature_engineering.steps.home_away import HomeAwayFlagStep
 from src.feature_engineering.steps.participation import PlayerParticipationStep
+from src.feature_engineering.steps.position import PositionEncodingStep
 from src.feature_engineering.steps.price_trend import PriceTrendStep
 from src.feature_engineering.steps.promoted_teams import PromotedAndHistoricalStep
 from src.feature_engineering.steps.rest_days import RestDaysStep
@@ -123,6 +124,10 @@ def build_default_feature_steps(
             player_id_columns=settings.player_id_columns,
             chronological_columns=settings.chronological_columns,
             specs=rolling_specs,
+        ),
+        PositionEncodingStep(
+            position_column=settings.position_column,
+            season_column=settings.season_column,
         ),
         PlayerParticipationStep(
             player_id_columns=settings.player_id_columns,

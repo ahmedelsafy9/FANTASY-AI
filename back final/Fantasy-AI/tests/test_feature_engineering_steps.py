@@ -695,3 +695,80 @@ def test_attacking_contribution_missing_prerequisites_graceful() -> None:
         assert col in result.columns
         assert result[col].isna().all()
 
+
+# --- PositionEncodingStep -------------------------------------------------------
+
+
+from src.feature_engineering.steps.position import PositionEncodingStep
+
+
+def test_position_encoding_canonical_values() -> None:
+    """Canonical position strings must map into clean one-hot binary flags."""
+    df = pd.DataFrame(
+        {
+            "position": ["GKP", "DEF", "MID", "FWD", "GK", "AM"],
+            "season": ["2022-23"] * 6,
+            "element": [1, 2, 3, 4, 5, 6],
+            "name_normalized": ["a", "b", "c", "d", "e", "f"],
+        }
+    )
+    step = PositionEncodingStep()
+    result, summary = step.apply(df)
+
+    assert summary.step_name == "position_encoding"
+    assert len(summary.columns_added) == 4
+
+    # GKP (row 0)
+    assert result.iloc[0]["is_position_gkp"] == 1.0
+    assert result.iloc[0]["is_position_def"] == 0.0
+    assert result.iloc[0]["is_position_mid"] == 0.0
+    assert result.iloc[0]["is_position_fwd"] == 0.0
+
+    # DEF (row 1)
+    assert result.iloc[1]["is_position_def"] == 1.0
+
+    # MID (row 2)
+    assert result.iloc[2]["is_position_mid"] == 1.0
+
+    # FWD (row 3)
+    assert result.iloc[3]["is_position_fwd"] == 1.0
+
+    # GK -> GKP (row 4)
+    assert result.iloc[4]["is_position_gkp"] == 1.0
+
+    # AM -> MID (row 5)
+    assert result.iloc[5]["is_position_mid"] == 1.0
+
+    # Each row sums to exactly 1.0
+    row_sums = (
+        result["is_position_gkp"]
+        + result["is_position_def"]
+        + result["is_position_mid"]
+        + result["is_position_fwd"]
+    )
+    assert (row_sums == 1.0).all()
+
+
+def test_position_encoding_missing_fallback() -> None:
+    """Missing positions without lookup data must safely fall back to MID or GKP."""
+    df = pd.DataFrame(
+        {
+            "position": [None, None],
+            "saves": [0, 5],
+            "season": ["1999-00", "1999-00"],
+            "element": [999, 998],
+            "name_normalized": ["unknown_mid", "unknown_gk"],
+        }
+    )
+    step = PositionEncodingStep(raw_data_dir="non_existent_dir")
+    result, _ = step.apply(df)
+
+    # Row 0: no saves -> MID
+    assert result.iloc[0]["is_position_mid"] == 1.0
+    assert result.iloc[0]["is_position_gkp"] == 0.0
+
+    # Row 1: saves > 0 -> GKP
+    assert result.iloc[1]["is_position_gkp"] == 1.0
+    assert result.iloc[1]["is_position_mid"] == 0.0
+
+

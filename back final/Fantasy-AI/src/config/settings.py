@@ -565,6 +565,9 @@ class FeatureEngineeringSettings:
     team_a_score_column: str = field(
         default_factory=lambda: _env_str("FANTASY_AI_TEAM_A_SCORE_COLUMN", "team_a_score")
     )
+    position_column: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_POSITION_COLUMN", "position")
+    )
 
 
 @dataclass(frozen=True)
