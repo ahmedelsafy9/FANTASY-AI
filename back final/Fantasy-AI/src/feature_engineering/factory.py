@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from src.config.settings import FeatureEngineeringSettings, FixtureAwareSettings
 from src.feature_engineering.models import RollingFeatureSpec
+from src.feature_engineering.steps.attacking_contribution import AttackingContributionStep
 from src.feature_engineering.steps.base import FeatureStep
 from src.feature_engineering.steps.fixture_difficulty import FixtureDifficultyStep
 from src.feature_engineering.steps.form_index import FormIndexStep
@@ -81,6 +82,36 @@ def build_default_feature_steps(
             source_candidates=settings.xa_columns,
             windows=settings.rolling_windows,
         ),
+        RollingFeatureSpec(
+            output_name="threat",
+            source_candidates=settings.threat_columns,
+            windows=settings.rolling_windows,
+        ),
+        RollingFeatureSpec(
+            output_name="creativity",
+            source_candidates=settings.creativity_columns,
+            windows=settings.rolling_windows,
+        ),
+        RollingFeatureSpec(
+            output_name="influence",
+            source_candidates=settings.influence_columns,
+            windows=settings.rolling_windows,
+        ),
+        RollingFeatureSpec(
+            output_name="goals_scored",
+            source_candidates=settings.goals_scored_columns,
+            windows=(3, 5),
+        ),
+        RollingFeatureSpec(
+            output_name="assists",
+            source_candidates=settings.assists_columns,
+            windows=(3, 5),
+        ),
+        RollingFeatureSpec(
+            output_name="bonus",
+            source_candidates=settings.bonus_columns,
+            windows=(3, 5),
+        ),
     )
 
     form_index_components = tuple(
@@ -116,6 +147,7 @@ def build_default_feature_steps(
             team_h_score_column=settings.team_h_score_column,
             team_a_score_column=settings.team_a_score_column,
         ),
+        AttackingContributionStep(),
         HomeAwayFlagStep(source_column=settings.home_column),
         RestDaysStep(
             player_id_columns=settings.player_id_columns,

@@ -51,8 +51,8 @@ def test_pipeline_never_removes_rows() -> None:
     assert result.rows_before == result.rows_after
 
 
-def test_build_default_feature_steps_returns_ten_steps() -> None:
-    """The factory must build the full standard step sequence, including fixture_difficulty."""
+def test_build_default_feature_steps_returns_eleven_steps() -> None:
+    """The factory must build the full standard step sequence, including attacking_contribution."""
     steps = build_default_feature_steps(FeatureEngineeringSettings())
     names = [step.name for step in steps]
     assert names == [
@@ -60,6 +60,7 @@ def test_build_default_feature_steps_returns_ten_steps() -> None:
         "player_participation",
         "promoted_and_historical",
         "fixture_difficulty",
+        "attacking_contribution",
         "home_away_flag",
         "rest_days",
         "team_opponent_strength",
@@ -70,7 +71,7 @@ def test_build_default_feature_steps_returns_ten_steps() -> None:
 
 
 def test_default_pipeline_produces_expected_columns_on_realistic_data() -> None:
-    """End-to-end: the default pipeline must add every requested Sprint 5 feature."""
+    """End-to-end: the default pipeline must add every requested feature."""
     df = pd.DataFrame(
         {
             "element": [1, 1, 1],
@@ -80,6 +81,12 @@ def test_default_pipeline_produces_expected_columns_on_realistic_data() -> None:
             "minutes": [90, 90, 45],
             "bps": [20, 15, 25],
             "ict_index": [5.0, 4.0, 6.0],
+            "threat": [30.0, 20.0, 40.0],
+            "creativity": [15.0, 25.0, 10.0],
+            "influence": [25.0, 18.0, 30.0],
+            "goals_scored": [1, 0, 1],
+            "assists": [0, 1, 0],
+            "bonus": [2, 0, 3],
             "expected_goals": [0.2, 0.1, 0.3],
             "expected_assists": [0.1, 0.2, 0.0],
             "was_home": [True, False, True],
@@ -122,6 +129,17 @@ def test_default_pipeline_produces_expected_columns_on_realistic_data() -> None:
         "opponent_defence_strength",
         "fixture_difficulty",
         "clean_sheet_likelihood",
+        "threat_avg_last_3",
+        "creativity_avg_last_3",
+        "influence_avg_last_3",
+        "goals_scored_avg_last_3",
+        "assists_avg_last_3",
+        "bonus_avg_last_3",
+        "threat_per_90_last_5",
+        "creativity_per_90_last_5",
+        "bps_per_90_last_5",
+        "goal_involvement_rate_last_5",
+        "attacking_threat_index",
         "bps_avg_last_10",
         "ict_index_avg_last_3",
         "xG_avg_last_3",

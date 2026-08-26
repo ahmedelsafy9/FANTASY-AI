@@ -632,3 +632,66 @@ def test_fixture_difficulty_all_output_columns_present() -> None:
     for col in expected:
         assert col in result.columns
     assert len(summary.columns_added) == 6
+
+
+# --- AttackingContributionStep --------------------------------------------------
+
+
+from src.feature_engineering.steps.attacking_contribution import AttackingContributionStep
+
+
+def test_attacking_contribution_per_90_metrics() -> None:
+    """Per-90 metrics must be correctly scaled: (stat / minutes) * 90."""
+    df = pd.DataFrame(
+        {
+            "minutes_avg_last_5": [90.0, 45.0, 0.0],
+            "threat_avg_last_5": [30.0, 20.0, 0.0],
+            "creativity_avg_last_5": [15.0, 10.0, 0.0],
+            "bps_avg_last_5": [25.0, 10.0, 0.0],
+            "goals_scored_avg_last_5": [0.5, 0.2, 0.0],
+            "assists_avg_last_5": [0.3, 0.1, 0.0],
+            "team_attack_strength": [2.0, 1.5, 1.0],
+        }
+    )
+    step = AttackingContributionStep()
+    result, summary = step.apply(df)
+
+    assert summary.step_name == "attacking_contribution"
+    assert len(summary.columns_added) == 5
+
+    # Row 0: 90 mins, 30 threat -> threat_p90 = (30/90)*90 = 30.0
+    assert result.iloc[0]["threat_per_90_last_5"] == pytest.approx(30.0)
+    assert result.iloc[0]["creativity_per_90_last_5"] == pytest.approx(15.0)
+    assert result.iloc[0]["bps_per_90_last_5"] == pytest.approx(25.0)
+    # Row 0 goal involvement: (0.5 + 0.3) / 2.0 = 0.40
+    assert result.iloc[0]["goal_involvement_rate_last_5"] == pytest.approx(0.40)
+    # Row 0 threat index: 30 * 0.6 + 15 * 0.4 = 18 + 6 = 24.0
+    assert result.iloc[0]["attacking_threat_index"] == pytest.approx(24.0)
+
+    # Row 1: 45 mins, 20 threat -> threat_p90 = (20/45)*90 = 40.0
+    assert result.iloc[1]["threat_per_90_last_5"] == pytest.approx(40.0)
+    assert result.iloc[1]["creativity_per_90_last_5"] == pytest.approx(20.0)
+
+    # Row 2: 0 mins -> per 90 should be 0.0 (no division by zero error)
+    assert result.iloc[2]["threat_per_90_last_5"] == pytest.approx(0.0)
+    assert result.iloc[2]["creativity_per_90_last_5"] == pytest.approx(0.0)
+    assert result.iloc[2]["bps_per_90_last_5"] == pytest.approx(0.0)
+
+
+def test_attacking_contribution_missing_prerequisites_graceful() -> None:
+    """Missing columns should return NaNs gracefully without exception."""
+    df = pd.DataFrame({"element": [1, 2]})
+    step = AttackingContributionStep()
+    result, summary = step.apply(df)
+
+    assert "Missing prerequisite" in summary.description
+    for col in [
+        "threat_per_90_last_5",
+        "creativity_per_90_last_5",
+        "bps_per_90_last_5",
+        "goal_involvement_rate_last_5",
+        "attacking_threat_index",
+    ]:
+        assert col in result.columns
+        assert result[col].isna().all()
+

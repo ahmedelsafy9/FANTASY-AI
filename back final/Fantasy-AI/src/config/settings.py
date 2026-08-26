@@ -484,6 +484,36 @@ class FeatureEngineeringSettings:
             if c
         )
     )
+    threat_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c for c in _env_str("FANTASY_AI_THREAT_COLUMNS", "threat").split(",") if c
+        )
+    )
+    creativity_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c for c in _env_str("FANTASY_AI_CREATIVITY_COLUMNS", "creativity").split(",") if c
+        )
+    )
+    influence_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c for c in _env_str("FANTASY_AI_INFLUENCE_COLUMNS", "influence").split(",") if c
+        )
+    )
+    goals_scored_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c for c in _env_str("FANTASY_AI_GOALS_SCORED_COLUMNS", "goals_scored").split(",") if c
+        )
+    )
+    assists_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c for c in _env_str("FANTASY_AI_ASSISTS_COLUMNS", "assists").split(",") if c
+        )
+    )
+    bonus_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c for c in _env_str("FANTASY_AI_BONUS_COLUMNS", "bonus").split(",") if c
+        )
+    )
     home_column: str = field(
         default_factory=lambda: _env_str("FANTASY_AI_HOME_COLUMN", "was_home")
     )
