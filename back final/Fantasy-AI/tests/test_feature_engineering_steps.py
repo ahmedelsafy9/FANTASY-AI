@@ -482,3 +482,153 @@ def test_promoted_and_historical_computes_prior_season_stats_without_leakage() -
     assert p_b_2022["prev_season_minutes"] == 0.0
 
 
+# --- FixtureDifficultyStep -------------------------------------------------------
+
+
+from src.feature_engineering.steps.fixture_difficulty import FixtureDifficultyStep
+
+
+def _make_fixture_step() -> FixtureDifficultyStep:
+    """Create a FixtureDifficultyStep with default test parameters."""
+    return FixtureDifficultyStep(
+        team_column="team",
+        opponent_column="opponent_team",
+        home_column="was_home",
+        chronological_columns=("season", "GW"),
+    )
+
+
+def _fixture_df() -> pd.DataFrame:
+    """Minimal fixture DataFrame for testing.
+
+    Two teams (Arsenal, Chelsea) playing each other over 3 GWs.
+    GW1: Arsenal home 3-1 Chelsea -> Arsenal GF=3 GA=1, Chelsea GF=1 GA=3
+    GW2: Chelsea home 2-0 Arsenal -> Arsenal GF=0 GA=2, Chelsea GF=2 GA=0
+    GW3: Arsenal home 1-1 Chelsea -> Arsenal GF=1 GA=1, Chelsea GF=1 GA=1
+    """
+    return pd.DataFrame(
+        {
+            "team": ["Arsenal", "Chelsea", "Arsenal", "Chelsea", "Arsenal", "Chelsea"],
+            "opponent_team": [
+                "Chelsea", "Arsenal", "Chelsea", "Arsenal", "Chelsea", "Arsenal",
+            ],
+            "was_home": [True, False, False, True, True, False],
+            "season": ["2022-23"] * 6,
+            "GW": [1, 1, 2, 2, 3, 3],
+            "team_h_score": [3, 3, 2, 2, 1, 1],
+            "team_a_score": [1, 1, 0, 0, 1, 1],
+            "total_points": [8, 2, 1, 6, 5, 3],
+        }
+    )
+
+
+def test_fixture_difficulty_gw1_is_nan_no_leakage() -> None:
+    """GW1 attack/defence strength must be NaN because shift(1) has no prior data."""
+    step = _make_fixture_step()
+    result, summary = step.apply(_fixture_df())
+
+    assert summary.step_name == "fixture_difficulty"
+    # GW1 rows — no prior data, so team_attack_strength must be NaN
+    gw1 = result[result["GW"] == 1]
+    assert gw1["team_attack_strength"].isna().all()
+    assert gw1["team_defence_strength"].isna().all()
+
+
+def test_fixture_difficulty_gw2_reflects_gw1_only() -> None:
+    """GW2 ratings must reflect only GW1 results, not GW2 itself."""
+    step = _make_fixture_step()
+    result, _ = step.apply(_fixture_df())
+
+    # Arsenal GW2: prior data is GW1 where Arsenal scored 3, conceded 1
+    ars_gw2 = result[(result["team"] == "Arsenal") & (result["GW"] == 2)].iloc[0]
+    assert ars_gw2["team_attack_strength"] == pytest.approx(3.0)
+    assert ars_gw2["team_defence_strength"] == pytest.approx(1.0)
+
+    # Chelsea GW2: prior data is GW1 where Chelsea scored 1, conceded 3
+    che_gw2 = result[(result["team"] == "Chelsea") & (result["GW"] == 2)].iloc[0]
+    assert che_gw2["team_attack_strength"] == pytest.approx(1.0)
+    assert che_gw2["team_defence_strength"] == pytest.approx(3.0)
+
+
+def test_fixture_difficulty_gw3_expanding_mean() -> None:
+    """GW3 ratings must be the expanding mean of GW1 and GW2."""
+    step = _make_fixture_step()
+    result, _ = step.apply(_fixture_df())
+
+    # Arsenal GW3: GW1 scored 3, GW2 scored 0 -> mean = 1.5
+    #              GW1 conceded 1, GW2 conceded 2 -> mean = 1.5
+    ars_gw3 = result[(result["team"] == "Arsenal") & (result["GW"] == 3)].iloc[0]
+    assert ars_gw3["team_attack_strength"] == pytest.approx(1.5)
+    assert ars_gw3["team_defence_strength"] == pytest.approx(1.5)
+
+
+def test_fixture_difficulty_opponent_ratings_mapped() -> None:
+    """Opponent attack/defence strength must be looked up from the opponent's team ratings."""
+    step = _make_fixture_step()
+    result, _ = step.apply(_fixture_df())
+
+    # Arsenal GW2 faces Chelsea (who are away). Chelsea's GW2 ratings:
+    # attack=1.0, defence=3.0. So Arsenal's opponent_attack=1.0, opponent_defence=3.0
+    ars_gw2 = result[(result["team"] == "Arsenal") & (result["GW"] == 2)].iloc[0]
+    assert ars_gw2["opponent_attack_strength"] == pytest.approx(1.0)
+    assert ars_gw2["opponent_defence_strength"] == pytest.approx(3.0)
+
+
+def test_fixture_difficulty_composite_features() -> None:
+    """fixture_difficulty and clean_sheet_likelihood must be correctly derived."""
+    step = _make_fixture_step()
+    result, _ = step.apply(_fixture_df())
+
+    # Arsenal GW2: opponent_attack=1.0, opponent_defence=3.0
+    ars_gw2 = result[(result["team"] == "Arsenal") & (result["GW"] == 2)].iloc[0]
+
+    # fixture_difficulty = opp_attack - opp_defence = 1.0 - 3.0 = -2.0
+    assert ars_gw2["fixture_difficulty"] == pytest.approx(-2.0)
+
+    # clean_sheet_likelihood = 1/(1+opp_atk) * 1/(1+team_def) = 1/2 * 1/2 = 0.25
+    assert ars_gw2["clean_sheet_likelihood"] == pytest.approx(0.25)
+
+
+def test_fixture_difficulty_missing_columns_graceful() -> None:
+    """If score columns are missing, all outputs should be NaN without error."""
+    df = pd.DataFrame(
+        {
+            "team": ["Arsenal"],
+            "opponent_team": ["Chelsea"],
+            "was_home": [True],
+            "season": ["2022-23"],
+            "GW": [1],
+        }
+    )
+    step = _make_fixture_step()
+    result, summary = step.apply(df)
+
+    assert "Missing prerequisite" in summary.description
+    for col in [
+        "team_attack_strength",
+        "team_defence_strength",
+        "opponent_attack_strength",
+        "opponent_defence_strength",
+        "fixture_difficulty",
+        "clean_sheet_likelihood",
+    ]:
+        assert col in result.columns
+        assert result[col].isna().all()
+
+
+def test_fixture_difficulty_all_output_columns_present() -> None:
+    """All 6 output columns must be present in the result."""
+    step = _make_fixture_step()
+    result, summary = step.apply(_fixture_df())
+
+    expected = [
+        "team_attack_strength",
+        "team_defence_strength",
+        "opponent_attack_strength",
+        "opponent_defence_strength",
+        "fixture_difficulty",
+        "clean_sheet_likelihood",
+    ]
+    for col in expected:
+        assert col in result.columns
+    assert len(summary.columns_added) == 6

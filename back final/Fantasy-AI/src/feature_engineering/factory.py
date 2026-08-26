@@ -10,6 +10,7 @@ from __future__ import annotations
 from src.config.settings import FeatureEngineeringSettings, FixtureAwareSettings
 from src.feature_engineering.models import RollingFeatureSpec
 from src.feature_engineering.steps.base import FeatureStep
+from src.feature_engineering.steps.fixture_difficulty import FixtureDifficultyStep
 from src.feature_engineering.steps.form_index import FormIndexStep
 from src.feature_engineering.steps.home_away import HomeAwayFlagStep
 from src.feature_engineering.steps.participation import PlayerParticipationStep
@@ -106,6 +107,14 @@ def build_default_feature_steps(
             player_id_columns=settings.player_id_columns,
             minutes_columns=settings.minutes_columns,
             points_columns=settings.points_columns,
+        ),
+        FixtureDifficultyStep(
+            team_column=settings.team_column,
+            opponent_column=settings.opponent_column,
+            home_column=settings.home_column,
+            chronological_columns=settings.chronological_columns,
+            team_h_score_column=settings.team_h_score_column,
+            team_a_score_column=settings.team_a_score_column,
         ),
         HomeAwayFlagStep(source_column=settings.home_column),
         RestDaysStep(

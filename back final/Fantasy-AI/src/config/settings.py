@@ -529,6 +529,12 @@ class FeatureEngineeringSettings:
     season_column: str = field(
         default_factory=lambda: _env_str("FANTASY_AI_SEASON_COLUMN", "season")
     )
+    team_h_score_column: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_TEAM_H_SCORE_COLUMN", "team_h_score")
+    )
+    team_a_score_column: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_TEAM_A_SCORE_COLUMN", "team_a_score")
+    )
 
 
 @dataclass(frozen=True)

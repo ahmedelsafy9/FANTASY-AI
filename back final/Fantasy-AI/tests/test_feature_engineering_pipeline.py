@@ -51,14 +51,15 @@ def test_pipeline_never_removes_rows() -> None:
     assert result.rows_before == result.rows_after
 
 
-def test_build_default_feature_steps_returns_nine_steps() -> None:
-    """The factory must build the full standard step sequence, including promoted_and_historical."""
+def test_build_default_feature_steps_returns_ten_steps() -> None:
+    """The factory must build the full standard step sequence, including fixture_difficulty."""
     steps = build_default_feature_steps(FeatureEngineeringSettings())
     names = [step.name for step in steps]
     assert names == [
         "rolling_averages",
         "player_participation",
         "promoted_and_historical",
+        "fixture_difficulty",
         "home_away_flag",
         "rest_days",
         "team_opponent_strength",
@@ -89,6 +90,8 @@ def test_default_pipeline_produces_expected_columns_on_realistic_data() -> None:
             ],
             "team": ["Arsenal", "Arsenal", "Arsenal"],
             "opponent_team": ["Chelsea", "Fulham", "Everton"],
+            "team_h_score": [2, 1, 3],
+            "team_a_score": [1, 0, 1],
             "value": [50, 51, 51],
         }
     )
@@ -113,6 +116,12 @@ def test_default_pipeline_produces_expected_columns_on_realistic_data() -> None:
         "prev_season_points",
         "prev_season_matches",
         "prev_season_ppm",
+        "team_attack_strength",
+        "team_defence_strength",
+        "opponent_attack_strength",
+        "opponent_defence_strength",
+        "fixture_difficulty",
+        "clean_sheet_likelihood",
         "bps_avg_last_10",
         "ict_index_avg_last_3",
         "xG_avg_last_3",

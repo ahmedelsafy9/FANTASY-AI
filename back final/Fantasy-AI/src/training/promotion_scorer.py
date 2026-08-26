@@ -400,7 +400,7 @@ def select_best_model_fpl(
         logger.info(
             "  Candidate '%s': composite=%.4f, eligible=%s, "
             "RMSE=%.4f, MAE=%.4f, Spearman=%.4f, "
-            "≥6recall=%.4f, ≥10recall=%.4f, ≥6precision=%.4f%s",
+            ">=6recall=%.4f, >=10recall=%.4f, >=6precision=%.4f%s",
             name,
             score.composite_score,
             score.eligible,
