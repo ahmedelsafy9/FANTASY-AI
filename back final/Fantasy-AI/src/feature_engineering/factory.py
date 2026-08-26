@@ -12,6 +12,7 @@ from src.feature_engineering.models import RollingFeatureSpec
 from src.feature_engineering.steps.base import FeatureStep
 from src.feature_engineering.steps.form_index import FormIndexStep
 from src.feature_engineering.steps.home_away import HomeAwayFlagStep
+from src.feature_engineering.steps.participation import PlayerParticipationStep
 from src.feature_engineering.steps.price_trend import PriceTrendStep
 from src.feature_engineering.steps.rest_days import RestDaysStep
 from src.feature_engineering.steps.rolling_stats import RollingAverageStep
@@ -89,6 +90,13 @@ def build_default_feature_steps(
             player_id_columns=settings.player_id_columns,
             chronological_columns=settings.chronological_columns,
             specs=rolling_specs,
+        ),
+        PlayerParticipationStep(
+            player_id_columns=settings.player_id_columns,
+            chronological_columns=settings.chronological_columns,
+            minutes_columns=settings.minutes_columns,
+            starts_columns=settings.starts_columns,
+            windows=settings.participation_windows,
         ),
         HomeAwayFlagStep(source_column=settings.home_column),
         RestDaysStep(

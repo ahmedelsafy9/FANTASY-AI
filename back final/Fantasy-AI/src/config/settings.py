@@ -448,6 +448,18 @@ class FeatureEngineeringSettings:
             c for c in _env_str("FANTASY_AI_MINUTES_COLUMNS", "minutes").split(",") if c
         )
     )
+    starts_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c for c in _env_str("FANTASY_AI_STARTS_COLUMNS", "starts").split(",") if c
+        )
+    )
+    participation_windows: tuple[int, ...] = field(
+        default_factory=lambda: tuple(
+            int(w)
+            for w in _env_str("FANTASY_AI_PARTICIPATION_WINDOWS", "3,5").split(",")
+            if w
+        )
+    )
     bps_columns: tuple[str, ...] = field(
         default_factory=lambda: tuple(
             c for c in _env_str("FANTASY_AI_BPS_COLUMNS", "bps").split(",") if c

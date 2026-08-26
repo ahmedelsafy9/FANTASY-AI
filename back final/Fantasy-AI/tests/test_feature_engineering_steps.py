@@ -8,6 +8,7 @@ import pytest
 from src.feature_engineering.models import RollingFeatureSpec
 from src.feature_engineering.steps.form_index import FormIndexStep
 from src.feature_engineering.steps.home_away import HomeAwayFlagStep
+from src.feature_engineering.steps.participation import PlayerParticipationStep
 from src.feature_engineering.steps.price_trend import PriceTrendStep
 from src.feature_engineering.steps.rest_days import RestDaysStep
 from src.feature_engineering.steps.rolling_stats import RollingAverageStep
@@ -288,3 +289,118 @@ def test_form_index_raises_on_mismatched_lengths() -> None:
     """Constructing FormIndexStep with mismatched columns/weights must raise ValueError."""
     with pytest.raises(ValueError):
         FormIndexStep(component_columns=("a", "b"), weights=(1.0,))
+
+
+# --- PlayerParticipationStep ----------------------------------------------------
+
+
+def test_player_participation_excludes_current_row_no_leakage() -> None:
+    """Participation metrics must strictly shift by 1 to prevent data leakage."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 1, 1, 1],
+            "season": ["2022-23"] * 4,
+            "GW": [1, 2, 3, 4],
+            "minutes": [90, 0, 45, 90],
+            "starts": [1, 0, 0, 1],
+        }
+    )
+    step = PlayerParticipationStep(
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        minutes_columns=("minutes",),
+        starts_columns=("starts",),
+        windows=(3,),
+    )
+    result, summary = step.apply(df)
+
+    # Row 1 (GW1): No prior matches
+    assert pd.isna(result.iloc[0]["prev_gw_minutes"])
+    assert pd.isna(result.iloc[0]["prev_gw_played"])
+    assert pd.isna(result.iloc[0]["prev_gw_started"])
+    assert pd.isna(result.iloc[0]["prev_gw_bench_unused"])
+    assert pd.isna(result.iloc[0]["starts_last_3"])
+    assert pd.isna(result.iloc[0]["bench_unused_last_3"])
+
+    # Row 2 (GW2): Prior match was GW1 (90 mins, started, played)
+    assert result.iloc[1]["prev_gw_minutes"] == 90.0
+    assert result.iloc[1]["prev_gw_played"] == 1.0
+    assert result.iloc[1]["prev_gw_started"] == 1.0
+    assert result.iloc[1]["prev_gw_bench_unused"] == 0.0
+    assert result.iloc[1]["starts_last_3"] == 1.0
+    assert result.iloc[1]["bench_unused_last_3"] == 0.0
+
+    # Row 3 (GW3): Prior match was GW2 (0 mins, bench unused)
+    assert result.iloc[2]["prev_gw_minutes"] == 0.0
+    assert result.iloc[2]["prev_gw_played"] == 0.0
+    assert result.iloc[2]["prev_gw_started"] == 0.0
+    assert result.iloc[2]["prev_gw_bench_unused"] == 1.0
+    # Prior history: GW1 (started=1, bench=0), GW2 (started=0, bench=1) -> mean starts = 0.5, mean bench = 0.5
+    assert result.iloc[2]["starts_last_3"] == 0.5
+    assert result.iloc[2]["bench_unused_last_3"] == 0.5
+
+    # Row 4 (GW4): Prior match was GW3 (45 mins, sub)
+    assert result.iloc[3]["prev_gw_minutes"] == 45.0
+    assert result.iloc[3]["prev_gw_played"] == 1.0
+    assert result.iloc[3]["prev_gw_started"] == 0.0
+    assert result.iloc[3]["prev_gw_bench_unused"] == 0.0
+    # Prior history: GW1(1), GW2(0), GW3(0) -> mean starts = 1/3
+    assert result.iloc[3]["starts_last_3"] == pytest.approx(1.0 / 3.0)
+
+
+def test_player_participation_infers_starts_when_starts_col_missing() -> None:
+    """When starts is missing or null, infer start as minutes >= 60."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 1, 1],
+            "season": ["2018-19"] * 3,
+            "GW": [1, 2, 3],
+            "minutes": [80, 25, 90],
+        }
+    )
+    step = PlayerParticipationStep(
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        minutes_columns=("minutes",),
+        starts_columns=("starts",),
+        windows=(3,),
+    )
+    result, _ = step.apply(df)
+
+    # GW2 sees GW1 (80 mins >= 60 -> start=1.0)
+    assert result.iloc[1]["prev_gw_started"] == 1.0
+    # GW3 sees GW2 (25 mins < 60 -> start=0.0)
+    assert result.iloc[2]["prev_gw_started"] == 0.0
+
+
+def test_player_participation_groups_independently_per_player() -> None:
+    """Participation metrics for one player must never leak into another player's rows."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 1, 2, 2],
+            "season": ["2022-23"] * 4,
+            "GW": [1, 2, 1, 2],
+            "minutes": [90, 90, 0, 0],
+            "starts": [1, 1, 0, 0],
+        }
+    )
+    step = PlayerParticipationStep(
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        minutes_columns=("minutes",),
+        starts_columns=("starts",),
+        windows=(3,),
+    )
+    result, _ = step.apply(df)
+
+    p1_gw2 = result[(result["element"] == 1) & (result["GW"] == 2)].iloc[0]
+    p2_gw2 = result[(result["element"] == 2) & (result["GW"] == 2)].iloc[0]
+
+    assert p1_gw2["prev_gw_minutes"] == 90.0
+    assert p1_gw2["prev_gw_played"] == 1.0
+    assert p1_gw2["prev_gw_bench_unused"] == 0.0
+
+    assert p2_gw2["prev_gw_minutes"] == 0.0
+    assert p2_gw2["prev_gw_played"] == 0.0
+    assert p2_gw2["prev_gw_bench_unused"] == 1.0
+

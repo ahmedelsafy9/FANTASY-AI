@@ -51,13 +51,13 @@ def test_pipeline_never_removes_rows() -> None:
     assert result.rows_before == result.rows_after
 
 
-def test_build_default_feature_steps_returns_seven_steps() -> None:
-    """The factory must build the full standard step sequence, including the new
-    Phase 1 team_form_trend step."""
+def test_build_default_feature_steps_returns_eight_steps() -> None:
+    """The factory must build the full standard step sequence, including player_participation."""
     steps = build_default_feature_steps(FeatureEngineeringSettings())
     names = [step.name for step in steps]
     assert names == [
         "rolling_averages",
+        "player_participation",
         "home_away_flag",
         "rest_days",
         "team_opponent_strength",
@@ -99,6 +99,12 @@ def test_default_pipeline_produces_expected_columns_on_realistic_data() -> None:
     expected_columns = [
         "total_points_avg_last_3",
         "minutes_avg_last_5",
+        "prev_gw_minutes",
+        "prev_gw_played",
+        "prev_gw_started",
+        "prev_gw_bench_unused",
+        "starts_last_3",
+        "bench_unused_last_3",
         "bps_avg_last_10",
         "ict_index_avg_last_3",
         "xG_avg_last_3",
