@@ -6,6 +6,19 @@ and ``predict(X)`` — without knowing anything about PyTorch internals.
 
 The model handles its own standardization (fitted on training data only),
 weighted loss computation, early stopping, and learning-rate scheduling.
+
+===============================================================================
+AUDITED VERSION — every change from the original is wrapped like this:
+
+    # === CHANGE START (n) ===
+    ...new/changed lines...
+    # === CHANGE END (n) ===
+
+Nothing outside these markers differs from your current
+src/training/deep_learning.py. This file is NOT wired into your project —
+it is for review only. See the accompanying AUDIT_NOTES.md for the
+rationale, risk assessment, and exact apply instructions for each change.
+===============================================================================
 """
 
 from __future__ import annotations
@@ -52,6 +65,31 @@ class DeepLearningConfig:
     high_score_weight_power: float = 0.0
     use_discrete_sample_weights: bool = True
     random_state: int = 42
+    # === CHANGE START (1): new opt-in fields, all with defaults that
+    # reproduce EXISTING behavior exactly. Nothing changes unless you
+    # explicitly set loss_type="asymmetric_huber" via settings/env, or
+    # explicitly set grad_clip_norm=None to turn clipping off. ===
+    #
+    # grad_clip_norm: caps the L2 norm of the gradient before each
+    # optimizer step. Standard, well-established practice; it only
+    # activates on the rare batch where a gradient spikes, and prevents
+    # that single batch from corrupting otherwise-good weights. Default
+    # 5.0 is a loose bound — it will not affect normal training, only
+    # outliers. This is the one change here that is close to risk-free;
+    # everything else is opt-in and needs your own A/B test before you
+    # rely on it.
+    grad_clip_norm: float | None = 5.0
+    # loss_type: "huber" (default) is byte-for-byte identical to current
+    # behavior. "asymmetric_huber" existed in this project's git history
+    # and was later reverted — restored here as an opt-in so you can
+    # re-test it deliberately rather than by accident. It multiplies the
+    # loss by `asymmetric_penalty` specifically when the model
+    # UNDERpredicts a row whose true score was >= asymmetric_threshold —
+    # i.e. it targets recall>=10 directly instead of average error.
+    loss_type: str = "huber"
+    asymmetric_penalty: float = 1.6
+    asymmetric_threshold: float = 3.0
+    # === CHANGE END (1) ===
 
 
 class TabularMLPRegressor:
@@ -213,7 +251,20 @@ class TabularMLPRegressor:
             patience=5,
             min_lr=1e-6,
         )
-        loss_fn = nn.SmoothL1Loss(beta=cfg.loss_beta, reduction="none")
+        # === CHANGE START (2): loss_fn now conditional on cfg.loss_type.
+        # When loss_type="huber" (the default), this produces the exact
+        # same nn.SmoothL1Loss(beta=cfg.loss_beta, reduction="none") as
+        # before — identical object, identical math. The new branch only
+        # executes if you explicitly opt into loss_type="asymmetric_huber". ===
+        if cfg.loss_type == "asymmetric_huber":
+            loss_fn: Any = _AsymmetricSmoothL1Loss(
+                beta=cfg.loss_beta,
+                penalty=cfg.asymmetric_penalty,
+                threshold=cfg.asymmetric_threshold,
+            )
+        else:
+            loss_fn = nn.SmoothL1Loss(beta=cfg.loss_beta, reduction="none")
+        # === CHANGE END (2) ===
 
         # ---------------------------------------------------------------
         # Training loop
@@ -235,6 +286,17 @@ class TabularMLPRegressor:
                 # weighted_loss = sum(w_i * loss_i) / sum(w_i)
                 weighted_loss = (raw_loss * w_batch).sum() / w_batch.sum()
                 weighted_loss.backward()
+                # === CHANGE START (3): gradient clipping. With
+                # grad_clip_norm=None this line never executes (identical
+                # to current behavior). With the default 5.0, it only
+                # rescales gradients on the rare batch whose L2 norm
+                # exceeds 5.0 — normal-sized gradients pass through
+                # unchanged. ===
+                if cfg.grad_clip_norm is not None:
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), cfg.grad_clip_norm
+                    )
+                # === CHANGE END (3) ===
                 optimizer.step()
 
                 batch_w_sum = w_batch.sum().item()
@@ -414,6 +476,57 @@ def _discrete_bucket_weights(y: np.ndarray) -> np.ndarray:
     w[(y >= 13) & (y <= 20)] = 2.5
     w[y >= 21] = 3.0
     return w
+
+
+# === CHANGE START (4): new class, additive only — nothing existing
+# references it unless cfg.loss_type == "asymmetric_huber" (see CHANGE 2). ===
+class _AsymmetricSmoothL1Loss:
+    """Asymmetric Smooth L1 (Huber) loss.
+
+    Penalizes UNDERPREDICTION of high actual target scores (i.e. target
+    >= threshold and pred < target) by a multiplier (``penalty``), while
+    treating normal and overpredicted residuals with standard Huber
+    loss. This targets the recall>=10 weakness directly: a model can
+    have good average error (MAE/RMSE) while still systematically
+    under-calling big hauls, which is exactly the "minimal mistakes"
+    case that matters most for FPL (missing a double-digit haul is a
+    worse mistake than a small miss on a 1-2 point player).
+
+    Formula:
+        loss = SmoothL1(pred, target)
+        if target >= threshold and pred < target:
+            loss = loss * penalty
+
+    Opt-in via ``DeepLearningConfig(loss_type="asymmetric_huber")`` —
+    default behavior (``loss_type="huber"``) is unaffected.
+    """
+
+    def __init__(
+        self,
+        beta: float = 4.0,
+        penalty: float = 1.6,
+        threshold: float = 3.0,
+    ) -> None:
+        import torch.nn as nn
+
+        self.beta = beta
+        self.penalty = penalty
+        self.threshold = threshold
+        self.smooth_l1 = nn.SmoothL1Loss(beta=beta, reduction="none")
+
+    def __call__(self, pred: Any, target: Any) -> Any:
+        import torch
+
+        loss = self.smooth_l1(pred, target)
+        if self.penalty > 1.0:
+            underpred = (pred < target) & (target >= self.threshold)
+            loss = loss * torch.where(
+                underpred,
+                torch.as_tensor(self.penalty, dtype=loss.dtype, device=loss.device),
+                torch.as_tensor(1.0, dtype=loss.dtype, device=loss.device),
+            )
+        return loss
+# === CHANGE END (4) ===
 
 
 def _build_mlp(

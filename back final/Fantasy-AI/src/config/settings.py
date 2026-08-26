@@ -643,6 +643,18 @@ class TrainingSettings:
     dl_use_discrete_sample_weights: bool = field(
         default_factory=lambda: _env_bool("FANTASY_AI_DL_USE_DISCRETE_SAMPLE_WEIGHTS", True)
     )
+    dl_grad_clip_norm: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_GRAD_CLIP_NORM", "5.0"))
+    )
+    dl_loss_type: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_DL_LOSS_TYPE", "huber")
+    )
+    dl_asymmetric_penalty: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_ASYMMETRIC_PENALTY", "1.6"))
+    )
+    dl_asymmetric_threshold: float = field(
+        default_factory=lambda: float(_env_str("FANTASY_AI_DL_ASYMMETRIC_THRESHOLD", "3.0"))
+    )
 
 
 @dataclass(frozen=True)

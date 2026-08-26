@@ -106,6 +106,10 @@ def build_default_model_specs(
             loss_beta=settings.dl_loss_beta,
             high_score_weight_power=settings.dl_high_score_weight_power,
             use_discrete_sample_weights=settings.dl_use_discrete_sample_weights,
+            grad_clip_norm=settings.dl_grad_clip_norm,
+            loss_type=settings.dl_loss_type,
+            asymmetric_penalty=settings.dl_asymmetric_penalty,
+            asymmetric_threshold=settings.dl_asymmetric_threshold,
             random_state=settings.random_state,
         )
 
