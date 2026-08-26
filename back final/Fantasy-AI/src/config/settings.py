@@ -526,6 +526,9 @@ class FeatureEngineeringSettings:
             if w
         )
     )
+    season_column: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_SEASON_COLUMN", "season")
+    )
 
 
 @dataclass(frozen=True)

@@ -51,13 +51,14 @@ def test_pipeline_never_removes_rows() -> None:
     assert result.rows_before == result.rows_after
 
 
-def test_build_default_feature_steps_returns_eight_steps() -> None:
-    """The factory must build the full standard step sequence, including player_participation."""
+def test_build_default_feature_steps_returns_nine_steps() -> None:
+    """The factory must build the full standard step sequence, including promoted_and_historical."""
     steps = build_default_feature_steps(FeatureEngineeringSettings())
     names = [step.name for step in steps]
     assert names == [
         "rolling_averages",
         "player_participation",
+        "promoted_and_historical",
         "home_away_flag",
         "rest_days",
         "team_opponent_strength",
@@ -105,6 +106,13 @@ def test_default_pipeline_produces_expected_columns_on_realistic_data() -> None:
         "prev_gw_bench_unused",
         "starts_last_3",
         "bench_unused_last_3",
+        "is_promoted_team",
+        "opponent_is_promoted_team",
+        "player_is_new_to_pl",
+        "prev_season_minutes",
+        "prev_season_points",
+        "prev_season_matches",
+        "prev_season_ppm",
         "bps_avg_last_10",
         "ict_index_avg_last_3",
         "xG_avg_last_3",

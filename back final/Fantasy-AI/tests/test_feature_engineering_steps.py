@@ -10,6 +10,7 @@ from src.feature_engineering.steps.form_index import FormIndexStep
 from src.feature_engineering.steps.home_away import HomeAwayFlagStep
 from src.feature_engineering.steps.participation import PlayerParticipationStep
 from src.feature_engineering.steps.price_trend import PriceTrendStep
+from src.feature_engineering.steps.promoted_teams import PromotedAndHistoricalStep
 from src.feature_engineering.steps.rest_days import RestDaysStep
 from src.feature_engineering.steps.rolling_stats import RollingAverageStep
 from src.feature_engineering.steps.team_strength import TeamStrengthStep
@@ -403,4 +404,81 @@ def test_player_participation_groups_independently_per_player() -> None:
     assert p2_gw2["prev_gw_minutes"] == 0.0
     assert p2_gw2["prev_gw_played"] == 0.0
     assert p2_gw2["prev_gw_bench_unused"] == 1.0
+
+
+# --- PromotedAndHistoricalStep --------------------------------------------------
+
+
+def test_promoted_and_historical_identifies_promoted_teams_correctly() -> None:
+    """A team present in season N but absent in N-1 must be marked as promoted."""
+    df = pd.DataFrame(
+        {
+            "name": ["P1", "P2", "P3"],
+            "season": ["2021-22", "2022-23", "2022-23"],
+            "team": ["Arsenal", "Arsenal", "Fulham"],
+            "opponent_team": ["Chelsea", "Fulham", "Arsenal"],
+            "minutes": [90, 90, 90],
+            "total_points": [5, 6, 4],
+        }
+    )
+    step = PromotedAndHistoricalStep(
+        team_column="team",
+        opponent_column="opponent_team",
+        season_column="season",
+        player_id_columns=("name",),
+    )
+    result, summary = step.apply(df)
+
+    # 2021-22: First season on record, not marked as promoted
+    assert result.iloc[0]["is_promoted_team"] == 0.0
+    assert result.iloc[0]["opponent_is_promoted_team"] == 0.0
+
+    # 2022-23 Arsenal vs Fulham: Arsenal not promoted, Fulham is promoted
+    assert result.iloc[1]["is_promoted_team"] == 0.0
+    assert result.iloc[1]["opponent_is_promoted_team"] == 1.0
+
+    # 2022-23 Fulham vs Arsenal: Fulham is promoted, Arsenal not promoted
+    assert result.iloc[2]["is_promoted_team"] == 1.0
+    assert result.iloc[2]["opponent_is_promoted_team"] == 0.0
+
+
+def test_promoted_and_historical_computes_prior_season_stats_without_leakage() -> None:
+    """Prior season metrics must only aggregate the previous season (S-1), never current."""
+    df = pd.DataFrame(
+        {
+            "name": ["A", "A", "A", "B"],
+            "season": ["2021-22", "2021-22", "2022-23", "2022-23"],
+            "team": ["Arsenal", "Arsenal", "Arsenal", "Arsenal"],
+            "opponent_team": ["Chelsea", "Spurs", "Chelsea", "Chelsea"],
+            "minutes": [90, 90, 45, 90],
+            "total_points": [10, 8, 2, 4],
+        }
+    )
+    step = PromotedAndHistoricalStep(
+        team_column="team",
+        opponent_column="opponent_team",
+        season_column="season",
+        player_id_columns=("name",),
+    )
+    result, _ = step.apply(df)
+
+    # Player A in 2021-22 (first season): new to PL, 0 prior minutes/points
+    p_a_2021 = result[(result["name"] == "A") & (result["season"] == "2021-22")].iloc[0]
+    assert p_a_2021["player_is_new_to_pl"] == 1.0
+    assert p_a_2021["prev_season_minutes"] == 0.0
+    assert p_a_2021["prev_season_points"] == 0.0
+
+    # Player A in 2022-23: not new, 2021-22 stats: mins=180, pts=18, apps=2, ppm=9.0
+    p_a_2022 = result[(result["name"] == "A") & (result["season"] == "2022-23")].iloc[0]
+    assert p_a_2022["player_is_new_to_pl"] == 0.0
+    assert p_a_2022["prev_season_minutes"] == 180.0
+    assert p_a_2022["prev_season_points"] == 18.0
+    assert p_a_2022["prev_season_matches"] == 2.0
+    assert p_a_2022["prev_season_ppm"] == 9.0
+
+    # Player B in 2022-23 (first appearance): new to PL
+    p_b_2022 = result[(result["name"] == "B") & (result["season"] == "2022-23")].iloc[0]
+    assert p_b_2022["player_is_new_to_pl"] == 1.0
+    assert p_b_2022["prev_season_minutes"] == 0.0
+
 
