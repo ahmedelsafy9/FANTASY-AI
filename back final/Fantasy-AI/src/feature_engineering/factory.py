@@ -11,9 +11,11 @@ from src.config.settings import FeatureEngineeringSettings, FixtureAwareSettings
 from src.feature_engineering.models import RollingFeatureSpec
 from src.feature_engineering.steps.attacking_contribution import AttackingContributionStep
 from src.feature_engineering.steps.base import FeatureStep
+from src.feature_engineering.steps.expected_minutes import ExpectedMinutesStep
 from src.feature_engineering.steps.fixture_difficulty import FixtureDifficultyStep
 from src.feature_engineering.steps.form_index import FormIndexStep
 from src.feature_engineering.steps.home_away import HomeAwayFlagStep
+from src.feature_engineering.steps.opportunity import OpportunityStep
 from src.feature_engineering.steps.participation import PlayerParticipationStep
 from src.feature_engineering.steps.position import PositionEncodingStep
 from src.feature_engineering.steps.price_trend import PriceTrendStep
@@ -113,6 +115,21 @@ def build_default_feature_steps(
             source_candidates=settings.bonus_columns,
             windows=(3, 5),
         ),
+        RollingFeatureSpec(
+            output_name="key_passes",
+            source_candidates=settings.key_passes_columns,
+            windows=(3, 5),
+        ),
+        RollingFeatureSpec(
+            output_name="big_chances_created",
+            source_candidates=settings.big_chances_created_columns,
+            windows=(3, 5),
+        ),
+        RollingFeatureSpec(
+            output_name="big_chances_missed",
+            source_candidates=settings.big_chances_missed_columns,
+            windows=(3, 5),
+        ),
     )
 
     form_index_components = tuple(
@@ -153,6 +170,22 @@ def build_default_feature_steps(
             team_a_score_column=settings.team_a_score_column,
         ),
         AttackingContributionStep(),
+        OpportunityStep(
+            xg_col="xG_avg_last_5",
+            xa_col="xA_avg_last_5",
+            minutes_col="minutes_avg_last_5",
+            key_passes_col="key_passes_avg_last_5",
+            big_chances_created_col="big_chances_created_avg_last_5",
+            big_chances_missed_col="big_chances_missed_avg_last_5",
+        ),
+        ExpectedMinutesStep(
+            player_id_columns=settings.player_id_columns,
+            chronological_columns=settings.chronological_columns,
+            minutes_columns=settings.minutes_columns,
+            starts_columns=settings.starts_columns,
+            kickoff_time_column=settings.kickoff_time_column,
+            expected_minutes_halflife=settings.expected_minutes_halflife,
+        ),
         HomeAwayFlagStep(source_column=settings.home_column),
         RestDaysStep(
             player_id_columns=settings.player_id_columns,

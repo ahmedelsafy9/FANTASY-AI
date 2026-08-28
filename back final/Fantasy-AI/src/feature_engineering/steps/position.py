@@ -45,7 +45,15 @@ class PositionEncodingStep(FeatureStep):
        (``data/raw/vaastav/data/<season>/players_raw.csv``).
     2. The row's existing ``position`` column if valid.
     3. Cross-season player mode position by ``name_normalized``.
-    4. Safe fallback to ``"MID"`` (or ``"GKP"`` if the player has saves).
+    4. Safe fallback to ``"MID"``.
+
+    Note: an earlier version of step 4 fell back to "GKP" when the
+    current row's own ``saves`` count was > 0. That was a (minor)
+    leakage bug: ``saves`` is a same-match outcome stat, so using it
+    to assign a categorical label let a sliver of same-match
+    information leak into a feature. It has been removed — the
+    fallback is now a fixed default with no dependence on any
+    current-row statistic.
 
     Output columns:
     - ``is_position_gkp``: 1.0 if Goalkeeper, 0.0 otherwise.
@@ -199,12 +207,9 @@ class PositionEncodingStep(FeatureStep):
                     from_name = norm_names.map(self._name_pos_map)
                     resolved_pos.loc[missing_mask] = from_name
 
-        # Step 4: Default fallback (GKP if saves > 0, else MID)
-        if "saves" in working.columns:
-            saves_numeric = pd.to_numeric(working["saves"], errors="coerce").fillna(0)
-            is_gk = saves_numeric > 0
-            resolved_pos = resolved_pos.mask(resolved_pos.isna() & is_gk, "GKP")
-
+        # Step 4: Safe default fallback. Deliberately does NOT use any
+        # current-row match-outcome statistic (e.g. "saves") to avoid
+        # leaking same-match information into a categorical feature.
         resolved_pos = resolved_pos.fillna("MID")
 
         # Emit 4 one-hot columns

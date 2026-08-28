@@ -417,7 +417,7 @@ class FeatureEngineeringSettings:
         default_factory=lambda: tuple(
             c
             for c in _env_str(
-                "FANTASY_AI_FEATURE_PLAYER_ID_COLUMNS", "element,name_normalized,name"
+                "FANTASY_AI_FEATURE_PLAYER_ID_COLUMNS", "name_normalized,name"
             ).split(",")
             if c
         )
@@ -568,6 +568,34 @@ class FeatureEngineeringSettings:
     position_column: str = field(
         default_factory=lambda: _env_str("FANTASY_AI_POSITION_COLUMN", "position")
     )
+    key_passes_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c for c in _env_str("FANTASY_AI_KEY_PASSES_COLUMNS", "key_passes").split(",") if c
+        )
+    )
+    big_chances_created_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c
+            for c in _env_str(
+                "FANTASY_AI_BIG_CHANCES_CREATED_COLUMNS", "big_chances_created"
+            ).split(",")
+            if c
+        )
+    )
+    big_chances_missed_columns: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c
+            for c in _env_str(
+                "FANTASY_AI_BIG_CHANCES_MISSED_COLUMNS", "big_chances_missed"
+            ).split(",")
+            if c
+        )
+    )
+    expected_minutes_halflife: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_EXPECTED_MINUTES_HALFLIFE", "3.0")
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -583,7 +611,7 @@ class TrainingSettings:
             for c in _env_str(
                 "FANTASY_AI_EXCLUDED_FEATURE_COLUMNS",
                 # Identifier / free-text columns, excluded regardless of timing:
-                "season,name,team,opponent_team,kickoff_time,element,fixture,round,"
+                "id,season,name,team,opponent_team,kickoff_time,element,fixture,round,"
                 # Same-Gameweek MATCH-OUTCOME stats: these are only known AFTER a
                 # match is played, so using them (unlagged) to predict that same
                 # match's total_points is data leakage — total_points is itself a

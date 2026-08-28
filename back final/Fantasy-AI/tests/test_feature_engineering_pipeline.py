@@ -51,8 +51,8 @@ def test_pipeline_never_removes_rows() -> None:
     assert result.rows_before == result.rows_after
 
 
-def test_build_default_feature_steps_returns_twelve_steps() -> None:
-    """The factory must build the full standard step sequence, including position_encoding."""
+def test_build_default_feature_steps_returns_fourteen_steps() -> None:
+    """The factory must build the full 14-step sequence including opportunity & expected_minutes."""
     steps = build_default_feature_steps(FeatureEngineeringSettings())
     names = [step.name for step in steps]
     assert names == [
@@ -62,6 +62,8 @@ def test_build_default_feature_steps_returns_twelve_steps() -> None:
         "promoted_and_historical",
         "fixture_difficulty",
         "attacking_contribution",
+        "opportunity",
+        "expected_minutes",
         "home_away_flag",
         "rest_days",
         "team_opponent_strength",

@@ -750,7 +750,11 @@ def test_position_encoding_canonical_values() -> None:
 
 
 def test_position_encoding_missing_fallback() -> None:
-    """Missing positions without lookup data must safely fall back to MID or GKP."""
+    """Missing positions without lookup data must always fall back to MID (leakage-safe).
+
+    The old behaviour used saves > 0 to infer GKP. That is a same-GW
+    outcome and must NEVER influence position inference.
+    """
     df = pd.DataFrame(
         {
             "position": [None, None],
@@ -763,12 +767,294 @@ def test_position_encoding_missing_fallback() -> None:
     step = PositionEncodingStep(raw_data_dir="non_existent_dir")
     result, _ = step.apply(df)
 
-    # Row 0: no saves -> MID
+    # Both rows must fall back to MID — saves column is irrelevant.
     assert result.iloc[0]["is_position_mid"] == 1.0
     assert result.iloc[0]["is_position_gkp"] == 0.0
 
-    # Row 1: saves > 0 -> GKP
-    assert result.iloc[1]["is_position_gkp"] == 1.0
-    assert result.iloc[1]["is_position_mid"] == 0.0
+    assert result.iloc[1]["is_position_mid"] == 1.0
+    assert result.iloc[1]["is_position_gkp"] == 0.0
 
+
+def test_position_encoding_saves_never_influence_position() -> None:
+    """Even with very high saves, current-row saves must never flip the position."""
+    df = pd.DataFrame(
+        {
+            "position": [None, None, None],
+            "saves": [0, 10, 100],
+            "season": ["2022-23"] * 3,
+            "element": [1, 2, 3],
+            "name_normalized": ["player_a", "player_b", "player_c"],
+        }
+    )
+    step = PositionEncodingStep(raw_data_dir="non_existent_dir")
+    result, _ = step.apply(df)
+
+    # All three must be MID, regardless of saves.
+    assert (result["is_position_mid"] == 1.0).all()
+    assert (result["is_position_gkp"] == 0.0).all()
+    assert (result["is_position_def"] == 0.0).all()
+    assert (result["is_position_fwd"] == 0.0).all()
+
+
+def test_position_encoding_valid_lookup_still_works() -> None:
+    """When a valid position is present, it must be used regardless of saves."""
+    df = pd.DataFrame(
+        {
+            "position": ["GKP", "DEF", "FWD"],
+            "saves": [10, 0, 0],
+            "season": ["2022-23"] * 3,
+            "element": [1, 2, 3],
+            "name_normalized": ["keeper", "defender", "striker"],
+        }
+    )
+    step = PositionEncodingStep(raw_data_dir="non_existent_dir")
+    result, _ = step.apply(df)
+
+    assert result.iloc[0]["is_position_gkp"] == 1.0
+    assert result.iloc[1]["is_position_def"] == 1.0
+    assert result.iloc[2]["is_position_fwd"] == 1.0
+
+
+def test_position_encoding_deterministic_fallback() -> None:
+    """The fallback must be deterministic: always MID for unknowns."""
+    df = pd.DataFrame(
+        {
+            "position": [None] * 5,
+            "season": ["2022-23"] * 5,
+            "element": list(range(100, 105)),
+            "name_normalized": [f"unknown_{i}" for i in range(5)],
+        }
+    )
+    step = PositionEncodingStep(raw_data_dir="non_existent_dir")
+    result, _ = step.apply(df)
+
+    # All must be MID.
+    assert (result["is_position_mid"] == 1.0).all()
+    # Each row must sum to exactly 1.0.
+    row_sums = (
+        result["is_position_gkp"]
+        + result["is_position_def"]
+        + result["is_position_mid"]
+        + result["is_position_fwd"]
+    )
+    assert (row_sums == 1.0).all()
+
+
+# --- ExpectedMinutesStep regression tests ----------------------------------------
+
+
+from src.feature_engineering.steps.expected_minutes import ExpectedMinutesStep
+
+
+def _make_expected_minutes_step() -> ExpectedMinutesStep:
+    return ExpectedMinutesStep(
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        minutes_columns=("minutes",),
+        starts_columns=("starts",),
+        kickoff_time_column="kickoff_time",
+        expected_minutes_halflife=3.0,
+    )
+
+
+def test_expected_minutes_first_row_uses_no_current_data() -> None:
+    """The first-ever row for a player must NOT use the current row's minutes."""
+    df = pd.DataFrame(
+        {
+            "element": [1],
+            "season": ["2022-23"],
+            "GW": [1],
+            "minutes": [90],
+            "starts": [1],
+            "kickoff_time": ["2022-08-06T14:00:00Z"],
+        }
+    )
+    step = _make_expected_minutes_step()
+    result, _ = step.apply(df)
+
+    # No prior history: expected_minutes must be NaN, NOT 90.
+    assert pd.isna(result.iloc[0]["expected_minutes"])
+    assert pd.isna(result.iloc[0]["minutes_std_last_5"])
+
+
+def test_expected_minutes_consecutive_starts_from_prior_only() -> None:
+    """Consecutive-start streaks must be based only on prior rows."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 1, 1, 1],
+            "season": ["2022-23"] * 4,
+            "GW": [1, 2, 3, 4],
+            "minutes": [90, 90, 90, 90],
+            "starts": [1, 1, 1, 1],
+            "kickoff_time": [
+                "2022-08-06T14:00:00Z",
+                "2022-08-13T14:00:00Z",
+                "2022-08-20T14:00:00Z",
+                "2022-08-27T14:00:00Z",
+            ],
+        }
+    )
+    step = _make_expected_minutes_step()
+    result, _ = step.apply(df)
+
+    # GW1: no prior history.
+    assert pd.isna(result.iloc[0]["consecutive_starts"])
+    # GW2: 1 prior start (GW1).
+    assert result.iloc[1]["consecutive_starts"] == 1.0
+    # GW3: 2 prior consecutive starts (GW1, GW2).
+    assert result.iloc[2]["consecutive_starts"] == 2.0
+    # GW4: 3 prior consecutive starts (GW1, GW2, GW3).
+    assert result.iloc[3]["consecutive_starts"] == 3.0
+
+
+def test_expected_minutes_7d_and_14d_exclude_current_match() -> None:
+    """7-day and 14-day workload windows must exclude the current match."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 1, 1],
+            "season": ["2022-23"] * 3,
+            "GW": [1, 2, 3],
+            "minutes": [90, 90, 90],
+            "starts": [1, 1, 1],
+            "kickoff_time": [
+                "2022-08-06T14:00:00Z",
+                "2022-08-10T14:00:00Z",   # 4 days later
+                "2022-08-12T14:00:00Z",   # 6 days after first, 2 after second
+            ],
+        }
+    )
+    step = _make_expected_minutes_step()
+    result, _ = step.apply(df)
+
+    # GW1: no prior match => 0 mins in prior 7 days.
+    assert result.iloc[0]["minutes_prev_7d"] == 0.0
+    assert result.iloc[0]["matches_prev_7d"] == 0.0
+
+    # GW2: 1 prior match (GW1, 4 days prior) within 7d.
+    assert result.iloc[1]["minutes_prev_7d"] == 90.0
+    assert result.iloc[1]["matches_prev_7d"] == 1.0
+
+    # GW3: 2 prior matches both within 7 days.
+    assert result.iloc[2]["minutes_prev_7d"] == 180.0
+    assert result.iloc[2]["matches_prev_7d"] == 2.0
+
+
+def test_expected_minutes_shuffled_input_order() -> None:
+    """Shuffled input rows must produce the same chronological result."""
+    # Sorted version.
+    df_sorted = pd.DataFrame(
+        {
+            "element": [1, 1, 1],
+            "season": ["2022-23"] * 3,
+            "GW": [1, 2, 3],
+            "minutes": [90, 45, 60],
+            "starts": [1, 0, 1],
+            "kickoff_time": [
+                "2022-08-06T14:00:00Z",
+                "2022-08-13T14:00:00Z",
+                "2022-08-20T14:00:00Z",
+            ],
+        }
+    )
+    # Shuffled version (reverse order).
+    df_shuffled = df_sorted.iloc[::-1].reset_index(drop=True)
+
+    step = _make_expected_minutes_step()
+    result_sorted, _ = step.apply(df_sorted)
+    result_shuffled, _ = step.apply(df_shuffled)
+
+    # After sorting internally by (element, season, GW), the expected_minutes
+    # values should be the same for matching GW rows.
+    for gw in [1, 2, 3]:
+        val_sorted = result_sorted[result_sorted["GW"] == gw].iloc[0]["expected_minutes"]
+        val_shuffled = result_shuffled[result_shuffled["GW"] == gw].iloc[0]["expected_minutes"]
+        if pd.isna(val_sorted):
+            assert pd.isna(val_shuffled), f"GW{gw}: expected NaN but got {val_shuffled}"
+        else:
+            assert val_sorted == pytest.approx(val_shuffled), (
+                f"GW{gw}: sorted={val_sorted}, shuffled={val_shuffled}"
+            )
+
+
+# --- OpportunityStep regression tests --------------------------------------------
+
+
+from src.feature_engineering.steps.opportunity import OpportunityStep
+
+
+def test_opportunity_uses_only_rolling_lagged_inputs() -> None:
+    """Opportunity step operates on already-lagged rolling averages, never raw current-GW."""
+    df = pd.DataFrame(
+        {
+            # These represent rolling-lagged averages produced by RollingAverageStep.
+            "xG_avg_last_5": [0.3, 0.5],
+            "xA_avg_last_5": [0.1, 0.2],
+            "minutes_avg_last_5": [90.0, 45.0],
+            "key_passes_avg_last_5": [2.0, 1.0],
+            "big_chances_created_avg_last_5": [1.0, 0.5],
+            "big_chances_missed_avg_last_5": [0.2, 0.1],
+        }
+    )
+    step = OpportunityStep()
+    result, summary = step.apply(df)
+
+    assert summary.step_name == "opportunity"
+    # xG_per_90 for row 0: (0.3 / 90) * 90 = 0.3
+    assert result.iloc[0]["xG_per_90_last_5"] == pytest.approx(0.3)
+    # xG_per_90 for row 1: (0.5 / 45) * 90 = 1.0
+    assert result.iloc[1]["xG_per_90_last_5"] == pytest.approx(1.0)
+    # xGI_per_90 = xG_per_90 + xA_per_90
+    assert result.iloc[0]["xGI_per_90_last_5"] == pytest.approx(
+        result.iloc[0]["xG_per_90_last_5"] + result.iloc[0]["xA_per_90_last_5"]
+    )
+
+
+def test_opportunity_current_gw_stats_never_enter_feature() -> None:
+    """Current-GW raw xG/xA/key_passes/big_chances must not pollute opportunity features.
+
+    Even if current-GW raw columns exist alongside the rolling averages,
+    the step must only read the rolling-lagged columns.
+    """
+    df = pd.DataFrame(
+        {
+            # Lagged rolling averages (safe).
+            "xG_avg_last_5": [0.2],
+            "xA_avg_last_5": [0.1],
+            "minutes_avg_last_5": [90.0],
+            "key_passes_avg_last_5": [1.0],
+            "big_chances_created_avg_last_5": [0.5],
+            "big_chances_missed_avg_last_5": [0.1],
+            # Raw current-GW columns (must be ignored).
+            "expected_goals": [2.5],
+            "expected_assists": [1.5],
+            "key_passes": [10],
+            "big_chances_created": [5],
+            "big_chances_missed": [3],
+        }
+    )
+    step = OpportunityStep()
+    result, _ = step.apply(df)
+
+    # The feature must reflect the lagged inputs (0.2 xG), NOT the raw current-GW (2.5).
+    assert result.iloc[0]["xG_per_90_last_5"] == pytest.approx(0.2)
+    assert result.iloc[0]["xA_per_90_last_5"] == pytest.approx(0.1)
+
+
+def test_opportunity_missing_inputs_produces_nan_not_error() -> None:
+    """If rolling-lagged inputs are missing, opportunity features must be NaN."""
+    df = pd.DataFrame({"element": [1, 2]})
+    step = OpportunityStep()
+    result, summary = step.apply(df)
+
+    assert "Missing prerequisite" in summary.description
+    for col in [
+        "xG_per_90_last_5",
+        "xA_per_90_last_5",
+        "key_passes_per_90_last_5",
+        "big_chances_created_per_90_last_5",
+        "big_chances_missed_rate_last_5",
+        "xGI_per_90_last_5",
+        "opportunity_index_last_5",
+    ]:
+        assert col in result.columns
 

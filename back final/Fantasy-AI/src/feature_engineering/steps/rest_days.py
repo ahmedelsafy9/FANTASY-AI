@@ -77,11 +77,22 @@ class RestDaysStep(FeatureStep):
         else:
             kickoff = pd.to_datetime(working[self._kickoff_time_column], errors="coerce", utc=True)
             working["__original_order__"] = range(len(working))
+            season_col = resolve_column(("season",), working)
+            sort_keys = (
+                [season_col, player_id_column, "__kickoff__"]
+                if season_col is not None
+                else [player_id_column, "__kickoff__"]
+            )
+            group_keys = (
+                [season_col, player_id_column]
+                if season_col is not None
+                else player_id_column
+            )
             sorted_working = working.assign(__kickoff__=kickoff).sort_values(
-                by=[player_id_column, "__kickoff__"], kind="mergesort"
+                by=sort_keys, kind="mergesort"
             )
             gap_days = (
-                sorted_working.groupby(player_id_column)["__kickoff__"]
+                sorted_working.groupby(group_keys)["__kickoff__"]
                 .diff()
                 .dt.total_seconds()
                 / 86400.0

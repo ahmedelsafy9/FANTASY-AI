@@ -120,11 +120,16 @@ class PlayerParticipationStep(FeatureStep):
         played_series = (minutes_series > 0).astype(float)
 
         # Grouped and shifted values
-        grouped_player = working[player_id_column]
-        prev_minutes = minutes_series.groupby(grouped_player).shift(1)
-        prev_starts = starts_series.groupby(grouped_player).shift(1)
-        prev_played = played_series.groupby(grouped_player).shift(1)
-        prev_bench_unused = bench_unused_series.groupby(grouped_player).shift(1)
+        season_col = resolve_column(("season",), working)
+        group_keys = (
+            [working[season_col], working[player_id_column]]
+            if season_col is not None
+            else working[player_id_column]
+        )
+        prev_minutes = minutes_series.groupby(group_keys).shift(1)
+        prev_starts = starts_series.groupby(group_keys).shift(1)
+        prev_played = played_series.groupby(group_keys).shift(1)
+        prev_bench_unused = bench_unused_series.groupby(group_keys).shift(1)
 
         working["prev_gw_minutes"] = prev_minutes
         working["prev_gw_played"] = prev_played
@@ -132,10 +137,10 @@ class PlayerParticipationStep(FeatureStep):
         working["prev_gw_bench_unused"] = prev_bench_unused
 
         for w in self._windows:
-            working[f"starts_last_{w}"] = prev_starts.groupby(grouped_player).transform(
+            working[f"starts_last_{w}"] = prev_starts.groupby(group_keys).transform(
                 lambda s, win=w: s.rolling(window=win, min_periods=1).mean()
             )
-            working[f"bench_unused_last_{w}"] = prev_bench_unused.groupby(grouped_player).transform(
+            working[f"bench_unused_last_{w}"] = prev_bench_unused.groupby(group_keys).transform(
                 lambda s, win=w: s.rolling(window=win, min_periods=1).mean()
             )
 

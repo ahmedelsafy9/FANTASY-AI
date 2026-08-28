@@ -89,8 +89,14 @@ class PriceTrendStep(FeatureStep):
         sort_by = [player_id_column, *sort_columns]
         working = working.sort_values(by=sort_by, kind="mergesort")
 
+        season_col = resolve_column(("season",), working)
+        group_keys = (
+            [working[season_col], working[player_id_column]]
+            if season_col is not None
+            else working[player_id_column]
+        )
         numeric_value = pd.to_numeric(working[self._value_column], errors="coerce")
-        grouped = numeric_value.groupby(working[player_id_column])
+        grouped = numeric_value.groupby(group_keys)
 
         for window, column in zip(self._windows, output_columns):
             shifted = grouped.transform(lambda s, w=window: s.shift(w))
