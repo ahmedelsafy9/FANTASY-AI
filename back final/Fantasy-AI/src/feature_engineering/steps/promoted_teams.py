@@ -14,6 +14,40 @@ from src.feature_engineering.steps.base import FeatureStep
 logger = get_logger(__name__)
 
 
+def _build_canonical_player_id(data: pd.DataFrame, player_id_col: str, team_col: str | None) -> pd.Series:
+    """Resolve single-token web names to full normalized names across seasons when possible."""
+    if team_col is not None and team_col in data.columns and player_id_col in data.columns:
+        records = data[[player_id_col, team_col]].dropna().drop_duplicates()
+        full_names_by_team: dict[str, set[str]] = {}
+        for _, r in records[records[player_id_col].astype(str).str.contains(" ", na=False)].iterrows():
+            t = str(r[team_col])
+            fn = str(r[player_id_col])
+            full_names_by_team.setdefault(t, set()).add(fn)
+
+        def map_name(row: pd.Series) -> str:
+            name = str(row[player_id_col])
+            if " " in name or not name:
+                return name
+            t = str(row[team_col]) if team_col in row and pd.notna(row[team_col]) else ""
+            if t and t in full_names_by_team:
+                for fn in full_names_by_team[t]:
+                    tokens = fn.split()
+                    if name in tokens or fn.endswith(name):
+                        return fn
+            all_candidates = [
+                fn
+                for fns in full_names_by_team.values()
+                for fn in fns
+                if name in fn.split() or fn.endswith(name)
+            ]
+            if len(all_candidates) == 1:
+                return all_candidates[0]
+            return name
+
+        return data.apply(map_name, axis=1)
+    return data[player_id_col].astype(str)
+
+
 class PromotedAndHistoricalStep(FeatureStep):
     """Derives promoted-team indicators and player prior-season history signals.
 
@@ -163,22 +197,24 @@ class PromotedAndHistoricalStep(FeatureStep):
         points_col = resolve_column(self._points_columns, working)
 
         if player_id is not None and minutes_col is not None and points_col is not None:
-            # Clean numeric values
+            # Build canonical player identity to bridge web_name (single token) to full name across seasons
+            canonical_id = _build_canonical_player_id(working, player_id, self._team_column if self._team_column in working.columns else None)
             working_clean = working[[player_id, self._season_column]].copy()
+            working_clean["_canonical_id"] = canonical_id
             working_clean["_minutes"] = pd.to_numeric(working[minutes_col], errors="coerce").fillna(0.0)
             working_clean["_points"] = pd.to_numeric(working[points_col], errors="coerce").fillna(0.0)
             working_clean["_played"] = (working_clean["_minutes"] > 0).astype(float)
 
-            # Aggregate per player per season
-            season_agg = working_clean.groupby([player_id, self._season_column]).agg(
+            # Aggregate per canonical player per season
+            season_agg = working_clean.groupby(["_canonical_id", self._season_column]).agg(
                 s_mins=("_minutes", "sum"),
                 s_pts=("_points", "sum"),
                 s_apps=("_played", "sum"),
             ).reset_index()
 
-            # Build prior season stats mapping
+            # Build prior season stats mapping per canonical player
             lookup_records = []
-            for p_id, p_df in season_agg.groupby(player_id):
+            for c_id, p_df in season_agg.groupby("_canonical_id"):
                 p_seasons = set(p_df[self._season_column])
                 p_by_season = {r[self._season_column]: r for _, r in p_df.iterrows()}
                 cum_mins = 0.0
@@ -194,7 +230,7 @@ class PromotedAndHistoricalStep(FeatureStep):
                     is_new = 1.0 if cum_mins == 0.0 else 0.0
 
                     lookup_records.append({
-                        player_id: p_id,
+                        "_canonical_id": c_id,
                         self._season_column: s,
                         "prev_season_minutes": prev_m,
                         "prev_season_points": prev_p,
@@ -207,7 +243,9 @@ class PromotedAndHistoricalStep(FeatureStep):
 
             if lookup_records:
                 lookup_df = pd.DataFrame(lookup_records)
-                working = working.merge(lookup_df, on=[player_id, self._season_column], how="left")
+                working["_canonical_id"] = canonical_id
+                working = working.merge(lookup_df, on=["_canonical_id", self._season_column], how="left")
+                working = working.drop(columns=["_canonical_id"], errors="ignore")
             else:
                 for col in ["prev_season_minutes", "prev_season_points", "prev_season_matches", "prev_season_ppm"]:
                     working[col] = 0.0

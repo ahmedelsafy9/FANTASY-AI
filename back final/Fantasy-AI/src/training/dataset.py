@@ -400,13 +400,19 @@ def prepare_split_dataset(
     # 7. Leakage-free median imputation
     # ---------------------------------------------------------------
 
-    train_medians = (
+    raw_medians = (
         X_train
         .median(
             numeric_only=True,
         )
         .to_dict()
     )
+    train_medians = {
+        col: float(raw_medians[col])
+        if col in raw_medians and pd.notna(raw_medians[col])
+        else 0.0
+        for col in feature_columns
+    }
 
     if not X_train.empty:
         fallback_median = float(

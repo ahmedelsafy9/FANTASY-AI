@@ -611,7 +611,7 @@ class TrainingSettings:
             for c in _env_str(
                 "FANTASY_AI_EXCLUDED_FEATURE_COLUMNS",
                 # Identifier / free-text columns, excluded regardless of timing:
-                "id,season,name,team,opponent_team,kickoff_time,element,fixture,round,"
+                "id,season,name,team,opponent_team,kickoff_time,kickoff_time_formatted,element,fixture,round,position,name_normalized,"
                 # Same-Gameweek MATCH-OUTCOME stats: these are only known AFTER a
                 # match is played, so using them (unlagged) to predict that same
                 # match's total_points is data leakage — total_points is itself a
@@ -625,7 +625,15 @@ class TrainingSettings:
                 "bonus,bps,influence,creativity,threat,ict_index,"
                 "expected_goals,expected_assists,expected_goal_involvements,"
                 "expected_goals_conceded,in_dreamteam,starts,selected,"
-                "transfers_in,transfers_out,transfers_balance",
+                "transfers_in,transfers_out,transfers_balance,"
+                "attempted_passes,completed_passes,big_chances_created,big_chances_missed,"
+                "clearances_blocks_interceptions,dribbles,ea_index,errors_leading_to_goal,"
+                "errors_leading_to_goal_attempt,fouls,key_passes,loaned_in,loaned_out,"
+                "offside,open_play_crosses,penalties_conceded,recoveries,tackled,"
+                "tackles,target_missed,team_a_score,team_h_score,winning_goals,"
+                "defensive_contribution,played,modified,xP,"
+                "mng_clean_sheets,mng_draw,mng_goals_scored,mng_loss,"
+                "mng_underdog_draw,mng_underdog_win,mng_win",
             ).split(",")
             if c
         )
