@@ -19,10 +19,10 @@ import pandas as pd
 from src.automation.data_versioning import DataVersionManager
 from src.automation.merge_live_data import append_live_gameweek
 from src.automation.model_versioning import ModelVersionManager
-from src.common.file_utils import ensure_directory
+from src.common.file_utils import atomic_write_csv, ensure_directory, validate_dataset_file
 from src.config.logging_config import get_logger
 from src.config.settings import Settings
-from src.core.exceptions import FantasyAIError
+from src.core.exceptions import DataValidationError, FantasyAIError
 from src.data_collection.services.historical_dataset_service import HistoricalDatasetService
 from src.data_collection.services.team_mapping_service import TeamMappingService
 from src.data_collection.sources.fpl_api_source import FPLApiDataSource
@@ -281,7 +281,7 @@ class AutomationOrchestrator:
             merged = append_live_gameweek(
                 historical, live_data, duplicate_key_columns=settings.validation.duplicate_key_columns
             )
-            merged.to_csv(raw_merged_path, index=False)
+            atomic_write_csv(merged, raw_merged_path)
 
             result.live_gameweek_ingested = int(latest_gw) if latest_gw is not None else None
             logger.info(
@@ -313,6 +313,8 @@ class AutomationOrchestrator:
             raw_merged_path: Path to the raw merged dataset CSV.
             result: The in-progress run result, updated in place.
         """
+        row_count = validate_dataset_file(raw_merged_path)
+
         manager = DataVersionManager(
             settings.paths.data_dir / "versions" / "raw",
             max_versions_to_keep=settings.automation.max_versions_to_keep,
@@ -322,7 +324,6 @@ class AutomationOrchestrator:
             result.raw_data_changed = False
             return
 
-        row_count = len(pd.read_csv(raw_merged_path, usecols=[0], low_memory=False))
         entry = manager.snapshot(raw_merged_path, {"row_count": row_count})
         result.raw_data_changed = True
         result.raw_data_version = entry.version_id
@@ -352,8 +353,7 @@ class AutomationOrchestrator:
         pipeline_result = PreprocessingPipeline(steps=steps).run(data)
 
         cleaned_path = settings.paths.processed_data_dir / "vaastav_cleaned.csv"
-        ensure_directory(cleaned_path.parent)
-        pipeline_result.data.to_csv(cleaned_path, index=False)
+        atomic_write_csv(pipeline_result.data, cleaned_path)
         return cleaned_path
 
     def _run_feature_engineering(self, settings: Settings, cleaned_path: Path) -> Path:
@@ -371,8 +371,7 @@ class AutomationOrchestrator:
         pipeline_result = FeaturePipeline(steps=steps).run(data)
 
         engineered_path = settings.paths.processed_data_dir / "vaastav_features.csv"
-        ensure_directory(engineered_path.parent)
-        pipeline_result.data.to_csv(engineered_path, index=False)
+        atomic_write_csv(pipeline_result.data, engineered_path)
         return engineered_path
 
     def _version_engineered_data(
@@ -385,6 +384,8 @@ class AutomationOrchestrator:
             engineered_path: Path to the engineered dataset CSV.
             result: The in-progress run result, updated in place.
         """
+        row_count = validate_dataset_file(engineered_path)
+
         manager = DataVersionManager(
             settings.paths.data_dir / "versions" / "engineered",
             max_versions_to_keep=settings.automation.max_versions_to_keep,
@@ -393,7 +394,6 @@ class AutomationOrchestrator:
             logger.info("Engineered dataset unchanged since last snapshot; skipping versioning.")
             return
 
-        row_count = len(pd.read_csv(engineered_path, usecols=[0], low_memory=False))
         entry = manager.snapshot(engineered_path, {"row_count": row_count})
         result.engineered_data_version = entry.version_id
 
@@ -861,7 +861,7 @@ class AutomationOrchestrator:
 
             # Save adaptive predictions
             adaptive_path = settings.paths.processed_data_dir / "predictions_adaptive.csv"
-            corrected.to_csv(adaptive_path, index=False)
+            atomic_write_csv(corrected, adaptive_path)
             result.notes.append(
                 f"Adaptive predictions exported to {adaptive_path} "
                 f"({len(corrected)} rows)."

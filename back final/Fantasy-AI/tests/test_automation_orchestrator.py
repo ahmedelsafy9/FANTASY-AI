@@ -342,3 +342,42 @@ def test_run_exports_canonical_predictions_if_model_present(
     assert "predicted_for_gw" in preds.columns
     assert (preds["predicted_for_gw"] == 6).all()  # Latest GW in zip was 5, so next is 6
 
+
+def test_version_engineered_data_raises_on_empty_file(
+    isolated_settings: Settings,
+) -> None:
+    """_version_engineered_data must defensively fail with DataValidationError if the file is empty."""
+    from src.automation.update_pipeline import AutomationRunResult
+    from src.core.exceptions import DataValidationError
+
+    empty_path = isolated_settings.paths.processed_data_dir / "vaastav_features.csv"
+    empty_path.parent.mkdir(parents=True, exist_ok=True)
+    empty_path.write_text("", encoding="utf-8")
+
+    orchestrator = AutomationOrchestrator(isolated_settings)
+    result = AutomationRunResult(generated_at=pd.Timestamp.now(tz="UTC"))
+
+    with pytest.raises(DataValidationError, match="empty \\(0 bytes\\)"):
+        orchestrator._version_engineered_data(isolated_settings, empty_path, result)
+
+
+def test_version_engineered_data_success_on_valid_file(
+    isolated_settings: Settings,
+) -> None:
+    """_version_engineered_data successfully versions a valid non-empty CSV."""
+    from src.automation.update_pipeline import AutomationRunResult
+
+    valid_path = isolated_settings.paths.processed_data_dir / "vaastav_features.csv"
+    valid_path.parent.mkdir(parents=True, exist_ok=True)
+    valid_path.write_text("element,name,total_points\n1,Player One,5\n2,Player Two,8\n", encoding="utf-8")
+
+    orchestrator = AutomationOrchestrator(isolated_settings)
+    result = AutomationRunResult(generated_at=pd.Timestamp.now(tz="UTC"))
+
+    orchestrator._version_engineered_data(isolated_settings, valid_path, result)
+
+    assert result.engineered_data_version is not None
+    version_dir = isolated_settings.paths.data_dir / "versions" / "engineered" / result.engineered_data_version
+    assert version_dir.exists()
+    assert (version_dir / "vaastav_features.csv").exists()
+

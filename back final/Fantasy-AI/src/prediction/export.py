@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.common.file_utils import ensure_directory
+from src.common.file_utils import atomic_write_csv, ensure_directory
 from src.config.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -44,7 +44,6 @@ def export_predictions(
     )
     export_df = export_df.reset_index(drop=True)
 
-    ensure_directory(output_path.parent)
-    export_df.to_csv(output_path, index=False)
+    atomic_write_csv(export_df, output_path)
     logger.info("Exported %d prediction(s) to %s.", len(export_df), output_path)
     return export_df

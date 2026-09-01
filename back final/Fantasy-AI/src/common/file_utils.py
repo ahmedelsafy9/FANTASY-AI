@@ -8,17 +8,120 @@ consistent and testable.
 
 from __future__ import annotations
 
+import os
 import shutil
+import uuid
 import zipfile
 from pathlib import Path
 
 import pandas as pd
 
 from src.config.logging_config import get_logger
+from src.core.exceptions import DataValidationError
 
 logger = get_logger(__name__)
 
 _CSV_ENCODING_CANDIDATES: tuple[str, ...] = ("utf-8", "cp1252", "latin-1")
+
+
+def atomic_write_csv(df: pd.DataFrame, path: Path, **to_csv_kwargs: object) -> Path:
+    """Atomically write a DataFrame to CSV via a temp file in the same directory.
+
+    Guarantees that readers never see a partially written, truncated, or 0-byte
+    file if writing is in progress or fails mid-stream.
+
+    Args:
+        df: DataFrame to write.
+        path: Target file path.
+        **to_csv_kwargs: Additional keyword arguments forwarded to
+            :meth:`pandas.DataFrame.to_csv`. Defaults to ``index=False``.
+
+    Returns:
+        Path: The target path written.
+    """
+    ensure_directory(path.parent)
+    if "index" not in to_csv_kwargs:
+        to_csv_kwargs["index"] = False
+
+    unique_suffix = f".tmp.{os.getpid()}.{uuid.uuid4().hex}"
+    temp_path = path.parent / f"{path.name}{unique_suffix}"
+
+    try:
+        df.to_csv(temp_path, **to_csv_kwargs)  # type: ignore[arg-type]
+        if not temp_path.exists() or temp_path.stat().st_size == 0:
+            raise DataValidationError(
+                f"Failed to write CSV: temporary file {temp_path} is empty or missing"
+            )
+        os.replace(temp_path, path)
+    except Exception:
+        if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+        raise
+    return path
+
+
+def validate_dataset_file(path: Path) -> int:
+    """Defensively validate that a dataset CSV exists, is non-empty, and has data rows.
+
+    Args:
+        path: Path to the CSV file to validate.
+
+    Returns:
+        int: The number of data rows in the CSV file.
+
+    Raises:
+        DataValidationError: If the file does not exist, is empty, lacks a valid
+            header, or contains 0 data rows.
+    """
+    if not path.exists():
+        raise DataValidationError(f"Dataset file does not exist: {path}")
+
+    if not path.is_file():
+        raise DataValidationError(f"Dataset path is not a regular file: {path}")
+
+    size = path.stat().st_size
+    if size == 0:
+        raise DataValidationError(
+            f"Dataset file is empty (0 bytes): {path}. "
+            "The file may be corrupted, truncated, or incomplete."
+        )
+
+    try:
+        header_df = pd.read_csv(path, nrows=0)
+        if header_df.columns.empty or len(header_df.columns) == 0:
+            raise DataValidationError(f"Dataset CSV at {path} contains no header columns.")
+    except pd.errors.EmptyDataError as exc:
+        raise DataValidationError(
+            f"Dataset CSV at {path} is empty or has no columns to parse."
+        ) from exc
+    except Exception as exc:
+        if isinstance(exc, DataValidationError):
+            raise
+        raise DataValidationError(
+            f"Failed to parse CSV header from dataset at {path}: {exc}"
+        ) from exc
+
+    try:
+        first_col = header_df.columns[0]
+        row_count = len(pd.read_csv(path, usecols=[first_col], low_memory=False))
+        if row_count <= 0:
+            raise DataValidationError(
+                f"Dataset CSV at {path} contains a header but 0 data rows."
+            )
+        return row_count
+    except pd.errors.EmptyDataError as exc:
+        raise DataValidationError(
+            f"Dataset CSV at {path} contains 0 data rows."
+        ) from exc
+    except Exception as exc:
+        if isinstance(exc, DataValidationError):
+            raise
+        raise DataValidationError(
+            f"Failed to count rows in dataset at {path}: {exc}"
+        ) from exc
 
 
 def ensure_directory(path: Path) -> Path:

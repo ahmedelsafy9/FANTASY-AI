@@ -63,3 +63,87 @@ def test_read_csv_robust_falls_back_to_latin1(tmp_path: Path) -> None:
 
     assert list(df.columns) == ["name", "points"]
     assert df.iloc[0]["name"] == "Jos\xe9"
+
+
+def test_atomic_write_csv_writes_and_replaces(tmp_path: Path) -> None:
+    """atomic_write_csv must write a DataFrame and safely replace existing files."""
+    import pandas as pd
+    from src.common.file_utils import atomic_write_csv
+
+    target = tmp_path / "test.csv"
+    df1 = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+    result = atomic_write_csv(df1, target)
+
+    assert result == target
+    assert target.exists()
+    read_df = pd.read_csv(target)
+    assert len(read_df) == 2
+    assert list(read_df.columns) == ["a", "b"]
+
+    # Overwrite atomically
+    df2 = pd.DataFrame({"a": [10, 20, 30], "b": [40, 50, 60]})
+    atomic_write_csv(df2, target)
+    read_df2 = pd.read_csv(target)
+    assert len(read_df2) == 3
+    assert read_df2.iloc[0]["a"] == 10
+
+
+def test_validate_dataset_file_valid_csv(tmp_path: Path) -> None:
+    """validate_dataset_file returns the row count for a valid non-empty CSV."""
+    from src.common.file_utils import validate_dataset_file
+
+    path = tmp_path / "valid.csv"
+    path.write_text("col1,col2\nval1,val2\nval3,val4\n", encoding="utf-8")
+
+    rows = validate_dataset_file(path)
+    assert rows == 2
+
+
+def test_validate_dataset_file_missing_raises(tmp_path: Path) -> None:
+    """validate_dataset_file raises DataValidationError if the file is missing."""
+    import pytest
+    from src.common.file_utils import validate_dataset_file
+    from src.core.exceptions import DataValidationError
+
+    path = tmp_path / "nonexistent.csv"
+    with pytest.raises(DataValidationError, match="does not exist"):
+        validate_dataset_file(path)
+
+
+def test_validate_dataset_file_zero_bytes_raises(tmp_path: Path) -> None:
+    """validate_dataset_file raises DataValidationError on a 0-byte file."""
+    import pytest
+    from src.common.file_utils import validate_dataset_file
+    from src.core.exceptions import DataValidationError
+
+    path = tmp_path / "empty.csv"
+    path.write_text("", encoding="utf-8")
+
+    with pytest.raises(DataValidationError, match="empty \\(0 bytes\\)"):
+        validate_dataset_file(path)
+
+
+def test_validate_dataset_file_header_only_raises(tmp_path: Path) -> None:
+    """validate_dataset_file raises DataValidationError on a CSV with 0 data rows."""
+    import pytest
+    from src.common.file_utils import validate_dataset_file
+    from src.core.exceptions import DataValidationError
+
+    path = tmp_path / "header_only.csv"
+    path.write_text("col1,col2\n", encoding="utf-8")
+
+    with pytest.raises(DataValidationError, match="0 data rows"):
+        validate_dataset_file(path)
+
+
+def test_validate_dataset_file_directory_raises(tmp_path: Path) -> None:
+    """validate_dataset_file raises DataValidationError if path is a directory."""
+    import pytest
+    from src.common.file_utils import validate_dataset_file
+    from src.core.exceptions import DataValidationError
+
+    dir_path = tmp_path / "some_dir"
+    dir_path.mkdir()
+
+    with pytest.raises(DataValidationError, match="not a regular file"):
+        validate_dataset_file(dir_path)

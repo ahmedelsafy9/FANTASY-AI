@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.common.file_utils import ensure_directory
+from src.common.file_utils import atomic_write_csv, ensure_directory
 from src.config.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -128,8 +128,7 @@ class PredictionSnapshotStore:
                 if fc in predictions.columns:
                     snapshot[f"feat_{fc}"] = predictions[fc].values
 
-        ensure_directory(path.parent)
-        snapshot.to_csv(path, index=False)
+        atomic_write_csv(snapshot, path)
         logger.info(
             "Saved prediction snapshot: %s GW%d (%d players) -> %s",
             season,
