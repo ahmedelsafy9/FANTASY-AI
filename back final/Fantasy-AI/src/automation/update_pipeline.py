@@ -41,6 +41,10 @@ from src.training.persistence import save_best_model
 from src.training.promotion_scorer import compute_fpl_metrics
 from src.training.report_writer import write_comparison_report
 from src.training.trainer import ModelTrainer
+from src.prediction.feedback.snapshot_store import PredictionSnapshotStore
+from src.prediction.feedback.feedback_store import FeedbackStore
+from src.prediction.feedback.feedback_adapter import FeedbackAdapter
+from src.prediction.feedback.residual_model import ResidualModel
 
 logger = get_logger(__name__)
 
@@ -103,6 +107,7 @@ class AutomationOrchestrator:
         retrain: bool = False,
         ingest_live: bool = True,
         dry_run: bool | None = None,
+        skip_feedback: bool = False,
     ) -> AutomationRunResult:
         """Run one full automation cycle.
 
@@ -140,6 +145,11 @@ class AutomationOrchestrator:
             self._retrain_and_maybe_promote(settings, engineered_path, result, is_dry_run)
 
         self._export_predictions(settings, engineered_path)
+
+        if not skip_feedback:
+            self._run_feedback_cycle(settings, engineered_path, result)
+        else:
+            result.notes.append("Feedback system was skipped (skip_feedback=True).")
 
         logger.info("Automation run complete: %s", result)
         return result
@@ -723,4 +733,143 @@ class AutomationOrchestrator:
         except Exception as exc:
             logger.warning("Unexpected error during automated prediction export: %s", exc)
             return None
+
+    def _run_feedback_cycle(
+        self,
+        settings: Settings,
+        engineered_path: Path,
+        result: AutomationRunResult,
+    ) -> None:
+        """Run the feedback learning cycle.
+
+        Steps:
+        1. Save prediction snapshot for the current GW.
+        2. Generate feedback for the previous completed GW (if snapshot exists).
+        3. Update residual model if enough feedback is available.
+        4. Apply feedback correction to current predictions.
+
+        Args:
+            settings: Application settings.
+            engineered_path: Path to the engineered dataset.
+            result: The in-progress run result, updated in place.
+        """
+        try:
+            snapshot_dir = settings.paths.processed_data_dir / settings.feedback.snapshot_dir_name
+            feedback_dir = settings.paths.processed_data_dir / settings.feedback.feedback_dir_name
+            model_dir = settings.paths.models_dir / settings.feedback.feedback_model_dir_name
+
+            snapshot_store = PredictionSnapshotStore(snapshot_dir)
+            feedback_store = FeedbackStore(feedback_dir)
+            residual_model = ResidualModel(
+                model_dir=model_dir,
+                n_estimators=settings.feedback.residual_n_estimators,
+                max_depth=settings.feedback.residual_max_depth,
+                learning_rate=settings.feedback.residual_learning_rate,
+            )
+
+            # Determine current season and GW from predictions
+            pred_path = settings.paths.processed_data_dir / "predictions.csv"
+            if not pred_path.exists():
+                result.notes.append("No predictions.csv — skipping feedback cycle.")
+                return
+
+            predictions = pd.read_csv(pred_path, low_memory=False)
+            if predictions.empty:
+                result.notes.append("Empty predictions — skipping feedback cycle.")
+                return
+
+            # Detect season
+            data = pd.read_csv(engineered_path, usecols=["season"], low_memory=False)
+            season = str(data["season"].max())
+
+            # Detect target GW
+            target_gw = None
+            if "predicted_for_gw" in predictions.columns:
+                target_gw = int(predictions["predicted_for_gw"].max())
+
+            if target_gw is None:
+                result.notes.append("Cannot determine target GW — skipping feedback cycle.")
+                return
+
+            # Load model metadata for versioning
+            model_path = settings.paths.models_dir / "best_model.joblib"
+            metadata_path = settings.paths.models_dir / "best_model_metadata.json"
+            model_name = "unknown"
+            model_version = "unknown"
+            feature_columns = []
+            if metadata_path.exists():
+                import json
+                meta = json.loads(metadata_path.read_text(encoding="utf-8"))
+                model_name = meta.get("model_name", "unknown")
+                model_version = meta.get("generated_at", "unknown")
+                feature_columns = meta.get("feature_columns", [])
+
+            # Step 1: Save prediction snapshot
+            pred_col = "predicted_total_points"
+            if pred_col not in predictions.columns:
+                for c in predictions.columns:
+                    if "predicted" in c.lower():
+                        pred_col = c
+                        break
+
+            # Load full predictions (with features) for the snapshot
+            full_pred_path = settings.paths.processed_data_dir / "predictions.csv"
+            full_predictions = pd.read_csv(full_pred_path, low_memory=False)
+
+            snapshot_store.save_snapshot(
+                predictions=full_predictions,
+                season=season,
+                target_gw=target_gw,
+                model_name=model_name,
+                model_version=model_version,
+                prediction_column=pred_col,
+                feature_columns=feature_columns,
+            )
+            result.notes.append(f"Saved prediction snapshot for {season} GW{target_gw}.")
+
+            # Step 2: Generate feedback for previous completed GW
+            prev_gw = target_gw - 1
+            if prev_gw >= 1 and snapshot_store.exists(season, prev_gw):
+                prev_snapshot = snapshot_store.load_snapshot(season, prev_gw)
+                if prev_snapshot is not None:
+                    raw_path = settings.paths.raw_data_dir / "vaastav_merged.csv"
+                    if raw_path.exists():
+                        actual_data = pd.read_csv(raw_path, low_memory=False)
+                        fb = feedback_store.generate_feedback(
+                            prev_snapshot, actual_data, season, prev_gw
+                        )
+                        if not fb.empty:
+                            result.notes.append(
+                                f"Generated feedback for {season} GW{prev_gw}: "
+                                f"{len(fb)} records."
+                            )
+
+            # Step 3: Update residual model
+            adapter = FeedbackAdapter(feedback_store, residual_model, settings.feedback)
+            trained = adapter.update_model(season, target_gw - 1)
+            if trained:
+                result.notes.append("Residual model updated.")
+
+            # Step 4: Apply feedback correction
+            corrected = adapter.apply_correction(
+                full_predictions,
+                season=season,
+                target_gw=target_gw,
+                prediction_column=pred_col,
+                base_model_version=model_version,
+            )
+
+            # Save adaptive predictions
+            adaptive_path = settings.paths.processed_data_dir / "predictions_adaptive.csv"
+            corrected.to_csv(adaptive_path, index=False)
+            result.notes.append(
+                f"Adaptive predictions exported to {adaptive_path} "
+                f"({len(corrected)} rows)."
+            )
+
+        except Exception as exc:
+            logger.warning(
+                "Feedback cycle encountered an error (non-fatal): %s", exc
+            )
+            result.notes.append(f"Feedback cycle error (non-fatal): {exc}")
 

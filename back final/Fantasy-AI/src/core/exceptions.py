@@ -42,3 +42,7 @@ class PredictionError(FantasyAIError):
 
 class PlayerNotFoundError(FantasyAIError):
     """Raised when a requested player identifier does not exist in the dataset."""
+
+
+class FeedbackError(FantasyAIError):
+    """Raised when the feedback/adaptive prediction system encounters an error."""

@@ -51,6 +51,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "the new model to best_model. Useful for validating the pipeline "
         "without affecting production.",
     )
+    parser.add_argument(
+        "--skip-feedback",
+        action="store_true",
+        help="Skip the feedback learning cycle (snapshot, feedback generation, "
+        "residual model training, and correction application).",
+    )
     return parser.parse_args(argv)
 
 
@@ -74,6 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         retrain=args.retrain,
         ingest_live=not args.no_live,
         dry_run=args.dry_run,
+        skip_feedback=args.skip_feedback,
     )
 
     logger.info("=== Automation Run Summary ===")

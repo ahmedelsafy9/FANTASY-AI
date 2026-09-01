@@ -890,6 +890,64 @@ class FixtureAwareSettings:
 
 
 @dataclass(frozen=True)
+class FeedbackSettings:
+    """Settings controlling the feedback learning / adaptive prediction system.
+
+    The feedback system learns systematic prediction errors from previous
+    Gameweeks and applies residual corrections to future predictions.
+    """
+
+    feedback_half_life: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_FEEDBACK_HALF_LIFE", 6)
+    )
+    min_feedback_gameweeks: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_MIN_FEEDBACK_GAMEWEEKS", 3)
+    )
+    min_feedback_records: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_MIN_FEEDBACK_RECORDS", 50)
+    )
+    max_correction: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_FEEDBACK_MAX_CORRECTION", "3.0")
+        )
+    )
+    residual_model_type: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_RESIDUAL_MODEL_TYPE", "gradient_boosting"
+        )
+    )
+    residual_n_estimators: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_RESIDUAL_N_ESTIMATORS", 100)
+    )
+    residual_max_depth: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_RESIDUAL_MAX_DEPTH", 4)
+    )
+    residual_learning_rate: float = field(
+        default_factory=lambda: float(
+            _env_str("FANTASY_AI_RESIDUAL_LEARNING_RATE", "0.05")
+        )
+    )
+    snapshot_dir_name: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_SNAPSHOT_DIR", "prediction_snapshots"
+        )
+    )
+    feedback_dir_name: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_FEEDBACK_DIR", "feedback"
+        )
+    )
+    feedback_model_dir_name: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_FEEDBACK_MODEL_DIR", "feedback"
+        )
+    )
+    confidence_ramp_gameweeks: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_CONFIDENCE_RAMP_GWS", 8)
+    )
+
+
+@dataclass(frozen=True)
 class Settings:
     """Top-level application settings, aggregating all setting groups."""
 
@@ -909,6 +967,7 @@ class Settings:
     api: ApiSettings = field(default_factory=ApiSettings)
     automation: AutomationSettings = field(default_factory=AutomationSettings)
     fixture_aware: FixtureAwareSettings = field(default_factory=FixtureAwareSettings)
+    feedback: FeedbackSettings = field(default_factory=FeedbackSettings)
 
 
 def get_settings() -> Settings:
