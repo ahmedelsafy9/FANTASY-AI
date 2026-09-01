@@ -78,11 +78,16 @@ export function PlayerCard({ player, rank, onClick, className }: PlayerCardProps
         {/* Model Predicted Points Box (Prominent Feature) */}
         <div className="flex flex-col items-end shrink-0 rounded-2xl border-2 border-[#FDE68A] bg-[#FFFBEB] p-2.5 text-right shadow-sm">
           <span className="text-[9px] font-black uppercase tracking-wider text-[#92400E]">
-            AI xPts
+            AI Expected
           </span>
           <span className="numeral text-2xl font-black text-[#92400E] leading-none">
-            {formatStat(player.predicted_total_points)}
+            {formatStat(player.predicted_expected_points ?? player.predicted_total_points)}
           </span>
+          {typeof player.predicted_p85_points === "number" && (
+            <span className="mt-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+              P85: {formatStat(player.predicted_p85_points)}
+            </span>
+          )}
         </div>
       </div>
 

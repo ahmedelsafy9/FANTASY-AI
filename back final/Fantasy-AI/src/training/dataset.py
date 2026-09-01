@@ -68,6 +68,8 @@ class SplitDataset:
         train_medians: Per-column medians computed only from training data.
         train_weights: Sample weights used to give more importance to
             recent seasons during training.
+        Y_train_events: Event targets DataFrame for training (multi-task).
+        Y_test_events: Event targets DataFrame for testing (multi-task).
     """
 
     X_train: pd.DataFrame
@@ -77,6 +79,8 @@ class SplitDataset:
     feature_columns: list[str]
     train_medians: dict[str, float]
     train_weights: pd.Series
+    Y_train_events: pd.DataFrame | None = None
+    Y_test_events: pd.DataFrame | None = None
 
 
 def _season_sort_key(season_str: str) -> int | None:
@@ -438,7 +442,8 @@ def prepare_split_dataset(
     )
 
     # ---------------------------------------------------------------
-    # 8. Target
+    # ---------------------------------------------------------------
+    # 8. Target and Multi-Task Event Matrices
     # ---------------------------------------------------------------
 
     y_train = pd.to_numeric(
@@ -451,8 +456,34 @@ def prepare_split_dataset(
         errors="coerce",
     )
 
+    event_target_columns = [
+        "minutes",
+        "goals_scored",
+        "assists",
+        "clean_sheets",
+        "goals_conceded",
+        "saves",
+        "yellow_cards",
+        "red_cards",
+        "bonus",
+    ]
+
+    Y_train_events = pd.DataFrame(index=train_df.index)
+    Y_test_events = pd.DataFrame(index=test_df.index)
+
+    for col in event_target_columns:
+        if col in train_df.columns:
+            Y_train_events[col] = pd.to_numeric(train_df[col], errors="coerce").fillna(0.0)
+        else:
+            Y_train_events[col] = 0.0
+
+        if col in test_df.columns:
+            Y_test_events[col] = pd.to_numeric(test_df[col], errors="coerce").fillna(0.0)
+        else:
+            Y_test_events[col] = 0.0
+
     # ---------------------------------------------------------------
-    # 9. Reset indexes so X/y/weights line up cleanly
+    # 9. Reset indexes so X/y/weights/events line up cleanly
     # ---------------------------------------------------------------
 
     X_train = X_train.reset_index(drop=True)
@@ -462,6 +493,9 @@ def prepare_split_dataset(
     y_test = y_test.reset_index(drop=True)
 
     train_weights = train_weights.reset_index(drop=True)
+
+    Y_train_events = Y_train_events.reset_index(drop=True)
+    Y_test_events = Y_test_events.reset_index(drop=True)
 
     # ---------------------------------------------------------------
     # 10. Final validation
@@ -496,10 +530,11 @@ def prepare_split_dataset(
 
     logger.info(
         "Prepared chronological split: "
-        "%d train row(s), %d test row(s), %d feature(s).",
+        "%d train row(s), %d test row(s), %d feature(s), %d event target(s).",
         len(X_train),
         len(X_test),
         len(feature_columns),
+        len(event_target_columns),
     )
 
     logger.info(
@@ -525,4 +560,6 @@ def prepare_split_dataset(
             for key, value in train_medians.items()
         },
         train_weights=train_weights,
+        Y_train_events=Y_train_events,
+        Y_test_events=Y_test_events,
     )

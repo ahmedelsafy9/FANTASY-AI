@@ -122,6 +122,33 @@ class PredictionSnapshotStore:
         snapshot["model_version"] = model_version
         snapshot["prediction_timestamp"] = timestamp
 
+        # Preserve event expectations and distribution fields if present
+        distribution_fields = (
+            "predicted_expected_points",
+            "predicted_floor_points",
+            "predicted_p50_points",
+            "predicted_p75_points",
+            "predicted_p85_points",
+            "predicted_p90_points",
+            "predicted_p95_points",
+            "predicted_ceiling_points",
+            "predicted_upside_points",
+            "captaincy_score",
+            "predicted_goals",
+            "predicted_assists",
+            "predicted_clean_sheet_prob",
+            "predicted_p_play_60",
+            "predicted_p_play_any",
+            "predicted_goals_conceded",
+            "predicted_saves",
+            "predicted_yellow_cards",
+            "predicted_red_cards",
+            "predicted_bonus",
+        )
+        for df_col in distribution_fields:
+            if df_col in predictions.columns:
+                snapshot[df_col] = predictions[df_col].values
+
         # Preserve the exact feature vector used by the model
         if feature_columns:
             for fc in feature_columns:

@@ -12,7 +12,11 @@ import { PlayerDetailPanel } from "@/components/PlayerDetailPanel";
 import { formatStat } from "@/lib/format";
 
 const SORT_OPTIONS = [
-  { value: "predicted_total_points", label: "Predicted Points" },
+  { value: "predicted_expected_points", label: "Expected Points (Safe)" },
+  { value: "predicted_p85_points", label: "P85 Upside (Differential)" },
+  { value: "predicted_p90_points", label: "P90 Explosive Ceiling" },
+  { value: "captaincy_score", label: "Captaincy Score" },
+  { value: "predicted_total_points", label: "AI xPts (Standard)" },
   { value: "total_points_avg_last_3", label: "Form (3gw)" },
   { value: "value", label: "Price" },
   { value: "minutes_avg_last_5", label: "Minutes" },
@@ -24,7 +28,7 @@ export default function Predictions() {
   const [query, setQuery] = useState("");
   const [team, setTeam] = useState("all");
   const [position, setPosition] = useState("all");
-  const [sortKey, setSortKey] = useState("predicted_total_points");
+  const [sortKey, setSortKey] = useState("predicted_expected_points");
   const [selected, setSelected] = useState<PlayerRecord | null>(null);
 
   const predictions = data?.predictions ?? [];
@@ -56,8 +60,8 @@ export default function Predictions() {
           return String(a.name ?? "").localeCompare(String(b.name ?? ""));
         }
         const key = sortKey as keyof PlayerRecord;
-        const av = a[key];
-        const bv = b[key];
+        const av = a[key] ?? (sortKey === "predicted_expected_points" ? a.predicted_total_points : undefined);
+        const bv = b[key] ?? (sortKey === "predicted_expected_points" ? b.predicted_total_points : undefined);
         const an = typeof av === "number" ? av : -Infinity;
         const bn = typeof bv === "number" ? bv : -Infinity;
         return bn - an;

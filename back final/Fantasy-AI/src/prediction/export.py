@@ -37,9 +37,65 @@ def export_predictions(
     """
     available_id_columns = [c for c in id_columns if c in predictions.columns]
     extra_columns = [c for c in ("predicted_for_gw",) if c in predictions.columns]
-    export_columns = available_id_columns + extra_columns + [prediction_column]
+    
+    distribution_columns = [
+        c
+        for c in (
+            "predicted_expected_points",
+            "predicted_floor_points",
+            "predicted_p50_points",
+            "predicted_p75_points",
+            "predicted_p85_points",
+            "predicted_p90_points",
+            "predicted_p95_points",
+            "predicted_ceiling_points",
+            "predicted_upside_points",
+            "captaincy_score",
+            "rank_expected",
+            "rank_upside",
+            "rank_captaincy",
+            "predicted_p_play_any",
+            "predicted_p_play_60",
+            "predicted_minutes_probability",
+            "predicted_minutes_60_probability",
+            "predicted_expected_minutes",
+            "predicted_goals",
+            "predicted_assists",
+            "predicted_clean_sheet_prob",
+            "predicted_clean_sheet_probability",
+            "predicted_goals_conceded",
+            "predicted_saves",
+            "predicted_yellow_cards",
+            "predicted_red_cards",
+            "predicted_bonus",
+            "predicted_appearance_points",
+            "predicted_goal_points",
+            "predicted_assist_points",
+            "predicted_clean_sheet_points",
+            "predicted_goals_conceded_points",
+            "predicted_save_points",
+            "predicted_card_points",
+            "predicted_bonus_points",
+            "prediction_uncertainty_std",
+        )
+        if c in predictions.columns and c != prediction_column
+    ]
 
-    export_df = predictions[export_columns].sort_values(
+    export_columns = (
+        available_id_columns
+        + extra_columns
+        + [prediction_column]
+        + distribution_columns
+    )
+    # Deduplicate while preserving order
+    seen = set()
+    dedup_export_columns = []
+    for col in export_columns:
+        if col not in seen and col in predictions.columns:
+            seen.add(col)
+            dedup_export_columns.append(col)
+
+    export_df = predictions[dedup_export_columns].sort_values(
         by=prediction_column, ascending=False, kind="mergesort"
     )
     export_df = export_df.reset_index(drop=True)

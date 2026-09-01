@@ -252,10 +252,11 @@ def _row_to_dict(row: pd.Series) -> dict:
     Safely handles nested containers (like upcoming_fixtures lists) without
     raising ValueError on pandas missing-value checks.
 
-    Predicted points values (e.g. ``predicted_total_points``) are rounded
-    to nearest whole integers at this final serialization boundary, while
-    preserving internal floating-point precision in the underlying DataFrames
-    for sorting, ranking, metrics, and diagnostics.
+    For backward compatibility, ``predicted_total_points`` is rounded to
+    an integer at this serialization boundary. All other distribution quantiles
+    (e.g. ``predicted_expected_points``, ``predicted_p85_points``, ``captaincy_score``),
+    event predictions (e.g. ``predicted_goals``), and breakdowns retain exact
+    floating-point precision.
 
     Args:
         row: The row to convert.
@@ -266,12 +267,33 @@ def _row_to_dict(row: pd.Series) -> dict:
     res = {}
     for key, value in row.items():
         native_val = _to_native(value)
-        if (
-            isinstance(key, str)
-            and key.startswith("predicted_")
-            and not key.startswith("predicted_for_gw")
-        ):
+        if key == "predicted_total_points":
             res[key] = _round_prediction(native_val)
+        elif isinstance(key, str) and isinstance(native_val, float):
+            res[key] = round(native_val, 4)
         else:
             res[key] = native_val
+
+    # Ensure canonical aliases
+    if "predicted_p_play_any" in res and "predicted_minutes_probability" not in res:
+        res["predicted_minutes_probability"] = res["predicted_p_play_any"]
+    if "predicted_p_play_60" in res and "predicted_minutes_60_probability" not in res:
+        res["predicted_minutes_60_probability"] = res["predicted_p_play_60"]
+    if "predicted_clean_sheet_prob" in res and "predicted_clean_sheet_probability" not in res:
+        res["predicted_clean_sheet_probability"] = res["predicted_clean_sheet_prob"]
+
+    # Construct points breakdown dict if individual component columns exist
+    if "predicted_appearance_points" in res or "predicted_goal_points" in res:
+        res["points_breakdown"] = {
+            "appearance_points": res.get("predicted_appearance_points", 0.0),
+            "goal_points": res.get("predicted_goal_points", 0.0),
+            "assist_points": res.get("predicted_assist_points", 0.0),
+            "clean_sheet_points": res.get("predicted_clean_sheet_points", 0.0),
+            "goals_conceded_points": res.get("predicted_goals_conceded_points", 0.0),
+            "save_points": res.get("predicted_save_points", 0.0),
+            "card_points": res.get("predicted_card_points", 0.0),
+            "bonus_points": res.get("predicted_bonus_points", 0.0),
+            "total_points": res.get("predicted_expected_points", res.get("predicted_total_points", 0.0)),
+        }
+
     return res

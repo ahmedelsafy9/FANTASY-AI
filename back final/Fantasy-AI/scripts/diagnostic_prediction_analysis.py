@@ -41,7 +41,7 @@ from src.training.ranking_metrics import high_score_recall, top_n_recall
 from src.training.trainer import ModelTrainer
 
 
-MODELS = ("xgboost", "lightgbm", "deep_learning_weighted_huber")
+MODELS = ("xgboost", "lightgbm", "deep_learning_weighted_huber", "deep_learning_multi_task")
 
 
 def safe_corr(a: np.ndarray, b: np.ndarray) -> float:
@@ -67,6 +67,22 @@ def summarize_predictions(name: str, pred: np.ndarray, y: np.ndarray) -> dict:
     ss_tot = np.sum((y - np.mean(y)) ** 2)
     r2_score = float(1.0 - (ss_res / ss_tot)) if ss_tot > 0 else float("nan")
 
+    # High score metrics: recall & precision at 6, 10, 13
+    actual_6 = y >= 6.0
+    pred_6 = pred >= 6.0
+    rec_6 = float((pred[actual_6] >= 6.0).mean()) if actual_6.sum() > 0 else float("nan")
+    prec_6 = float((y[pred_6] >= 6.0).mean()) if pred_6.sum() > 0 else float("nan")
+
+    actual_10 = y >= 10.0
+    pred_10 = pred >= 10.0
+    rec_10 = float((pred[actual_10] >= 10.0).mean()) if actual_10.sum() > 0 else float("nan")
+    prec_10 = float((y[pred_10] >= 10.0).mean()) if pred_10.sum() > 0 else float("nan")
+
+    actual_13 = y >= 13.0
+    pred_13 = pred >= 13.0
+    rec_13 = float((pred[actual_13] >= 13.0).mean()) if actual_13.sum() > 0 else float("nan")
+    prec_13 = float((y[pred_13] >= 13.0).mean()) if pred_13.sum() > 0 else float("nan")
+
     return {
         "model": name,
         "prediction_mean": float(np.mean(pred)),
@@ -82,7 +98,12 @@ def summarize_predictions(name: str, pred: np.ndarray, y: np.ndarray) -> dict:
         "spearman": float(spearman(pred, y)),
         "under_prediction_rate": float(np.mean(error < 0)),
         "over_prediction_rate": float(np.mean(error > 0)),
-        "high_score_recall": float(high_score_recall(y, pred, threshold=6.0, pred_threshold=6.0)),
+        "recall_6": rec_6,
+        "precision_6": prec_6,
+        "recall_10": rec_10,
+        "precision_10": prec_10,
+        "recall_13": rec_13,
+        "precision_13": prec_13,
         "top_10_recall": float(top_n_recall(y, pred, n=10)),
         "top_20_recall": float(top_n_recall(y, pred, n=20)),
         "top_30_recall": float(top_n_recall(y, pred, n=30)),

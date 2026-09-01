@@ -135,23 +135,23 @@ class ModelTrainer:
                 # The test set is NOT weighted.
                 # ---------------------------------------------------
 
-                if train_weights is not None:
-                    model.fit(
-                        split.X_train,
-                        split.y_train,
-                        sample_weight=train_weights.to_numpy(
-                            dtype="float64"
-                        ),
-                    )
-                else:
-                    model.fit(
-                        split.X_train,
-                        split.y_train,
-                    )
+                import inspect
 
-                train_seconds = (
-                    time.perf_counter() - start
+                fit_kwargs: dict[str, Any] = {}
+                if train_weights is not None:
+                    fit_kwargs["sample_weight"] = train_weights.to_numpy(dtype="float64")
+
+                fit_sig = inspect.signature(model.fit)
+                if "Y_events" in fit_sig.parameters and getattr(split, "Y_train_events", None) is not None:
+                    fit_kwargs["Y_events"] = split.Y_train_events
+
+                model.fit(
+                    split.X_train,
+                    split.y_train,
+                    **fit_kwargs,
                 )
+
+                train_seconds = time.perf_counter() - start
 
                 # ---------------------------------------------------
                 # Evaluate on the untouched chronological test set

@@ -88,11 +88,63 @@ class PredictionService:
             )
 
         model = self._loaded_model.model
-        predictions = model.predict(X)
-
         output_column = f"predicted_{self._loaded_model.target_column}"
         result = rows.copy()
+
+        if hasattr(model, "predict_distribution"):
+            try:
+                dist_df = model.predict_distribution(rows)
+                for col in dist_df.columns:
+                    result[col] = dist_df[col].to_numpy()
+                predictions = dist_df["predicted_total_points"].to_numpy()
+            except Exception as exc:
+                logger.warning("predict_distribution failed, falling back: %s", exc)
+                if hasattr(model, "predict_breakdown"):
+                    breakdown_df = model.predict_breakdown(rows)
+                    for col in breakdown_df.columns:
+                        result[col] = breakdown_df[col].to_numpy()
+                    predictions = breakdown_df["predicted_total_points"].to_numpy()
+                else:
+                    predictions = model.predict(X)
+        elif hasattr(model, "predict_breakdown"):
+            try:
+                breakdown_df = model.predict_breakdown(rows)
+                for col in breakdown_df.columns:
+                    result[col] = breakdown_df[col].to_numpy()
+                predictions = breakdown_df["predicted_total_points"].to_numpy()
+            except Exception as exc:
+                logger.warning("predict_breakdown failed, falling back to model.predict: %s", exc)
+                predictions = model.predict(X)
+        else:
+            predictions = model.predict(X)
+
         result[output_column] = predictions
+        if "predicted_expected_points" not in result.columns:
+            result["predicted_expected_points"] = predictions
+        if "predicted_total_points" not in result.columns:
+            result["predicted_total_points"] = predictions
+
+        # Canonical aliases
+        if "predicted_p_play_any" in result.columns and "predicted_minutes_probability" not in result.columns:
+            result["predicted_minutes_probability"] = result["predicted_p_play_any"]
+        if "predicted_p_play_60" in result.columns and "predicted_minutes_60_probability" not in result.columns:
+            result["predicted_minutes_60_probability"] = result["predicted_p_play_60"]
+        if "predicted_clean_sheet_prob" in result.columns and "predicted_clean_sheet_probability" not in result.columns:
+            result["predicted_clean_sheet_probability"] = result["predicted_clean_sheet_prob"]
+
+        # Ensure rankings exist even if standard scalar model was used
+        if "rank_expected" not in result.columns:
+            result["rank_expected"] = (
+                pd.Series(result["predicted_expected_points"]).rank(ascending=False, method="min").astype(int).values
+            )
+        if "rank_upside" not in result.columns and "predicted_p85_points" in result.columns:
+            result["rank_upside"] = (
+                pd.Series(result["predicted_p85_points"]).rank(ascending=False, method="min").astype(int).values
+            )
+        if "rank_captaincy" not in result.columns and "captaincy_score" in result.columns:
+            result["rank_captaincy"] = (
+                pd.Series(result["captaincy_score"]).rank(ascending=False, method="min").astype(int).values
+            )
 
         test_rmse = self._loaded_model.metrics.get("rmse")
         if test_rmse is not None:

@@ -119,10 +119,35 @@ def build_default_model_specs(
                 build=lambda: TabularMLPRegressor(config=dl_config),
             )
         )
+
+        from src.training.multi_task_dl import MultiTaskDLConfig, TabularMultiTaskRegressor
+
+        mt_config = MultiTaskDLConfig(
+            hidden_layers=settings.dl_hidden_layers,
+            dropout=settings.dl_dropout,
+            learning_rate=settings.dl_learning_rate,
+            weight_decay=settings.dl_weight_decay,
+            batch_size=settings.dl_batch_size,
+            epochs=settings.dl_epochs,
+            patience=settings.dl_patience,
+            use_batch_norm=settings.dl_use_batch_norm,
+            grad_clip_norm=settings.dl_grad_clip_norm,
+            use_discrete_sample_weights=settings.dl_use_discrete_sample_weights,
+            high_score_weight_power=settings.dl_high_score_weight_power,
+            random_state=settings.random_state,
+        )
+
+        specs.append(
+            ModelSpec(
+                name="deep_learning_multi_task",
+                build=lambda: TabularMultiTaskRegressor(config=mt_config),
+            )
+        )
     except ImportError as exc:
         reason = f"torch (PyTorch) is not installed ({exc})."
         logger.warning("Skipping Deep Learning: %s", reason)
         skipped["deep_learning_weighted_huber"] = reason
+        skipped["deep_learning_multi_task"] = reason
 
     return specs, skipped
 

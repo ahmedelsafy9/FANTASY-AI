@@ -231,3 +231,67 @@ def test_ranking_preserves_raw_float_order_when_rounded_values_are_equal() -> No
     assert top[1]["name"] == "Player71"
     assert top[1]["predicted_total_points"] == 7
 
+
+def test_query_service_returns_distribution_and_breakdown_contract() -> None:
+    """Verify that the API query service exposes distribution quantiles and points breakdown."""
+    df = pd.DataFrame(
+        {
+            "element": [101, 102],
+            "name": ["Erling Haaland", "Bukayo Saka"],
+            "minutes_avg_last_3": [90.0, 88.0],
+            "predicted_total_points": [7.6613, 6.2411],
+            "predicted_expected_points": [7.6613, 6.2411],
+            "predicted_floor_points": [2.0, 2.0],
+            "predicted_p50_points": [7.0, 6.0],
+            "predicted_p75_points": [9.0, 8.0],
+            "predicted_p85_points": [11.0, 9.0],
+            "predicted_p90_points": [13.0, 10.0],
+            "predicted_p95_points": [15.0, 12.0],
+            "predicted_ceiling_points": [15.0, 12.0],
+            "predicted_upside_points": [3.3387, 2.7589],
+            "captaincy_score": [10.1645, 8.1464],
+            "rank_expected": [1, 2],
+            "rank_upside": [1, 2],
+            "rank_captaincy": [1, 2],
+            "predicted_p_play_any": [1.0, 1.0],
+            "predicted_p_play_60": [0.95, 0.92],
+            "predicted_goals": [0.75, 0.45],
+            "predicted_assists": [0.20, 0.35],
+            "predicted_clean_sheet_prob": [0.45, 0.40],
+            "predicted_appearance_points": [1.95, 1.92],
+            "predicted_goal_points": [3.0, 2.25],
+            "predicted_assist_points": [0.60, 1.05],
+            "predicted_clean_sheet_points": [0.0, 0.40],
+            "predicted_bonus_points": [1.5, 0.62],
+        }
+    )
+    service = PredictionQueryService(
+        df, player_id_column="element", prediction_column="predicted_total_points"
+    )
+
+    haaland = service.get_by_player("101")
+    assert haaland["name"] == "Erling Haaland"
+    # Backward-compatible total points integer
+    assert haaland["predicted_total_points"] == 8
+    # Exact expected points float
+    assert haaland["predicted_expected_points"] == 7.6613
+    assert haaland["predicted_p85_points"] == 11.0
+    assert haaland["predicted_p90_points"] == 13.0
+    assert haaland["captaincy_score"] == 10.1645
+    assert haaland["rank_expected"] == 1
+    assert haaland["rank_upside"] == 1
+    assert haaland["rank_captaincy"] == 1
+
+    # Aliases
+    assert haaland["predicted_minutes_probability"] == 1.0
+    assert haaland["predicted_minutes_60_probability"] == 0.95
+    assert haaland["predicted_clean_sheet_probability"] == 0.45
+
+    # Points breakdown dict
+    assert "points_breakdown" in haaland
+    breakdown = haaland["points_breakdown"]
+    assert breakdown["appearance_points"] == 1.95
+    assert breakdown["goal_points"] == 3.0
+    assert breakdown["assist_points"] == 0.60
+
+
