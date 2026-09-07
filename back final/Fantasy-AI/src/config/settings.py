@@ -85,6 +85,25 @@ def _env_int(var_name: str, default: int) -> int:
         return default
 
 
+def _env_float(var_name: str, default: float) -> float:
+    """Resolve a float setting, allowing environment override.
+
+    Args:
+        var_name: Name of the environment variable.
+        default: Default value used when unset or invalid.
+
+    Returns:
+        float: The resolved value.
+    """
+    raw = os.environ.get(var_name)
+    if raw is None:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
 def _env_bool(var_name: str, default: bool) -> bool:
     """Resolve a boolean setting, allowing environment override.
 
@@ -988,6 +1007,26 @@ class MultiStageSettings:
 
 
 @dataclass(frozen=True)
+class HighScoreSettings:
+    """Settings controlling the high-score discrimination & ranking pipeline (Feedback 5)."""
+
+    training_window: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_TRAINING_WINDOW", "last_5_seasons")
+    )
+    recency_half_life_seasons: float = field(
+        default_factory=lambda: _env_float("FANTASY_AI_RECENCY_HALF_LIFE", 2.0)
+    )
+    high_score_thresholds: tuple[int, ...] = (6, 8, 10, 12)
+    quantile_alphas: tuple[float, ...] = (0.75, 0.85, 0.90)
+    upside_boost_factor: float = field(
+        default_factory=lambda: _env_float("FANTASY_AI_UPSIDE_BOOST", 1.5)
+    )
+    high_score_output_dir: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_HIGH_SCORE_DIR", "high_score")
+    )
+
+
+@dataclass(frozen=True)
 class Settings:
     """Top-level application settings, aggregating all setting groups."""
 
@@ -1009,6 +1048,7 @@ class Settings:
     fixture_aware: FixtureAwareSettings = field(default_factory=FixtureAwareSettings)
     feedback: FeedbackSettings = field(default_factory=FeedbackSettings)
     multi_stage: MultiStageSettings = field(default_factory=MultiStageSettings)
+    high_score: HighScoreSettings = field(default_factory=HighScoreSettings)
 
 
 def get_settings() -> Settings:

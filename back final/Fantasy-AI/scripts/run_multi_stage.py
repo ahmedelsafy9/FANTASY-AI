@@ -173,10 +173,16 @@ def _run_diagnose(data, settings, ms_dir: Path) -> int:
         ms_dir / "ablation_report.md",
     )
 
-    # Simplified diagnostic — use metadata directly
+    # Load match and contribution metadata if present
+    match_meta_path = ms_dir / "match_model_metadata.json"
+    match_meta = json.loads(match_meta_path.read_text(encoding="utf-8")) if match_meta_path.exists() else None
+
+    contrib_meta_path = ms_dir / "contribution_metadata.json"
+    contrib_meta = json.loads(contrib_meta_path.read_text(encoding="utf-8")) if contrib_meta_path.exists() else None
+
     generate_model_selection_report(
-        match_result=None,  # would need full result object
-        contribution_result=None,
+        match_result=match_meta,
+        contribution_result=contrib_meta,
         ablation_results=ablation_results,
         output_path=ms_dir / "model_selection_report.md",
     )

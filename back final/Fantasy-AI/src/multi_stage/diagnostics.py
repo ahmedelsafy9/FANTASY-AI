@@ -145,19 +145,41 @@ def generate_model_selection_report(
     ]
 
     # Match model
-    if match_result and match_result.best_model_name:
-        match_mae = match_result.all_metrics.get(
-            match_result.best_model_name, {}
-        ).get("mae", "—")
-        lines.append(f"| Match Prediction | {match_result.best_model_name} | MAE | {match_mae} |")
+    match_name = None
+    match_val = "—"
+    cal_metrics = {}
+    if match_result:
+        if isinstance(match_result, dict):
+            match_name = match_result.get("best_model_name")
+            metrics = match_result.get("all_metrics", {}).get(match_name, {})
+            match_val = metrics.get("mae", "—")
+            cal_metrics = match_result.get("calibration_metrics", {})
+        else:
+            match_name = getattr(match_result, "best_model_name", None)
+            if match_name:
+                metrics = getattr(match_result, "all_metrics", {}).get(match_name, {})
+                match_val = metrics.get("mae", "—")
+                cal_metrics = getattr(match_result, "calibration_metrics", {})
+
+    if match_name:
+        val_str = f"{match_val:.4f}" if isinstance(match_val, (int, float)) else str(match_val)
+        lines.append(f"| Match Prediction | {match_name} | MAE | {val_str} |")
 
     # Contribution models
     if contribution_result:
-        for target_name, tr in contribution_result.target_results.items():
-            if tr.best_model_name:
-                lines.append(
-                    f"| {target_name} | {tr.best_model_name} | MAE | {tr.val_mae:.4f} |"
-                )
+        if isinstance(contribution_result, dict):
+            for target_name, target_info in contribution_result.items():
+                if isinstance(target_info, dict) and "best_model_name" in target_info:
+                    b_name = target_info["best_model_name"]
+                    v_mae = target_info.get("val_mae", float("nan"))
+                    val_str = f"{v_mae:.4f}" if np.isfinite(v_mae) else "—"
+                    lines.append(f"| {target_name} | {b_name} | MAE | {val_str} |")
+        else:
+            for target_name, tr in getattr(contribution_result, "target_results", {}).items():
+                if tr.best_model_name:
+                    lines.append(
+                        f"| {target_name} | {tr.best_model_name} | MAE | {tr.val_mae:.4f} |"
+                    )
 
     # Points model (from ablation)
     best_config = None
@@ -194,8 +216,8 @@ def generate_model_selection_report(
 
     # Calibration section
     lines.extend(["", "## Probability Calibration", ""])
-    if match_result and match_result.calibration_metrics:
-        for metric_name, val in match_result.calibration_metrics.items():
+    if cal_metrics:
+        for metric_name, val in cal_metrics.items():
             lines.append(f"- **{metric_name}**: {val:.4f}")
     else:
         lines.append("*No calibration data available.*")
