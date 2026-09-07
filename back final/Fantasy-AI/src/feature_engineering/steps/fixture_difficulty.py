@@ -129,7 +129,7 @@ class FixtureDifficultyStep(FeatureStep):
         # ---- 1. Derive match-level goals for / against per team ---- #
         # Collapse to one row per (team, season, GW) match.
         match_group_cols = [self._team_column, *sort_columns]
-        is_home = working[self._home_column].astype(bool)
+        is_home = working[self._home_column].fillna(False).astype(bool)
 
         working["__goals_for__"] = np.where(
             is_home,

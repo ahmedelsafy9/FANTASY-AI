@@ -16,6 +16,64 @@ from src.core.exceptions import PredictionError
 logger = get_logger(__name__)
 
 
+def find_latest_completed_gameweek(
+    current_season_data: pd.DataFrame,
+    gw_column: str = "GW",
+    max_valid_gameweek: int = 38,
+) -> int:
+    """Safely determine the latest completed Gameweek in the current season.
+
+    Examines match completion indicators (such as 'finished' flags, player minutes,
+    or points) to distinguish completed matches from unplayed future fixtures.
+
+    Args:
+        current_season_data: Rows belonging to the current season.
+        gw_column: Name of the Gameweek column.
+        max_valid_gameweek: Maximum allowable Gameweek number.
+
+    Returns:
+        int: The highest completed Gameweek number found (defaults to 1).
+    """
+    if current_season_data.empty or gw_column not in current_season_data.columns:
+        return 1
+
+    gw_num = pd.to_numeric(current_season_data[gw_column], errors="coerce")
+    valid = current_season_data[gw_num.notna() & (gw_num >= 1) & (gw_num <= max_valid_gameweek)].copy()
+    if valid.empty:
+        return 1
+    valid["_gw_int"] = gw_num[valid.index].astype(int)
+
+    completed_gws: set[int] = set()
+
+    # 1. Check 'finished' column if present
+    if "finished" in valid.columns:
+        fin_col = valid["finished"]
+        fin_mask = (fin_col == True) | (fin_col == 1) | (fin_col.astype(str).str.lower() == "true")
+        fin_gws = valid.loc[fin_mask, "_gw_int"].unique()
+        if len(fin_gws) > 0:
+            completed_gws.update(int(g) for g in fin_gws)
+
+    # 2. Check 'minutes' column if present (matches played produce total minutes > 0)
+    if "minutes" in valid.columns:
+        mins = pd.to_numeric(valid["minutes"], errors="coerce").fillna(0)
+        valid_with_mins = valid[mins > 0]
+        if not valid_with_mins.empty:
+            completed_gws.update(int(g) for g in valid_with_mins["_gw_int"].unique())
+
+    # 3. Check 'total_points' if present and no completed GWs found yet
+    if not completed_gws and "total_points" in valid.columns:
+        pts = pd.to_numeric(valid["total_points"], errors="coerce")
+        valid_with_pts = valid[pts.notna() & (pts != 0)]
+        if not valid_with_pts.empty:
+            completed_gws.update(int(g) for g in valid_with_pts["_gw_int"].unique())
+
+    # 4. Fallback: if no completion indicators exist, use all valid GW numbers
+    if not completed_gws:
+        completed_gws.update(int(g) for g in valid["_gw_int"].unique())
+
+    return max(completed_gws) if completed_gws else 1
+
+
 def build_next_gameweek_rows(
     data: pd.DataFrame,
     player_id_columns: tuple[str, ...],
@@ -99,17 +157,39 @@ def build_next_gameweek_rows(
     # ------------------------------------------------------------------
     # 3. Determine target Gameweek and completed matches cutoff
     # ------------------------------------------------------------------
+    season_label = str(latest_season) if latest_season is not None else "unknown"
+
     if target_gameweek is None:
-        current_gw = pd.to_numeric(latest_rows[gw_column], errors="coerce").fillna(1).astype(int)
-        predicted_for_gw = (current_gw + 1).where(current_gw < max_valid_gameweek, other=1)
-        latest_rows["predicted_for_gw"] = predicted_for_gw.astype("Int64")
+        latest_completed_gw = find_latest_completed_gameweek(
+            current_season_data,
+            gw_column=gw_column,
+            max_valid_gameweek=max_valid_gameweek,
+        )
+        if latest_completed_gw >= max_valid_gameweek:
+            target_gw = 1
+        else:
+            target_gw = latest_completed_gw + 1
+        logger.info(
+            "Detected latest completed GW=%d for season '%s'; target prediction GW=%d.",
+            latest_completed_gw,
+            season_label,
+            target_gw,
+        )
     else:
-        latest_rows["predicted_for_gw"] = int(target_gameweek)
+        target_gw = int(target_gameweek)
+        logger.info(
+            "Using explicit target GW=%d for season '%s'.",
+            target_gw,
+            season_label,
+        )
+
+    latest_rows["predicted_for_gw"] = int(target_gw)
 
     logger.info(
-        "Built %d next-Gameweek candidate(s) for season '%s'.",
+        "Built %d next-Gameweek candidate(s) for season '%s' (target GW: %d).",
         len(latest_rows),
-        latest_season if latest_season is not None else "unknown",
+        season_label,
+        target_gw,
     )
 
     # ------------------------------------------------------------------

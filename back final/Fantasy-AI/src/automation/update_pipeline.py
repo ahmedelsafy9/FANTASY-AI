@@ -259,11 +259,12 @@ class AutomationOrchestrator:
                 )
                 return raw_merged_path, team_mapping
 
-            live_data = fpl_source.load(live_download_dir)
+            fpl_source.download_all_completed_events(live_download_dir)
+            live_data = fpl_source.load(live_download_dir, all_completed=True)
             fpl_source.validate(live_data)
 
             # Idempotency check: detect if this GW was already ingested
-            latest_gw = live_data["GW"].iloc[0] if "GW" in live_data.columns else None
+            latest_gw = live_data["GW"].iloc[-1] if "GW" in live_data.columns and len(live_data) > 0 else None
             if latest_gw is not None and raw_merged_path.exists():
                 existing = pd.read_csv(raw_merged_path, low_memory=False)
                 if "GW" in existing.columns:

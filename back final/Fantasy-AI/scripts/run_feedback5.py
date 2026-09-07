@@ -82,7 +82,136 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Path to feature dataset CSV.",
     )
+    parser.add_argument(
+        "--refresh-data",
+        action="store_true",
+        help="Force check and refresh of live FPL data before running.",
+    )
     return parser.parse_args(argv)
+
+
+def _check_and_refresh_dataset(
+    settings, input_path: Path, force: bool = False
+) -> pd.DataFrame:
+    """Dynamically check FPL API for newer completed Gameweeks and refresh dataset if needed."""
+    from src.prediction.next_gameweek import find_latest_completed_gameweek
+    from src.data_collection.sources.fpl_api_source import FPLApiDataSource
+    from src.data_collection.services.team_mapping_service import TeamMappingService
+    from src.automation.merge_live_data import append_live_gameweek
+    from src.common.file_utils import atomic_write_csv
+    from src.preprocessing.factory import build_default_pipeline_steps
+    from src.preprocessing.pipeline import PreprocessingPipeline
+    from src.feature_engineering.factory import build_default_feature_steps
+    from src.feature_engineering.pipeline import FeaturePipeline
+
+    current_data = None
+    feature_latest_gw = 0
+    if input_path.exists():
+        current_data = pd.read_csv(input_path, low_memory=False)
+        if "season" in current_data.columns:
+            latest_season = sorted(current_data["season"].dropna().unique())[-1]
+            current_season_df = current_data[current_data["season"] == latest_season]
+        else:
+            current_season_df = current_data
+        feature_latest_gw = find_latest_completed_gameweek(current_season_df)
+        logger.info(
+            "Current feature dataset has latest completed GW=%d for season '%s'.",
+            feature_latest_gw,
+            latest_season if "season" in current_data.columns else "unknown",
+        )
+
+    live_download_dir = settings.paths.raw_data_dir / "fpl_api"
+    live_download_dir.mkdir(parents=True, exist_ok=True)
+    fpl_source = FPLApiDataSource(
+        base_url=settings.data_sources.fpl_api_base_url,
+        events_path=settings.automation.fpl_api_events_path,
+        live_event_path_template=settings.automation.fpl_api_live_event_path_template,
+        fixtures_path=settings.automation.fpl_api_fixtures_path,
+        timeout_seconds=settings.data_sources.request_timeout_seconds,
+        max_retries=settings.data_sources.request_max_retries,
+    )
+
+    api_latest_gw = 0
+    try:
+        new_metadata = fpl_source.update(live_download_dir)
+        api_latest_gw = new_metadata.extra.get("latest_finished_event") or 0
+    except Exception as exc:
+        logger.warning(
+            "Failed to fetch live metadata from FPL API: %s. Checking cached bootstrap if available.",
+            exc,
+        )
+        bootstrap_path = live_download_dir / "bootstrap_static.json"
+        if bootstrap_path.exists():
+            bootstrap = json.loads(bootstrap_path.read_text(encoding="utf-8"))
+            finished = [
+                e["id"] for e in bootstrap.get("events", [])
+                if isinstance(e, dict) and e.get("finished") and isinstance(e.get("id"), int)
+            ]
+            api_latest_gw = max(finished, default=0)
+
+    logger.info(
+        "FPL API latest completed GW: %d | Feature dataset latest completed GW: %d",
+        api_latest_gw,
+        feature_latest_gw,
+    )
+
+    needs_refresh = force or (api_latest_gw > feature_latest_gw) or (current_data is None)
+    if not needs_refresh:
+        logger.info("Dataset is up to date (GW %d). No refresh required.", feature_latest_gw)
+        return current_data
+
+    logger.info(
+        "Refreshing dataset: newer completed GW available (API GW %d > Features GW %d, or force=%s)...",
+        api_latest_gw,
+        feature_latest_gw,
+        force,
+    )
+
+    # 1. Download all completed live event files
+    fpl_source.download_all_completed_events(live_download_dir)
+
+    # 2. Load all completed live data
+    live_data = fpl_source.load(live_download_dir, all_completed=True)
+    fpl_source.validate(live_data)
+    logger.info("Loaded %d rows of live data across completed Gameweeks.", len(live_data))
+
+    # 3. Team mapping
+    teams = fpl_source.get_teams(live_download_dir)
+    mapping_service = TeamMappingService(settings.paths.raw_data_dir / "opponent_strength_mapping.json")
+    team_mapping = mapping_service.build_mapping(teams)
+    mapping_service.save(team_mapping)
+
+    # 4. Merge into vaastav_merged.csv
+    raw_merged_path = settings.paths.raw_data_dir / "vaastav_merged.csv"
+    historical = pd.read_csv(raw_merged_path, low_memory=False)
+    merged = append_live_gameweek(
+        historical, live_data, duplicate_key_columns=settings.validation.duplicate_key_columns
+    )
+    atomic_write_csv(merged, raw_merged_path)
+    logger.info("Saved refreshed raw merged dataset with %d rows to %s.", len(merged), raw_merged_path)
+
+    # 5. Preprocessing
+    logger.info("Running PreprocessingPipeline...")
+    vaastav_data_dir = settings.paths.raw_data_dir / "vaastav" / "data"
+    prep_steps = build_default_pipeline_steps(
+        settings.preprocessing,
+        settings.validation,
+        team_id_mapping=team_mapping,
+        vaastav_data_dir=vaastav_data_dir if vaastav_data_dir.exists() else None,
+    )
+    cleaned_result = PreprocessingPipeline(steps=prep_steps).run(merged)
+    cleaned_path = settings.paths.processed_data_dir / "vaastav_cleaned.csv"
+    atomic_write_csv(cleaned_result.data, cleaned_path)
+    logger.info("Saved cleaned dataset with %d rows to %s.", len(cleaned_result.data), cleaned_path)
+
+    # 6. Feature Engineering
+    logger.info("Running FeaturePipeline...")
+    feat_steps = build_default_feature_steps(settings.feature_engineering, settings.fixture_aware)
+    features_result = FeaturePipeline(steps=feat_steps).run(cleaned_result.data)
+    atomic_write_csv(features_result.data, input_path)
+    logger.info("Saved engineered feature dataset with %d rows to %s.", len(features_result.data), input_path)
+
+    return features_result.data
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -98,13 +227,14 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = settings.paths.models_dir / settings.high_score.high_score_output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if not input_path.exists():
-        logger.error("Dataset not found at %s.", input_path)
+    # Dynamically check and refresh dataset if upstream FPL has newer data
+    data = _check_and_refresh_dataset(settings, input_path, force=args.refresh_data)
+
+    if data is None or data.empty:
+        logger.error("Dataset not found or empty at %s.", input_path)
         return 1
 
-    logger.info("Loading engineered dataset from %s...", input_path)
-    data = pd.read_csv(input_path, low_memory=False)
-    logger.info("Loaded %d rows, %d columns.", len(data), len(data.columns))
+    logger.info("Loaded %d rows, %d columns for Feedback 5 execution.", len(data), len(data.columns))
 
     cmd = args.command
 

@@ -202,6 +202,105 @@ class FPLApiDataSource(DataSource):
             DataSourceError: If the expected files are missing or
                 cannot be parsed.
         """
+    def _build_fixture_map(
+        self, source_path: Path, team_names: dict[int, str]
+    ) -> dict[tuple[int, int], tuple[bool, str | None, int | None, int | None, str | None, int | None]]:
+        """Build mapping (event_id, team_id) -> (was_home, opponent_team, h_score, a_score, kickoff, fixture_id)."""
+        fix_map = {}
+        fixtures: list[dict[str, Any]] = []
+
+        cached_fixtures = source_path / "fixtures.json"
+        if cached_fixtures.exists():
+            try:
+                fixtures = json.loads(cached_fixtures.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        if not fixtures:
+            vaastav_fix = Path("data/raw/vaastav/data/2026-27/fixtures.csv")
+            if vaastav_fix.exists():
+                try:
+                    df_fix = pd.read_csv(vaastav_fix)
+                    fixtures = df_fix.to_dict(orient="records")
+                except Exception:
+                    pass
+
+        for f in fixtures:
+            ev = f.get("event")
+            if ev is None or pd.isna(ev):
+                continue
+            try:
+                ev = int(ev)
+                th = int(f["team_h"]) if pd.notna(f.get("team_h")) else None
+                ta = int(f["team_a"]) if pd.notna(f.get("team_a")) else None
+                fid = int(f["id"]) if pd.notna(f.get("id")) else None
+                ko = f.get("kickoff_time")
+                ths = f.get("team_h_score")
+                tas = f.get("team_a_score")
+                if th:
+                    fix_map[(ev, th)] = (True, team_names.get(ta), ths, tas, ko, fid)
+                if ta:
+                    fix_map[(ev, ta)] = (False, team_names.get(th), ths, tas, ko, fid)
+            except (ValueError, TypeError):
+                continue
+
+        return fix_map
+
+    def download_all_completed_events(self, destination: Path) -> list[int]:
+        """Download live event files for all completed Gameweeks."""
+        bootstrap_path = destination / _BOOTSTRAP_FILENAME
+        if not bootstrap_path.exists():
+            return []
+        bootstrap = json.loads(bootstrap_path.read_text(encoding="utf-8"))
+        latest_event_id, _ = self._find_latest_completed_event(bootstrap)
+        finished_events = [
+            e["id"] for e in bootstrap.get("events", [])
+            if isinstance(e, dict) and e.get("finished") and isinstance(e.get("id"), int)
+        ]
+        if latest_event_id is not None and latest_event_id not in finished_events:
+            finished_events.append(latest_event_id)
+
+        # Cache fixtures if possible
+        try:
+            fixtures = self.get_fixtures(future_only=False)
+            if isinstance(fixtures, list):
+                (destination / "fixtures.json").write_text(json.dumps(fixtures), encoding="utf-8")
+        except Exception:
+            pass
+
+        downloaded: list[int] = []
+        for ev_id in sorted(set(finished_events)):
+            ev_filename = _LIVE_EVENT_FILENAME_TEMPLATE.format(event_id=ev_id)
+            ev_path = destination / ev_filename
+            if not ev_path.exists() or ev_id == latest_event_id:
+                try:
+                    ev_live_path = self._live_event_path_template.format(event_id=ev_id)
+                    ev_live_data = self._get_json(f"{self._base_url}/{ev_live_path}")
+                    ev_path.write_text(json.dumps(ev_live_data), encoding="utf-8")
+                    downloaded.append(ev_id)
+                except Exception as exc:
+                    logger.warning("Failed to fetch live event %d: %s", ev_id, exc)
+            else:
+                downloaded.append(ev_id)
+        return downloaded
+
+    def load(self, source_path: Path, all_completed: bool = False) -> pd.DataFrame:
+        """Load and flatten downloaded Gameweek player stats.
+
+        Args:
+            source_path: Directory previously populated by :meth:`download`.
+            all_completed: If True, loads all completed Gameweeks available
+                in source_path for the season. If False (default), loads only
+                the single latest completed Gameweek.
+
+        Returns:
+            pd.DataFrame: One row per player per completed Gameweek,
+            with columns aligned to the historical dataset's schema.
+
+        Raises:
+            DataSourceError: If the expected files are missing or
+                cannot be parsed.
+        """
         bootstrap_path = source_path / _BOOTSTRAP_FILENAME
         if not bootstrap_path.exists():
             raise DataSourceError(
@@ -213,38 +312,73 @@ class FPLApiDataSource(DataSource):
         if latest_event_id is None:
             raise DataSourceError("No completed Gameweek found in the downloaded bootstrap data.")
 
-        live_filename = _LIVE_EVENT_FILENAME_TEMPLATE.format(event_id=latest_event_id)
-        live_path = source_path / live_filename
-        if not live_path.exists():
-            raise DataSourceError(f"{live_filename} not found in {source_path}. Call download() first.")
-        live_data = json.loads(live_path.read_text(encoding="utf-8"))
-
         team_names = {team["id"]: team.get("name") for team in bootstrap.get("teams", [])}
         players = {p["id"]: p for p in bootstrap.get("elements", [])}
         season = self._infer_season(bootstrap, latest_event_id)
+        fix_map = self._build_fixture_map(source_path, team_names)
+
+        if all_completed:
+            finished_events = [
+                e["id"] for e in bootstrap.get("events", [])
+                if isinstance(e, dict) and e.get("finished") and isinstance(e.get("id"), int)
+            ]
+            if latest_event_id not in finished_events:
+                finished_events.append(latest_event_id)
+            events_to_load = sorted(set(finished_events))
+        else:
+            events_to_load = [latest_event_id]
 
         rows: list[dict[str, Any]] = []
-        for element in live_data.get("elements", []):
-            player_id = element.get("id")
-            stats = dict(element.get("stats", {}))
-            player_info = players.get(player_id, {})
-            rows.append(
-                {
-                    "element": player_id,
-                    "name": player_info.get("web_name"),
-                    "team": team_names.get(player_info.get("team")),
-                    "GW": latest_event_id,
-                    "season": season,
-                    "value": player_info.get("now_cost"),
-                    **stats,
-                }
-            )
+        loaded_events: list[int] = []
+
+        for event_id in events_to_load:
+            live_filename = _LIVE_EVENT_FILENAME_TEMPLATE.format(event_id=event_id)
+            live_path = source_path / live_filename
+            if not live_path.exists():
+                if not all_completed:
+                    raise DataSourceError(f"{live_filename} not found in {source_path}. Call download() first.")
+                continue
+
+            live_data = json.loads(live_path.read_text(encoding="utf-8"))
+            loaded_events.append(event_id)
+
+            for element in live_data.get("elements", []):
+                player_id = element.get("id")
+                stats = dict(element.get("stats", {}))
+                player_info = players.get(player_id, {})
+                tid = player_info.get("team")
+
+                fn = str(player_info.get("first_name", "")).strip()
+                sn = str(player_info.get("second_name", "")).strip()
+                full_name = f"{fn} {sn}".strip() or player_info.get("web_name")
+
+                was_home, opp_team, ths, tas, ko, fid = fix_map.get(
+                    (event_id, tid), (False, None, 0, 0, None, None)
+                )
+
+                rows.append(
+                    {
+                        "element": player_id,
+                        "name": full_name,
+                        "team": team_names.get(tid),
+                        "GW": event_id,
+                        "season": season,
+                        "value": player_info.get("now_cost"),
+                        "was_home": was_home,
+                        "opponent_team": opp_team,
+                        "team_h_score": ths,
+                        "team_a_score": tas,
+                        "kickoff_time": ko,
+                        "fixture": fid,
+                        **stats,
+                    }
+                )
 
         if not rows:
-            raise DataSourceError(f"No player rows found for Gameweek {latest_event_id}.")
+            raise DataSourceError(f"No player rows found for completed Gameweek(s) {events_to_load}.")
 
         frame = pd.DataFrame(rows)
-        logger.info("Loaded %d row(s) for Gameweek %d (%s).", len(frame), latest_event_id, season)
+        logger.info("Loaded %d row(s) for Gameweek(s) %s (%s).", len(frame), loaded_events, season)
         return frame
 
     def validate(self, data: pd.DataFrame) -> bool:

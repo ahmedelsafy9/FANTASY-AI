@@ -127,10 +127,10 @@ def test_build_next_gw_multi_season_no_duplicates() -> None:
         chronological_columns=("season", "GW"),
         max_valid_gameweek=38,
     )
-    # Only 2022-23 rows matter. element 10 at GW5, element 20 at GW10.
+    # Only 2022-23 rows matter. Season's latest completed GW is 10 -> uniform target is 11.
     assert len(result) == 2
     assert set(result["element"]) == {10, 20}
-    assert set(result["predicted_for_gw"]) == {6, 11}
+    assert (result["predicted_for_gw"] == 11).all()
 
 
 def test_build_next_gw_old_gw38_players_not_rolled_to_gw1() -> None:
@@ -175,10 +175,144 @@ def test_build_next_gw_uses_element_within_single_season() -> None:
     )
     assert len(result) == 2
     assert set(result["element"]) == {100, 200}
-    # element 100 latest GW is 2 -> predicted 3; element 200 latest GW is 1 -> predicted 2
-    result_sorted = result.sort_values("element").reset_index(drop=True)
-    assert result_sorted.iloc[0]["predicted_for_gw"] == 3  # element 100
-    assert result_sorted.iloc[1]["predicted_for_gw"] == 2  # element 200
+    # Latest completed GW in 2026-27 is 2 -> uniform target is 3 for all candidates
+    assert (result["predicted_for_gw"] == 3).all()
+
+
+# --- Regression tests: Target Gameweek determination & propagation ------------
+
+
+def test_inferred_target_gameweek_increments_latest_completed_gw() -> None:
+    """1. If latest completed GW is 3 and no target is supplied, target becomes 4."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 1, 1, 2, 2, 2],
+            "season": ["2026-27"] * 6,
+            "GW": [1, 2, 3, 1, 2, 3],
+            "minutes": [90, 90, 90, 90, 90, 90],
+            "total_points": [5, 6, 7, 2, 3, 4],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+        target_gameweek=None,
+    )
+    assert len(result) == 2
+    assert (result["predicted_for_gw"] == 4).all()
+
+
+def test_explicit_target_gameweek_is_respected() -> None:
+    """2. An explicit target Gameweek is respected across all rows."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 2],
+            "season": ["2026-27", "2026-27"],
+            "GW": [1, 1],
+            "minutes": [90, 90],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+        target_gameweek=7,
+    )
+    assert len(result) == 2
+    assert (result["predicted_for_gw"] == 7).all()
+
+
+def test_pipeline_does_not_silently_default_to_gw2() -> None:
+    """3. The pipeline does not silently default to GW2 when latest completed GW != 1."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 2],
+            "season": ["2026-27", "2026-27"],
+            "GW": [5, 5],
+            "minutes": [90, 90],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+        target_gameweek=None,
+    )
+    assert len(result) == 2
+    assert (result["predicted_for_gw"] == 6).all()
+    assert (result["predicted_for_gw"] != 2).all()
+
+
+def test_season_rollover_follows_project_convention() -> None:
+    """4. Season rollover follows project convention: GW 38 -> GW 1."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 2],
+            "season": ["2026-27", "2026-27"],
+            "GW": [38, 38],
+            "minutes": [90, 90],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+        target_gameweek=None,
+    )
+    assert len(result) == 2
+    assert (result["predicted_for_gw"] == 1).all()
+
+
+def test_player_rows_all_receive_same_inferred_target_gameweek() -> None:
+    """5. Player rows all receive the same inferred target Gameweek even if some missed recent games."""
+    df = pd.DataFrame(
+        {
+            # Player 1 played GW 1, 2, 3; Player 2 only played GW 1 (injured for GW 2 & 3)
+            "element": [1, 1, 1, 2],
+            "season": ["2026-27"] * 4,
+            "GW": [1, 2, 3, 1],
+            "minutes": [90, 90, 90, 90],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+        target_gameweek=None,
+    )
+    assert len(result) == 2
+    assert set(result["element"]) == {1, 2}
+    # Both players must receive target GW 4
+    assert (result["predicted_for_gw"] == 4).all()
+
+
+def test_unplayed_future_fixtures_do_not_inflate_target_gw() -> None:
+    """6. Future fixture rows (minutes=0, finished=False) do not inflate target GW."""
+    df = pd.DataFrame(
+        {
+            "element": [1, 1, 1, 1, 2, 2, 2, 2],
+            "season": ["2026-27"] * 8,
+            "GW": [1, 2, 3, 4, 1, 2, 3, 4],
+            "minutes": [90, 90, 90, 0, 90, 90, 90, 0],
+            "finished": [True, True, True, False, True, True, True, False],
+        }
+    )
+    result = build_next_gameweek_rows(
+        df,
+        player_id_columns=("element",),
+        chronological_columns=("season", "GW"),
+        max_valid_gameweek=38,
+        target_gameweek=None,
+    )
+    assert len(result) == 2
+    # Completed GW is 3 -> target is 4 (not 5)
+    assert (result["predicted_for_gw"] == 4).all()
 
 
 def test_build_next_gw_preserves_current_player_count() -> None:
