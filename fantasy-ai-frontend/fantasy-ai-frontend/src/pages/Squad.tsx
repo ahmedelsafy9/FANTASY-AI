@@ -917,6 +917,21 @@ export default function Squad() {
                               VC
                             </span>
                           )}
+                          {Boolean(p.selection_type) && (
+                            <span
+                              className={cn(
+                                "rounded px-1.5 py-0.2 text-[8px] font-black uppercase border",
+                                p.selection_type === "core"
+                                  ? "bg-amber-50 text-amber-800 border-amber-200"
+                                  : p.selection_type === "value"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-slate-100 text-slate-700 border-slate-200"
+                              )}
+                              title={String(p.selection_reason || "")}
+                            >
+                              {p.selection_type === "core" ? "Core" : p.selection_type === "value" ? "Value" : "Budget"}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-[10px] font-bold text-slate-500">
@@ -952,6 +967,21 @@ export default function Squad() {
                           <span className="text-xs font-black text-slate-700 truncate">
                             {p.name}
                           </span>
+                          {Boolean(p.selection_type) && (
+                            <span
+                              className={cn(
+                                "rounded px-1.5 py-0.2 text-[8px] font-black uppercase border",
+                                p.selection_type === "core"
+                                  ? "bg-amber-50 text-amber-800 border-amber-200"
+                                  : p.selection_type === "value"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "bg-slate-100 text-slate-700 border-slate-200"
+                              )}
+                              title={String(p.selection_reason || "")}
+                            >
+                              {p.selection_type === "core" ? "Core" : p.selection_type === "value" ? "Value" : "Budget"}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-[10px] font-bold text-slate-500">

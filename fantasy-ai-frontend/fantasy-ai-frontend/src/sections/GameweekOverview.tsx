@@ -8,13 +8,24 @@ interface GameweekOverviewProps {
 }
 
 export function GameweekOverview({ health, gameweek }: GameweekOverviewProps) {
+  const targetGw = health?.predicted_gameweek ?? gameweek;
   const items = [
     {
       icon: Activity,
       label: "Upcoming Gameweek",
-      value: typeof gameweek === "number" ? `GW ${gameweek}` : "N/A",
+      value: typeof targetGw === "number" ? `GW ${targetGw}` : "N/A",
       color: "text-[#059669] bg-[#ECFDF5]",
     },
+    ...(typeof health?.latest_completed_gameweek === "number"
+      ? [
+          {
+            icon: Activity,
+            label: "Data Ingested Through",
+            value: `GW ${health.latest_completed_gameweek}`,
+            color: "text-amber-800 bg-amber-50",
+          },
+        ]
+      : []),
     {
       icon: Users,
       label: "Players Tracked",
@@ -25,7 +36,7 @@ export function GameweekOverview({ health, gameweek }: GameweekOverviewProps) {
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {items.map((item, i) => (
           <motion.div
             key={item.label}

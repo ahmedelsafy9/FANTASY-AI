@@ -684,17 +684,65 @@ def _run_predict(df: pd.DataFrame, settings, output_dir: Path):
     })
     calibrated_exp, rank_scores = predict_hybrid_scores(blender, comp_inf)
 
+    from datetime import datetime, timezone
+
     next_rows["predicted_expected_points"] = np.round(calibrated_exp, 2)
     next_rows["predicted_total_points"] = np.round(calibrated_exp, 2)
     next_rows["predicted_fpl_rank_score"] = np.round(rank_scores, 2)
-    next_rows["prob_high_score_6"] = np.round(hs_probs["prob_high_score_6"].values, 3)
-    next_rows["prob_high_score_10"] = np.round(hs_probs["prob_high_score_10"].values, 3)
-    next_rows["ceiling_p85"] = np.round(q_preds["pred_q_85"].values, 2)
+    next_rows["prob_high_score_6"] = np.round(hs_probs["prob_high_score_6"].values, 3) if "prob_high_score_6" in hs_probs else None
+    next_rows["prob_high_score_8"] = np.round(hs_probs["prob_high_score_8"].values, 3) if "prob_high_score_8" in hs_probs else None
+    next_rows["prob_high_score_10"] = np.round(hs_probs["prob_high_score_10"].values, 3) if "prob_high_score_10" in hs_probs else None
+    next_rows["prob_high_score_12"] = np.round(hs_probs["prob_high_score_12"].values, 3) if "prob_high_score_12" in hs_probs else None
+    next_rows["ceiling_p75"] = np.round(q_preds["pred_q_75"].values, 2) if "pred_q_75" in q_preds else None
+    next_rows["ceiling_p85"] = np.round(q_preds["pred_q_85"].values, 2) if "pred_q_85" in q_preds else None
+    next_rows["ceiling_p90"] = np.round(q_preds["pred_q_90"].values, 2) if "pred_q_90" in q_preds else None
+
+    # Prediction signals built transparently from real engineered features
+    signals_list = []
+    for _, row in next_rows.iterrows():
+        f_idx = row.get("form_index")
+        p3 = row.get("total_points_avg_last_3")
+        e_mins = row.get("expected_minutes")
+        fdr = row.get("fixture_difficulty")
+        opp = row.get("opportunity_index_last_5")
+        threat = row.get("attacking_threat_index")
+
+        signals = {
+            "recent_form": {
+                "score": round(float(f_idx), 2) if pd.notna(f_idx) else None,
+                "rating": "Strong" if (pd.notna(f_idx) and float(f_idx) >= 5.0) else ("Moderate" if (pd.notna(f_idx) and float(f_idx) >= 2.5) else "Cold"),
+                "detail": f"Form index: {float(f_idx):.1f} ({float(p3):.1f} pts/gw last 3)" if (pd.notna(f_idx) and pd.notna(p3)) else "N/A",
+            },
+            "expected_minutes": {
+                "minutes": round(float(e_mins), 1) if pd.notna(e_mins) else None,
+                "rating": "Very High" if (pd.notna(e_mins) and float(e_mins) >= 75) else ("Moderate" if (pd.notna(e_mins) and float(e_mins) >= 45) else "Low / Rotation Risk"),
+                "detail": f"Est. ~{int(round(float(e_mins)))} mins" if pd.notna(e_mins) else "N/A",
+            },
+            "fixture_difficulty": {
+                "difficulty": int(fdr) if pd.notna(fdr) else None,
+                "rating": "Favorable" if (pd.notna(fdr) and int(fdr) <= 2) else ("Neutral" if (pd.notna(fdr) and int(fdr) == 3) else "Tough"),
+                "detail": f"FDR {int(fdr)}" if pd.notna(fdr) else "N/A",
+            },
+            "opportunity": {
+                "score": round(float(opp), 2) if pd.notna(opp) else None,
+                "rating": "High" if (pd.notna(opp) and float(opp) >= 0.15) else ("Moderate" if (pd.notna(opp) and float(opp) >= 0.05) else "Low"),
+                "detail": f"Index: {float(opp):.2f}" if pd.notna(opp) else "N/A",
+            },
+            "attacking_threat": {
+                "score": round(threat, 1) if pd.notna(threat) else None,
+                "rating": "High" if (pd.notna(threat) and float(threat) >= 20.0) else ("Moderate" if (pd.notna(threat) and float(threat) >= 8.0) else "Low"),
+                "detail": f"Threat index: {float(threat):.1f}" if pd.notna(threat) else "N/A",
+            },
+        }
+        signals_list.append(json.dumps(signals))
+
+    next_rows["prediction_signals"] = signals_list
 
     export_cols = [
         c for c in ["element", "name", "team", "value", "predicted_for_gw",
                     "predicted_expected_points", "predicted_fpl_rank_score",
-                    "prob_high_score_6", "prob_high_score_10", "ceiling_p85"]
+                    "prob_high_score_6", "prob_high_score_8", "prob_high_score_10", "prob_high_score_12",
+                    "ceiling_p75", "ceiling_p85", "ceiling_p90", "prediction_signals"]
         if c in next_rows.columns
     ]
 
@@ -702,15 +750,29 @@ def _run_predict(df: pd.DataFrame, settings, output_dir: Path):
     sorted_out = next_rows[export_cols].sort_values("predicted_fpl_rank_score", ascending=False)
     sorted_out.to_csv(out_csv, index=False)
 
-    target_gw = next_rows["predicted_for_gw"].mode().iloc[0] if "predicted_for_gw" in next_rows.columns else "?"
+    target_gw = next_rows["predicted_for_gw"].mode().iloc[0] if "predicted_for_gw" in next_rows.columns else 1
+    current_season_val = str(next_rows["season"].iloc[0]) if "season" in next_rows.columns else "2026-27"
+    latest_completed = max(int(target_gw) - 1, 1) if isinstance(target_gw, (int, float, np.integer)) else 1
+
+    meta_file = settings.paths.processed_data_dir / "predictions_feedback5_metadata.json"
+    meta_payload = {
+        "season": current_season_val,
+        "latest_completed_gameweek": latest_completed,
+        "predicted_gameweek": int(target_gw),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "count": len(sorted_out),
+    }
+    meta_file.write_text(json.dumps(meta_payload, indent=2), encoding="utf-8")
+
     logger.info("Saved %d predictions for GW %s to %s.", len(sorted_out), target_gw, out_csv)
+    logger.info("Saved prediction metadata to %s.", meta_file)
 
     logger.info("Top 10 players by FPL Rank Score for GW %s:", target_gw)
     for _, r in sorted_out.head(10).iterrows():
         logger.info(
             "  %-25s | Rank Score: %5.2f | Exp Pts: %5.2f | P(>=6): %4.1f%% | Ceiling(P85): %5.2f",
             r.get("name", "?"), r.get("predicted_fpl_rank_score", 0),
-            r.get("predicted_expected_points", 0), r.get("prob_high_score_6", 0) * 100,
+            r.get("predicted_expected_points", 0), (r.get("prob_high_score_6", 0) or 0) * 100,
             r.get("ceiling_p85", 0),
         )
 

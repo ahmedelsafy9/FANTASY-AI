@@ -3,8 +3,10 @@ import { getMock, isMockMode } from "./mocks";
 import type {
   CaptainResponse,
   HealthResponse,
+  MatchPredictionResponse,
   PlayerResponse,
   PredictionListResponse,
+  SquadBuildResponse,
 } from "@/types/api";
 
 /**
@@ -46,5 +48,25 @@ export async function getTopPlayers(limit = 10): Promise<PredictionListResponse>
 export async function getCaptain(): Promise<CaptainResponse> {
   if (isMockMode()) return getMock("captain");
   const { data } = await apiClient.get<CaptainResponse>("/captain");
+  return data;
+}
+
+export async function getMatchPredictions(): Promise<MatchPredictionResponse> {
+  if (isMockMode()) return getMock("match_predictions");
+  const { data } = await apiClient.get<MatchPredictionResponse>("/match-predictions/next-gameweek");
+  return data;
+}
+
+export async function buildSquad(
+  budget = 100.0,
+  formation = "4-4-2",
+  corePicksCount = 4,
+): Promise<SquadBuildResponse> {
+  if (isMockMode()) return getMock("squad_build");
+  const { data } = await apiClient.post<SquadBuildResponse>("/squad/build", {
+    budget,
+    formation,
+    core_picks_count: corePicksCount,
+  });
   return data;
 }

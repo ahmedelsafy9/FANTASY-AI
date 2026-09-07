@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import decimal
 from decimal import Decimal, ROUND_HALF_UP
+import json
 
 import pandas as pd
 
@@ -267,7 +268,12 @@ def _row_to_dict(row: pd.Series) -> dict:
     res = {}
     for key, value in row.items():
         native_val = _to_native(value)
-        if key == "predicted_total_points":
+        if key == "prediction_signals" and isinstance(native_val, str):
+            try:
+                res[key] = json.loads(native_val)
+            except Exception:
+                res[key] = native_val
+        elif key == "predicted_total_points":
             res[key] = _round_prediction(native_val)
         elif isinstance(key, str) and isinstance(native_val, float):
             res[key] = round(native_val, 4)

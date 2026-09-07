@@ -46,3 +46,7 @@ class PlayerNotFoundError(FantasyAIError):
 
 class FeedbackError(FantasyAIError):
     """Raised when the feedback/adaptive prediction system encounters an error."""
+
+
+class SquadBuilderError(FantasyAIError):
+    """Raised when the squad builder cannot construct a valid squad."""

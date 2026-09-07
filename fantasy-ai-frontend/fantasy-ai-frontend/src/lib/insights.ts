@@ -15,6 +15,20 @@ export interface Insight {
 export function deriveInsights(player: PlayerRecord): Insight[] {
   const insights: Insight[] = [];
 
+  if (typeof player.prob_high_score_10 === "number" && player.prob_high_score_10 >= 0.2) {
+    insights.push({ label: `Ceiling P(≥10) ${Math.round(player.prob_high_score_10 * 100)}%`, tone: "gold" });
+  } else if (typeof player.prob_high_score_6 === "number" && player.prob_high_score_6 >= 0.4) {
+    insights.push({ label: `High P(≥6) ${Math.round(player.prob_high_score_6 * 100)}%`, tone: "gold" });
+  }
+
+  if (player.prediction_signals?.recent_form?.rating === "Elite") {
+    insights.push({ label: "Elite form signal", tone: "gold" });
+  }
+
+  if (player.prediction_signals?.attacking_threat?.rating === "High") {
+    insights.push({ label: "High threat signal", tone: "teal" });
+  }
+
   if (
     typeof player.team_strength === "number" &&
     typeof player.opponent_strength === "number"

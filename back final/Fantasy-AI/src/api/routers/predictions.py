@@ -45,11 +45,25 @@ def predict(
     else:
         predictions = [row for row in _iter_rows(prediction_service.get_all())]
 
+    app_state = request.app.state.fantasy_ai_state
+    season = getattr(app_state, "season", None)
+    latest_completed_gw = getattr(app_state, "latest_completed_gameweek", None)
+    predicted_gw = getattr(app_state, "predicted_gameweek", None)
+    generated_at = getattr(app_state, "generated_at", None)
+
     return PredictionListResponse(
         count=len(predictions),
+        season=season,
+        latest_completed_gameweek=latest_completed_gw,
+        predicted_gameweek=predicted_gw,
+        generated_at=generated_at,
         predicted_for_gw_note=(
-            "predicted_for_gw reflects each player's own most recent match, so it may "
-            "differ slightly between players who have played a different number of games."
+            f"Predictions generated for Gameweek {predicted_gw} based on data through Gameweek {latest_completed_gw}."
+            if predicted_gw is not None and latest_completed_gw is not None
+            else (
+                "predicted_for_gw reflects each player's own most recent match, so it may "
+                "differ slightly between players who have played a different number of games."
+            )
         ),
         predictions=predictions,
     )
@@ -73,11 +87,25 @@ def top_players(
     """
     max_limit = request.app.state.fantasy_ai_state.settings.api.top_players_max_limit
     top = prediction_service.get_top(min(limit, max_limit))
+    app_state = request.app.state.fantasy_ai_state
+    season = getattr(app_state, "season", None)
+    latest_completed_gw = getattr(app_state, "latest_completed_gameweek", None)
+    predicted_gw = getattr(app_state, "predicted_gameweek", None)
+    generated_at = getattr(app_state, "generated_at", None)
+
     return PredictionListResponse(
         count=len(top),
+        season=season,
+        latest_completed_gameweek=latest_completed_gw,
+        predicted_gameweek=predicted_gw,
+        generated_at=generated_at,
         predicted_for_gw_note=(
-            "predicted_for_gw reflects each player's own most recent match, so it may "
-            "differ slightly between players who have played a different number of games."
+            f"Predictions generated for Gameweek {predicted_gw} based on data through Gameweek {latest_completed_gw}."
+            if predicted_gw is not None and latest_completed_gw is not None
+            else (
+                "predicted_for_gw reflects each player's own most recent match, so it may "
+                "differ slightly between players who have played a different number of games."
+            )
         ),
         predictions=top,
     )

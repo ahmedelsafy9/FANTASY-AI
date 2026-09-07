@@ -3,6 +3,7 @@ import { useAsync } from "./useAsync";
 import {
   getCaptain,
   getHealth,
+  getMatchPredictions,
   getPlayer,
   getPredictions,
   getTopPlayers,
@@ -32,4 +33,8 @@ export function useTopPlayers(limit = 10) {
 
 export function useCaptain() {
   return useAsync(useCallback(() => getCaptain(), []));
+}
+
+export function useMatchPredictions() {
+  return useAsync(useCallback(() => getMatchPredictions(), []));
 }

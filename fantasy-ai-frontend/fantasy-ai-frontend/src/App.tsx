@@ -14,6 +14,7 @@ import PlayerDetails from "@/pages/PlayerDetails";
 import Fixtures from "@/pages/Fixtures";
 import Squad from "@/pages/Squad";
 import Captain from "@/pages/Captain";
+import MatchPredictions from "@/pages/MatchPredictions";
 
 function Layout({ children }: { children: ReactNode }) {
   return (
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/" element={<Layout><Home /></Layout>} />
           <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
           <Route path="/predictions" element={<Layout><Predictions /></Layout>} />
+          <Route path="/match-predictions" element={<Layout><MatchPredictions /></Layout>} />
           <Route path="/players" element={<Layout><Players /></Layout>} />
           <Route path="/players/:id" element={<Layout><PlayerDetails /></Layout>} />
           <Route path="/fixtures" element={<Layout><Fixtures /></Layout>} />

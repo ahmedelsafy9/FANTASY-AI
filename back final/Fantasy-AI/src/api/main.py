@@ -32,7 +32,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import JSONResponse
 
-from src.api.routers import players, predictions
+from src.api.routers import match_predictions, players, predictions, squad
 from src.api.schemas import HealthResponse
 from src.api.state import build_app_state
 from src.config.logging_config import configure_logging, get_logger
@@ -157,6 +157,8 @@ def create_app() -> FastAPI:
 
     app.include_router(players.router)
     app.include_router(predictions.router)
+    app.include_router(match_predictions.router)
+    app.include_router(squad.router)
 
     # ------------------------------------------------------------------
     # Health endpoint
@@ -179,6 +181,9 @@ def create_app() -> FastAPI:
             model_name=state.loaded_model.model_name,
             player_count=len(state.predictions),
             live_metadata_available=state.live_metadata_available,
+            season=state.season,
+            latest_completed_gameweek=state.latest_completed_gameweek,
+            predicted_gameweek=state.predicted_gameweek,
         )
 
     # ------------------------------------------------------------------

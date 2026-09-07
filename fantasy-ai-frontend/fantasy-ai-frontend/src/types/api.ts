@@ -70,6 +70,22 @@ export interface PlayerRecord {
   xA_avg_last_10?: number | null;
   predicted_total_points?: number;
   predicted_expected_points?: number;
+  predicted_fpl_rank_score?: number | null;
+  prob_high_score_6?: number | null;
+  prob_high_score_8?: number | null;
+  prob_high_score_10?: number | null;
+  prob_high_score_12?: number | null;
+  ceiling_p75?: number | null;
+  ceiling_p85?: number | null;
+  ceiling_p90?: number | null;
+  prediction_signals?: {
+    recent_form?: { score?: number | null; rating?: string; detail?: string };
+    expected_minutes?: { score?: number | null; rating?: string; minutes?: number | null; detail?: string };
+    fixture_difficulty?: { score?: number | null; rating?: string; difficulty?: number | null; detail?: string };
+    opportunity?: { score?: number | null; rating?: string; detail?: string };
+    attacking_threat?: { score?: number | null; rating?: string; detail?: string };
+    [key: string]: unknown;
+  } | null;
   predicted_floor_points?: number;
   predicted_p50_points?: number;
   predicted_p75_points?: number;
@@ -139,6 +155,10 @@ export interface PlayerResponse {
 /** GET /predict, GET /top_players */
 export interface PredictionListResponse {
   count: number;
+  season?: string | null;
+  latest_completed_gameweek?: number | null;
+  predicted_gameweek?: number | null;
+  generated_at?: string | null;
   predicted_for_gw_note: string;
   predictions: PlayerRecord[];
 }
@@ -156,9 +176,118 @@ export interface HealthResponse {
   model_name?: string | null;
   player_count?: number | null;
   live_metadata_available?: boolean | null;
+  season?: string | null;
+  latest_completed_gameweek?: number | null;
+  predicted_gameweek?: number | null;
 }
 
 /** Shape of a FastAPI HTTPException error body, e.g. { "detail": "..." } */
 export interface ApiErrorBody {
   detail?: string;
+}
+
+/** Top predicted FPL performer for a match. */
+export interface MatchPlayerImpact {
+  element?: number | null;
+  name: string;
+  position?: string | null;
+  team: string;
+  expected_points?: number | null;
+  fpl_rank_score?: number | null;
+  prob_high_score_6?: number | null;
+  expected_minutes?: number | null;
+  photo_url?: string | null;
+  value?: number | null;
+}
+
+/** Prediction for a single fixture using the existing Match Model. */
+export interface MatchPrediction {
+  fixture_id: number;
+  code?: number | null;
+  gameweek: number;
+  kickoff_time?: string | null;
+  home_team: string;
+  away_team: string;
+  home_team_id?: number | null;
+  away_team_id?: number | null;
+  home_team_logo_url?: string | null;
+  away_team_logo_url?: string | null;
+  home_win_probability: number;
+  draw_probability: number;
+  away_win_probability: number;
+  predicted_result: "HOME_WIN" | "DRAW" | "AWAY_WIN" | string;
+  predicted_home_goals: number;
+  predicted_away_goals: number;
+  predicted_scoreline: string;
+  confidence: number;
+  confidence_level: "HIGH" | "MODERATE" | "LOW" | string;
+  over_2_5_probability?: number | null;
+  under_2_5_probability?: number | null;
+  btts_probability?: number | null;
+  home_clean_sheet_probability?: number | null;
+  away_clean_sheet_probability?: number | null;
+  prediction_drivers?: {
+    home_attack_strength?: number | null;
+    home_defence_strength?: number | null;
+    away_attack_strength?: number | null;
+    away_defence_strength?: number | null;
+    home_form_index?: number | null;
+    away_form_index?: number | null;
+    home_advantage_active?: boolean | null;
+    [key: string]: unknown;
+  } | null;
+  top_home_players?: MatchPlayerImpact[];
+  top_away_players?: MatchPlayerImpact[];
+  best_captain_candidate?: MatchPlayerImpact | null;
+  best_attacking_option?: MatchPlayerImpact | null;
+  best_defensive_option?: MatchPlayerImpact | null;
+}
+
+/** GET /match-predictions/next-gameweek response */
+export interface MatchPredictionResponse {
+  season?: string | null;
+  latest_completed_gameweek?: number | null;
+  predicted_gameweek?: number | null;
+  generated_at?: string | null;
+  count: number;
+  predictions: MatchPrediction[];
+}
+
+/** Player in an optimized squad. */
+export interface SquadPlayer {
+  element?: number | null;
+  name: string;
+  position: string;
+  team: string;
+  price: number;
+  value?: number | null;
+  predicted_points: number;
+  predicted_expected_points?: number | null;
+  predicted_fpl_rank_score?: number | null;
+  points_per_million: number;
+  selection_type: "core" | "value" | "budget_constraint" | string;
+  selection_reason: string;
+  is_starter: boolean;
+  is_captain: boolean;
+  is_vice_captain: boolean;
+  photo_url?: string | null;
+}
+
+/** POST /squad/build or GET /squad/build response */
+export interface SquadBuildResponse {
+  season?: string | null;
+  gameweek?: number | null;
+  budget: number;
+  total_cost: number;
+  remaining_budget: number;
+  total_predicted_points: number;
+  formation: string;
+  count: number;
+  captain: SquadPlayer;
+  vice_captain: SquadPlayer;
+  starting_xi: SquadPlayer[];
+  bench: SquadPlayer[];
+  squad: SquadPlayer[];
+  core_picks: SquadPlayer[];
+  value_picks: SquadPlayer[];
 }

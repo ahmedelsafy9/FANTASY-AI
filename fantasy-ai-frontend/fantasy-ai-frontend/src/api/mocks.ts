@@ -141,6 +141,14 @@ export function getMock(kind: string, arg?: string): any {
     }
     case "captain":
       return MOCK_CAPTAIN satisfies CaptainResponse;
+    case "match_predictions":
+      return {
+        season: "2026-27",
+        latest_completed_gameweek: 3,
+        predicted_gameweek: 4,
+        count: 0,
+        predictions: [],
+      };
     default:
       throw new Error(`Unknown mock kind: ${kind}`);
   }

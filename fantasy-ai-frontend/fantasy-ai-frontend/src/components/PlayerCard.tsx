@@ -83,11 +83,15 @@ export function PlayerCard({ player, rank, onClick, className }: PlayerCardProps
           <span className="numeral text-2xl font-black text-[#92400E] leading-none">
             {formatStat(player.predicted_expected_points ?? player.predicted_total_points)}
           </span>
-          {typeof player.predicted_p85_points === "number" && (
+          {typeof player.predicted_fpl_rank_score === "number" ? (
+            <span className="mt-1 text-[10px] font-black text-[#92400E] bg-[#FEF3C7] px-1.5 py-0.5 rounded border border-[#FDE68A]">
+              Score: {formatStat(player.predicted_fpl_rank_score)}
+            </span>
+          ) : typeof player.predicted_p85_points === "number" ? (
             <span className="mt-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
               P85: {formatStat(player.predicted_p85_points)}
             </span>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -100,26 +104,36 @@ export function PlayerCard({ player, rank, onClick, className }: PlayerCardProps
       <div className="grid grid-cols-3 divide-x divide-[#E2E8F0] border-t border-[#E2E8F0] bg-white text-center">
         <div className="py-2.5">
           <span className="block text-[9px] font-black uppercase tracking-wider text-[#64748B]">
-            Form (3GW)
+            {typeof player.predicted_fpl_rank_score === "number" ? "Rank Score" : "Form (3GW)"}
           </span>
           <span className="numeral text-xs font-black text-[#0F172A]">
-            {formatStat(player.total_points_avg_last_3)}
+            {typeof player.predicted_fpl_rank_score === "number"
+              ? formatStat(player.predicted_fpl_rank_score)
+              : formatStat(player.total_points_avg_last_3)}
           </span>
         </div>
         <div className="py-2.5">
           <span className="block text-[9px] font-black uppercase tracking-wider text-[#64748B]">
-            Mins (5GW)
-          </span>
-          <span className="numeral text-xs font-black text-[#0F172A]">
-            {formatStat(player.minutes_avg_last_5, 0)}
-          </span>
-        </div>
-        <div className="py-2.5">
-          <span className="block text-[9px] font-black uppercase tracking-wider text-[#64748B]">
-            Reliability
+            {typeof player.prob_high_score_6 === "number" ? "P(≥6 pts)" : "Mins (5GW)"}
           </span>
           <span className="numeral text-xs font-black text-[#059669]">
-            {reliability !== null ? `${Math.round(reliability * 100)}%` : "N/A"}
+            {typeof player.prob_high_score_6 === "number"
+              ? `${Math.round(player.prob_high_score_6 * 100)}%`
+              : formatStat(player.minutes_avg_last_5, 0)}
+          </span>
+        </div>
+        <div className="py-2.5">
+          <span className="block text-[9px] font-black uppercase tracking-wider text-[#64748B]">
+            {typeof (player.ceiling_p85 ?? player.predicted_p85_points) === "number"
+              ? "P85 Ceiling"
+              : "Reliability"}
+          </span>
+          <span className="numeral text-xs font-black text-purple-700">
+            {typeof (player.ceiling_p85 ?? player.predicted_p85_points) === "number"
+              ? formatStat(player.ceiling_p85 ?? player.predicted_p85_points)
+              : reliability !== null
+              ? `${Math.round(reliability * 100)}%`
+              : "N/A"}
           </span>
         </div>
       </div>

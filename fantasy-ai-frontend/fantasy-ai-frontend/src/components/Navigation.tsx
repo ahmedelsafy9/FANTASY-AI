@@ -8,6 +8,7 @@ import {
   Shirt,
   Calendar,
   Crown,
+  Trophy,
   Menu,
   X,
   LogOut,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { path: "/predictions", label: "Predictions", icon: Sparkles },
+  { path: "/match-predictions", label: "Matches", icon: Trophy },
   { path: "/squad", label: "Squad", icon: Shirt },
   { path: "/captain", label: "Captain", icon: Crown },
   { path: "/players", label: "Players", icon: Users },

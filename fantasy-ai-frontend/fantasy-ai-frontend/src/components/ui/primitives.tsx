@@ -81,12 +81,14 @@ interface CardProps {
   className?: string;
   interactive?: boolean;
   as?: "div" | "article";
+  onClick?: () => void;
 }
 
-export function Card({ children, className, interactive, as = "div" }: CardProps) {
+export function Card({ children, className, interactive, as = "div", onClick }: CardProps) {
   const Comp = as;
   return (
     <Comp
+      onClick={onClick}
       className={cn(
         "rounded-chunky-lg border border-[#E2E8F0] bg-white text-[#0F172A] shadow-card",
         interactive &&

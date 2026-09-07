@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { PlayerRecord } from "@/types/api";
+import { buildSquad } from "@/api/endpoints";
 
 const SQUAD_STORAGE_KEY = "fantasy_ai_squad_state_v2";
 const SQUAD_SIZE = 15;
@@ -656,78 +657,314 @@ export function useSquad() {
     });
   }, []);
 
-  // Auto Pick AI Squad Optimizer
+  // Auto Pick AI Squad Optimizer with Budget-Aware Two-Stage Optimization
   const autoPick = useCallback(
-    (availablePlayers: PlayerRecord[]) => {
+    async (availablePlayers: PlayerRecord[]) => {
+      // 1. Attempt authoritative backend Squad Builder API first
+      try {
+        const apiResult = await buildSquad(TOTAL_BUDGET, formation);
+        if (apiResult && apiResult.squad && apiResult.squad.length === SQUAD_SIZE) {
+          const newSquad: PlayerRecord[] = apiResult.squad.map((sp) => {
+            const original = availablePlayers.find(
+              (p) => getPlayerId(p) === (sp.element != null ? String(sp.element) : sp.name),
+            );
+            return {
+              ...(original ?? {}),
+              element: sp.element ?? original?.element,
+              name: sp.name,
+              position: sp.position,
+              team: sp.team,
+              now_cost: Math.round(sp.price * 10),
+              value: Math.round(sp.price * 10),
+              predicted_total_points: sp.predicted_points,
+              predicted_expected_points: sp.predicted_expected_points ?? undefined,
+              predicted_fpl_rank_score: sp.predicted_fpl_rank_score ?? undefined,
+              selection_type: sp.selection_type,
+              selection_reason: sp.selection_reason,
+            };
+          });
+
+          setSquad(newSquad);
+          const starterIds = apiResult.starting_xi.map((sp) =>
+            sp.element != null ? String(sp.element) : sp.name,
+          );
+          setStarterIds(starterIds);
+          setCaptainId(
+            apiResult.captain.element != null
+              ? String(apiResult.captain.element)
+              : apiResult.captain.name,
+          );
+          setViceCaptainId(
+            apiResult.vice_captain.element != null
+              ? String(apiResult.vice_captain.element)
+              : apiResult.vice_captain.name,
+          );
+          return;
+        }
+      } catch {
+        // Fallback to client-side budget-aware solver below
+      }
+
+      // 2. Client-side budget-aware two-stage optimization fallback
       if (!availablePlayers || availablePlayers.length === 0) return;
 
       const valid = availablePlayers.filter((p) => getPlayerPrice(p) > 0);
-      const sortedByPoints = [...valid].sort(
-        (a, b) => (b.predicted_total_points ?? -100) - (a.predicted_total_points ?? -100),
-      );
+      if (valid.length < SQUAD_SIZE) return;
 
-      const gkps = sortedByPoints.filter((p) => normalizePosition(p.position) === "GKP");
-      const defs = sortedByPoints.filter((p) => normalizePosition(p.position) === "DEF");
-      const mids = sortedByPoints.filter((p) => normalizePosition(p.position) === "MID");
-      const fwds = sortedByPoints.filter((p) => normalizePosition(p.position) === "FWD");
+      const getPoints = (p: PlayerRecord): number =>
+        p.predicted_fpl_rank_score ??
+        p.predicted_expected_points ??
+        p.predicted_total_points ??
+        0;
 
-      const selected: PlayerRecord[] = [];
-      const clubCounts: Record<string, number> = {};
-
-      const tryAdd = (p: PlayerRecord): boolean => {
-        const pid = getPlayerId(p);
-        if (selected.some((s) => getPlayerId(s) === pid)) return false;
-
-        const team = p.team;
-        if (team && (clubCounts[team] || 0) >= 3) return false;
-
-        const currentCost = selected.reduce((sum, s) => sum + getPlayerPrice(s), 0);
-        if (currentCost + getPlayerPrice(p) > TOTAL_BUDGET + 0.001) return false;
-
-        selected.push(p);
-        if (team) clubCounts[team] = (clubCounts[team] || 0) + 1;
-        return true;
+      const posCandidates: Record<string, PlayerRecord[]> = {
+        GKP: valid.filter((p) => normalizePosition(p.position) === "GKP"),
+        DEF: valid.filter((p) => normalizePosition(p.position) === "DEF"),
+        MID: valid.filter((p) => normalizePosition(p.position) === "MID"),
+        FWD: valid.filter((p) => normalizePosition(p.position) === "FWD"),
       };
 
-      const pickGroup = (group: PlayerRecord[], count: number) => {
-        let added = 0;
-        for (const p of group) {
-          if (added >= count) break;
-          if (tryAdd(p)) {
-            added++;
-          }
-        }
+      const requiredPosLimits: Record<string, number> = {
+        GKP: 2,
+        DEF: 5,
+        MID: 5,
+        FWD: 3,
       };
 
-      pickGroup(gkps, 2);
-      pickGroup(defs, 5);
-      pickGroup(mids, 5);
-      pickGroup(fwds, 3);
-
-      if (selected.length < SQUAD_SIZE) {
-        const cheapSort = (a: PlayerRecord, b: PlayerRecord) => getPlayerPrice(a) - getPlayerPrice(b);
-        const needGkp = 2 - selected.filter((p) => normalizePosition(p.position) === "GKP").length;
-        const needDef = 5 - selected.filter((p) => normalizePosition(p.position) === "DEF").length;
-        const needMid = 5 - selected.filter((p) => normalizePosition(p.position) === "MID").length;
-        const needFwd = 3 - selected.filter((p) => normalizePosition(p.position) === "FWD").length;
-
-        if (needGkp > 0) pickGroup([...gkps].sort(cheapSort), 2);
-        if (needDef > 0) pickGroup([...defs].sort(cheapSort), 5);
-        if (needMid > 0) pickGroup([...mids].sort(cheapSort), 5);
-        if (needFwd > 0) pickGroup([...fwds].sort(cheapSort), 3);
+      for (const pos of ["GKP", "DEF", "MID", "FWD"]) {
+        if (posCandidates[pos].length < requiredPosLimits[pos]) return;
       }
 
-      setSquad(selected);
+      const calcMinRemainingCost = (
+        currentCounts: Record<string, number>,
+        selectedPids: Set<string>,
+        clubCounts: Record<string, number>,
+      ): number => {
+        let totalMin = 0;
+        for (const pos of ["GKP", "DEF", "MID", "FWD"]) {
+          const needed = requiredPosLimits[pos] - (currentCounts[pos] || 0);
+          if (needed <= 0) continue;
+          const eligiblePrices = posCandidates[pos]
+            .filter((p) => !selectedPids.has(getPlayerId(p)) && (clubCounts[p.team ?? ""] || 0) < 3)
+            .map(getPlayerPrice)
+            .sort((a, b) => a - b);
+          if (eligiblePrices.length < needed) return Infinity;
+          for (let i = 0; i < needed; i++) totalMin += eligiblePrices[i];
+        }
+        return totalMin;
+      };
 
-      // Top starters based on formation
+      const isFeasible = (candidate: PlayerRecord, selectedList: PlayerRecord[]): boolean => {
+        const cPid = getPlayerId(candidate);
+        const pids = new Set(selectedList.map(getPlayerId));
+        if (pids.has(cPid)) return false;
+
+        const posCounts: Record<string, number> = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+        const clubCounts: Record<string, number> = {};
+        let cost = 0;
+
+        for (const s of selectedList) {
+          const pos = normalizePosition(s.position);
+          posCounts[pos] = (posCounts[pos] || 0) + 1;
+          const tm = s.team ?? "";
+          clubCounts[tm] = (clubCounts[tm] || 0) + 1;
+          cost += getPlayerPrice(s);
+        }
+
+        const cPos = normalizePosition(candidate.position);
+        if ((posCounts[cPos] || 0) >= requiredPosLimits[cPos]) return false;
+        const cTeam = candidate.team ?? "";
+        if ((clubCounts[cTeam] || 0) >= 3) return false;
+
+        const costAfter = cost + getPlayerPrice(candidate);
+        if (costAfter > TOTAL_BUDGET + 0.001) return false;
+        const remBudget = TOTAL_BUDGET - costAfter;
+
+        posCounts[cPos] = (posCounts[cPos] || 0) + 1;
+        clubCounts[cTeam] = (clubCounts[cTeam] || 0) + 1;
+        pids.add(cPid);
+
+        const minRem = calcMinRemainingCost(posCounts, pids, clubCounts);
+        return remBudget >= minRem - 0.001;
+      };
+
+      const getValueScore = (p: PlayerRecord): number => {
+        const pts = getPoints(p);
+        const price = getPlayerPrice(p);
+        const ppm = price > 0 ? pts / price : 0;
+        return 0.7 * ppm + 0.3 * pts;
+      };
+
+      const allSortedByPoints = [...valid].sort((a, b) => getPoints(b) - getPoints(a));
+      const valuePosCandidates: Record<string, PlayerRecord[]> = {
+        GKP: [...posCandidates.GKP].sort((a, b) => getValueScore(b) - getValueScore(a)),
+        DEF: [...posCandidates.DEF].sort((a, b) => getValueScore(b) - getValueScore(a)),
+        MID: [...posCandidates.MID].sort((a, b) => getValueScore(b) - getValueScore(a)),
+        FWD: [...posCandidates.FWD].sort((a, b) => getValueScore(b) - getValueScore(a)),
+      };
+
+      let selected: PlayerRecord[] = [];
+      const metaMap: Record<string, { type: string; reason: string }> = {};
+
+      for (let coreLimit = 4; coreLimit >= 0; coreLimit--) {
+        selected = [];
+        const corePicks: PlayerRecord[] = [];
+        const posCoreCounts: Record<string, number> = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+        const posCoreLimits = { GKP: 1, DEF: 2, MID: 2, FWD: 2 };
+
+        for (const p of allSortedByPoints) {
+          if (corePicks.length >= coreLimit) break;
+          const pos = normalizePosition(p.position);
+          if (posCoreCounts[pos] >= (posCoreLimits[pos as keyof typeof posCoreLimits] ?? 1)) continue;
+
+          if (isFeasible(p, selected)) {
+            selected.push(p);
+            corePicks.push(p);
+            posCoreCounts[pos]++;
+            metaMap[getPlayerId(p)] = {
+              type: "core",
+              reason: `Core Pick: High predicted points (${getPoints(p).toFixed(1)} pts)`,
+            };
+          }
+        }
+
+        const completeSquad = (): boolean => {
+          const currentPosCounts: Record<string, number> = { GKP: 0, DEF: 0, MID: 0, FWD: 0 };
+          for (const s of selected) currentPosCounts[normalizePosition(s.position)]++;
+
+          for (const pos of ["GKP", "DEF", "MID", "FWD"]) {
+            const needed = requiredPosLimits[pos] - currentPosCounts[pos];
+            for (let i = 0; i < needed; i++) {
+              let added = false;
+              for (const cand of valuePosCandidates[pos]) {
+                if (isFeasible(cand, selected)) {
+                  selected.push(cand);
+                  currentPosCounts[pos]++;
+                  metaMap[getPlayerId(cand)] = {
+                    type: "value",
+                    reason: `Value Pick: Strong points-per-£m (${(getPoints(cand) / Math.max(0.1, getPlayerPrice(cand))).toFixed(1)} ppm)`,
+                  };
+                  added = true;
+                  break;
+                }
+              }
+              if (!added) {
+                const cheapest = [...posCandidates[pos]].sort(
+                  (a, b) => getPlayerPrice(a) - getPlayerPrice(b),
+                );
+                for (const cand of cheapest) {
+                  if (isFeasible(cand, selected)) {
+                    selected.push(cand);
+                    currentPosCounts[pos]++;
+                    metaMap[getPlayerId(cand)] = {
+                      type: "budget_constraint",
+                      reason: "Budget Constraint: Selected to preserve budget feasibility",
+                    };
+                    added = true;
+                    break;
+                  }
+                }
+              }
+              if (!added) return false;
+            }
+          }
+          return selected.length === SQUAD_SIZE;
+        };
+
+        if (completeSquad()) break;
+
+        while (corePicks.length > 0 && selected.length < SQUAD_SIZE) {
+          corePicks.sort((a, b) => getPlayerPrice(a) - getPlayerPrice(b));
+          const expensive = corePicks.pop()!;
+          selected = selected.filter((p) => getPlayerId(p) !== getPlayerId(expensive));
+          delete metaMap[getPlayerId(expensive)];
+          if (completeSquad()) break;
+        }
+
+        if (selected.length === SQUAD_SIZE) break;
+      }
+
+      if (selected.length !== SQUAD_SIZE) return;
+
+      let improved = true;
+      let iters = 0;
+      while (improved && iters < 15) {
+        improved = false;
+        iters++;
+        const currentCost = selected.reduce((sum, p) => sum + getPlayerPrice(p), 0);
+        const slack = TOTAL_BUDGET - currentCost;
+        if (slack < 0.4) break;
+
+        const currentPids = new Set(selected.map(getPlayerId));
+        const clubCounts: Record<string, number> = {};
+        for (const s of selected) {
+          const tm = s.team ?? "";
+          clubCounts[tm] = (clubCounts[tm] || 0) + 1;
+        }
+
+        let bestSwap: [PlayerRecord, PlayerRecord, number] | null = null;
+        let bestGain = 0;
+
+        for (const playerA of selected) {
+          const pos = normalizePosition(playerA.position);
+          const teamA = playerA.team ?? "";
+          const clubAfterRemove = { ...clubCounts, [teamA]: (clubCounts[teamA] || 1) - 1 };
+
+          for (const playerB of posCandidates[pos]) {
+            if (currentPids.has(getPlayerId(playerB))) continue;
+            const teamB = playerB.team ?? "";
+            if ((clubAfterRemove[teamB] || 0) >= 3) continue;
+
+            const costDiff = getPlayerPrice(playerB) - getPlayerPrice(playerA);
+            if (costDiff > slack + 0.001) continue;
+
+            const gain = getPoints(playerB) - getPoints(playerA);
+            if (gain > 0.1 && gain > bestGain) {
+              bestGain = gain;
+              bestSwap = [playerA, playerB, gain];
+            }
+          }
+        }
+
+        if (bestSwap) {
+          const [oldP, newP, gain] = bestSwap;
+          const idx = selected.findIndex((p) => getPlayerId(p) === getPlayerId(oldP));
+          if (idx !== -1) {
+            selected[idx] = newP;
+            delete metaMap[getPlayerId(oldP)];
+            metaMap[getPlayerId(newP)] = {
+              type: getPoints(newP) >= 6.0 ? "core" : "value",
+              reason: `Budget Optimization: Upgraded +${gain.toFixed(1)} pts within remaining budget`,
+            };
+            improved = true;
+          }
+        }
+      }
+
+      const enrichedSquad = selected.map((p) => ({
+        ...p,
+        selection_type: metaMap[getPlayerId(p)]?.type ?? "value",
+        selection_reason:
+          metaMap[getPlayerId(p)]?.reason ?? "Value Pick: Strong expected points per £m",
+      }));
+
+      setSquad(enrichedSquad);
+
       const target = parseFormation(formation);
-      const sortFn = (a: PlayerRecord, b: PlayerRecord) =>
-        (b.predicted_total_points ?? -100) - (a.predicted_total_points ?? -100);
+      const sortFn = (a: PlayerRecord, b: PlayerRecord) => getPoints(b) - getPoints(a);
 
-      const selGkps = selected.filter((p) => normalizePosition(p.position) === "GKP").sort(sortFn);
-      const selDefs = selected.filter((p) => normalizePosition(p.position) === "DEF").sort(sortFn);
-      const selMids = selected.filter((p) => normalizePosition(p.position) === "MID").sort(sortFn);
-      const selFwds = selected.filter((p) => normalizePosition(p.position) === "FWD").sort(sortFn);
+      const selGkps = enrichedSquad
+        .filter((p) => normalizePosition(p.position) === "GKP")
+        .sort(sortFn);
+      const selDefs = enrichedSquad
+        .filter((p) => normalizePosition(p.position) === "DEF")
+        .sort(sortFn);
+      const selMids = enrichedSquad
+        .filter((p) => normalizePosition(p.position) === "MID")
+        .sort(sortFn);
+      const selFwds = enrichedSquad
+        .filter((p) => normalizePosition(p.position) === "FWD")
+        .sort(sortFn);
 
       const starters = [
         ...selGkps.slice(0, 1),
@@ -738,7 +975,6 @@ export function useSquad() {
 
       setStarterIds(starters.map(getPlayerId));
 
-      // Auto set captain to top starter
       if (starters.length > 0) {
         const sortedStarters = [...starters].sort(sortFn);
         setCaptainId(getPlayerId(sortedStarters[0]));
