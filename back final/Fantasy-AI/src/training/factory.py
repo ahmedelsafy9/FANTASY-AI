@@ -10,8 +10,11 @@ any environment.
 
 from __future__ import annotations
 
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import (
+    HistGradientBoostingRegressor,
+    RandomForestRegressor,
+)
+from sklearn.linear_model import LinearRegression, Ridge
 
 from src.config.logging_config import get_logger
 from src.config.settings import TrainingSettings
@@ -36,6 +39,7 @@ def build_default_model_specs(
     """
     specs: list[ModelSpec] = [
         ModelSpec(name="linear_regression", build=lambda: LinearRegression()),
+        ModelSpec(name="ridge", build=lambda: Ridge(alpha=1.0)),
         ModelSpec(
             name="random_forest",
             build=lambda: RandomForestRegressor(
@@ -43,6 +47,15 @@ def build_default_model_specs(
                 max_depth=settings.random_forest_max_depth,
                 random_state=settings.random_state,
                 n_jobs=-1,
+            ),
+        ),
+        ModelSpec(
+            name="hist_gradient_boosting",
+            build=lambda: HistGradientBoostingRegressor(
+                max_iter=settings.boosted_n_estimators,
+                max_depth=settings.boosted_max_depth,
+                learning_rate=settings.boosted_learning_rate,
+                random_state=settings.random_state,
             ),
         ),
     ]
@@ -88,6 +101,26 @@ def build_default_model_specs(
         reason = f"lightgbm is not installed ({exc})."
         logger.warning("Skipping LightGBM: %s", reason)
         skipped["lightgbm"] = reason
+
+    try:
+        from catboost import CatBoostRegressor
+
+        specs.append(
+            ModelSpec(
+                name="catboost",
+                build=lambda: CatBoostRegressor(
+                    iterations=settings.boosted_n_estimators,
+                    depth=settings.boosted_max_depth,
+                    learning_rate=settings.boosted_learning_rate,
+                    random_seed=settings.random_state,
+                    verbose=0,
+                ),
+            )
+        )
+    except ImportError as exc:
+        reason = f"catboost is not installed ({exc})."
+        logger.warning("Skipping CatBoost: %s", reason)
+        skipped["catboost"] = reason
 
     try:
         import torch  # noqa: F401 — presence check only

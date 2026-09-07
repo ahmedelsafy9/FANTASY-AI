@@ -948,6 +948,46 @@ class FeedbackSettings:
 
 
 @dataclass(frozen=True)
+class MultiStageSettings:
+    """Settings controlling the multi-stage prediction pipeline (Feedback 4).
+
+    Configures walk-forward validation, contribution targets, match model
+    design, and model selection parameters for the three-stage architecture:
+    Match → Contribution → Points.
+    """
+
+    enable_multi_stage: bool = field(
+        default_factory=lambda: _env_bool("FANTASY_AI_ENABLE_MULTI_STAGE", True)
+    )
+    min_train_gameweeks: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_MIN_TRAIN_GAMEWEEKS", 38)
+    )
+    contribution_targets: tuple[str, ...] = field(
+        default_factory=lambda: tuple(
+            c
+            for c in _env_str(
+                "FANTASY_AI_CONTRIBUTION_TARGETS",
+                "goals_scored,assists,clean_sheets",
+            ).split(",")
+            if c
+        )
+    )
+    match_target_formulation: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_MATCH_TARGET_FORMULATION", "auto"
+        )
+    )
+    multi_stage_output_dir: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_MULTI_STAGE_DIR", "multi_stage"
+        )
+    )
+    fold_step: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_FOLD_STEP", 5)
+    )
+
+
+@dataclass(frozen=True)
 class Settings:
     """Top-level application settings, aggregating all setting groups."""
 
@@ -968,6 +1008,7 @@ class Settings:
     automation: AutomationSettings = field(default_factory=AutomationSettings)
     fixture_aware: FixtureAwareSettings = field(default_factory=FixtureAwareSettings)
     feedback: FeedbackSettings = field(default_factory=FeedbackSettings)
+    multi_stage: MultiStageSettings = field(default_factory=MultiStageSettings)
 
 
 def get_settings() -> Settings:
