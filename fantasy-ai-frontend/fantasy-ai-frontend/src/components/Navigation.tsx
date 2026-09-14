@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
+  Flame,
   Users,
   LayoutDashboard,
   Shirt,
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { path: "/predictions", label: "Predictions", icon: Sparkles },
+  { path: "/differentials", label: "Differentials", icon: Flame },
   { path: "/match-predictions", label: "Matches", icon: Trophy },
   { path: "/squad", label: "Squad", icon: Shirt },
   { path: "/captain", label: "Captain", icon: Crown },

@@ -224,6 +224,11 @@ class Paths:
         """Directory holding log files."""
         return _env_path("FANTASY_AI_LOGS_DIR", self.root / "logs")
 
+    @property
+    def auth_db_path(self) -> Path:
+        """Path to the persistent authentication database."""
+        return _env_path("FANTASY_AI_AUTH_DB_PATH", self.data_dir / "auth.db")
+
     def ensure_exists(self) -> None:
         """Create every managed directory if it does not already exist."""
         for directory in (
@@ -1027,6 +1032,23 @@ class HighScoreSettings:
 
 
 @dataclass(frozen=True)
+class DifferentialSettings:
+    """Settings controlling the differential / breakout player prediction layer."""
+
+    output_dir: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_DIFFERENTIAL_DIR", "models/differential")
+    )
+    primary_threshold: int = field(
+        default_factory=lambda: _env_int("FANTASY_AI_DIFFERENTIAL_THRESHOLD", 8)
+    )
+    ownership_percentile_cutoff: float = field(
+        default_factory=lambda: _env_float("FANTASY_AI_DIFFERENTIAL_OWNERSHIP_CUTOFF", 0.20)
+    )
+    companion_thresholds: tuple[int, ...] = (6, 8, 10, 12)
+    default_top_k: int = 50
+
+
+@dataclass(frozen=True)
 class Settings:
     """Top-level application settings, aggregating all setting groups."""
 
@@ -1049,6 +1071,7 @@ class Settings:
     feedback: FeedbackSettings = field(default_factory=FeedbackSettings)
     multi_stage: MultiStageSettings = field(default_factory=MultiStageSettings)
     high_score: HighScoreSettings = field(default_factory=HighScoreSettings)
+    differential: DifferentialSettings = field(default_factory=DifferentialSettings)
 
 
 def get_settings() -> Settings:

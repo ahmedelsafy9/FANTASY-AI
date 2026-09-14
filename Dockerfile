@@ -45,6 +45,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# Install OpenMP runtime required by lightgbm / xgboost on Debian slim
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /app/.venv .venv/
 
 # Application code only — no tests, scripts, docs, git metadata, or
@@ -53,18 +57,16 @@ COPY --from=builder /app/.venv .venv/
 # matching the app's own data/models path resolution unmodified.
 COPY ["back final/Fantasy-AI/src", "src"]
 
-# Runtime artifacts required at startup (see header note above). If
-# these are absent from the build context, .dockerignore does NOT
-# exclude them — an empty/missing directory just means the API starts
-# in a degraded/not_ready state rather than failing the build, which
-# is intentional (matches build_app_state's existing graceful-startup
-# behavior for a missing model).
+# Runtime artifacts required at startup (see header note above).
 COPY ["back final/Fantasy-AI/models", "models"]
 COPY ["back final/Fantasy-AI/data/processed", "data/processed"]
+COPY ["back final/Fantasy-AI/data/raw/fpl_api", "data/raw/fpl_api"]
+COPY ["back final/Fantasy-AI/data/external", "data/external"]
 
-# Runs as a non-root user.
-RUN useradd --create-home --shell /bin/bash appuser \
-    && chown -R appuser:appuser /app
+# Persistent volume directory & runs as non-root user.
+RUN mkdir -p /data \
+    && useradd --create-home --shell /bin/bash appuser \
+    && chown -R appuser:appuser /app /data
 USER appuser
 
 EXPOSE 8080

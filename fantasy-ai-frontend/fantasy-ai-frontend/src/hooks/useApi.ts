@@ -2,11 +2,13 @@ import { useCallback } from "react";
 import { useAsync } from "./useAsync";
 import {
   getCaptain,
+  getDifferentials,
   getHealth,
   getMatchPredictions,
   getPlayer,
   getPredictions,
   getTopPlayers,
+  DifferentialQueryParams,
 } from "@/api/endpoints";
 
 export function useHealth() {
@@ -37,4 +39,11 @@ export function useCaptain() {
 
 export function useMatchPredictions() {
   return useAsync(useCallback(() => getMatchPredictions(), []));
+}
+
+export function useDifferentials(params?: DifferentialQueryParams) {
+  return useAsync(
+    useCallback(() => getDifferentials(params), [params?.limit, params?.category, params?.position, params?.max_price, params?.max_ownership]),
+    [params?.limit, params?.category, params?.position, params?.max_price, params?.max_ownership],
+  );
 }

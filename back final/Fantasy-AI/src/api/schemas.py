@@ -171,3 +171,36 @@ class SquadBuildResponse(BaseModel):
     squad: list[SquadPlayer] = Field(description="All 15 squad players")
     core_picks: list[SquadPlayer] = Field(default_factory=list, description="Core high-point picks")
     value_picks: list[SquadPlayer] = Field(default_factory=list, description="Value-for-money completion picks")
+
+
+class DifferentialPlayerResponse(BaseModel):
+    """A differential / breakout candidate prediction for next Gameweek."""
+
+    element: int | None = None
+    name: str
+    team: str
+    position: str | None = None
+    price: float | None = None
+    value: float | None = None
+    ownership_pct: float | None = None
+    ownership_percentile: float | None = None
+    predicted_expected_points: float | None = None
+    p_6_plus: float | None = None
+    p_8_plus: float | None = None
+    p_10_plus: float | None = None
+    p_12_plus: float | None = None
+    differential_score: float = Field(description="Transparent differential ranking score")
+    differential_category: str = Field(description="Elite, Value, Emerging, or Standard Differential")
+    predicted_gameweek: int | None = None
+    photo_url: str | None = None
+
+
+class DifferentialListResponse(BaseModel):
+    """Next-Gameweek differential player predictions."""
+
+    count: int = Field(description="Number of differential players returned.")
+    season: str | None = Field(default=None, description="Current FPL season.")
+    latest_completed_gameweek: int | None = Field(default=None)
+    predicted_gameweek: int | None = Field(default=None)
+    generated_at: str | None = Field(default=None)
+    predictions: list[DifferentialPlayerResponse] = Field(description="Ranked differential picks.")

@@ -291,3 +291,5 @@ export interface SquadBuildResponse {
   core_picks: SquadPlayer[];
   value_picks: SquadPlayer[];
 }
+
+export * from "./differential";

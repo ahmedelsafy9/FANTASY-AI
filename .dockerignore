@@ -40,8 +40,12 @@ venv/
 **/logs/
 **/*.log
 
-# Raw datasets
-back final/Fantasy-AI/data/raw/
+# Raw datasets (exclude bulky training-only Vaastav data, preserve fpl_api for runtime)
+back final/Fantasy-AI/data/raw/vaastav/
+back final/Fantasy-AI/data/raw/vaastav_merged.csv
+
+# Retraining iteration snapshots (1.9GB+ training history, not needed in production image)
+back final/Fantasy-AI/data/versions/
 
 # Unneeded processed dataset
 back final/Fantasy-AI/data/processed/vaastav_cleaned.csv

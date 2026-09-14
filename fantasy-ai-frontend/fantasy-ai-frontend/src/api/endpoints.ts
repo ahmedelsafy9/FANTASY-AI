@@ -2,6 +2,7 @@ import { apiClient } from "./client";
 import { getMock, isMockMode } from "./mocks";
 import type {
   CaptainResponse,
+  DifferentialListResponse,
   HealthResponse,
   MatchPredictionResponse,
   PlayerResponse,
@@ -67,6 +68,24 @@ export async function buildSquad(
     budget,
     formation,
     core_picks_count: corePicksCount,
+  });
+  return data;
+}
+
+export interface DifferentialQueryParams {
+  limit?: number;
+  category?: string;
+  position?: string;
+  max_price?: number;
+  max_ownership?: number;
+}
+
+export async function getDifferentials(
+  params?: DifferentialQueryParams,
+): Promise<DifferentialListResponse> {
+  if (isMockMode()) return getMock("differentials");
+  const { data } = await apiClient.get<DifferentialListResponse>("/differentials/next-gameweek", {
+    params,
   });
   return data;
 }

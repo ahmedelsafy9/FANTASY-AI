@@ -60,6 +60,8 @@ class AppState:
     latest_completed_gameweek: int | None = None
     predicted_gameweek: int | None = None
     generated_at: str | None = None
+    differential_predictions: pd.DataFrame | None = None
+    differential_metadata: dict[str, Any] | None = None
 
 
 def build_app_state(settings: Settings) -> AppState:
@@ -220,6 +222,26 @@ def build_app_state(settings: Settings) -> AppState:
         predicted_gw,
     )
 
+    # ---------------------------------------------------------------
+    # 5. Load differential predictions if available
+    # ---------------------------------------------------------------
+    diff_pred_path = Path("models/differential/predictions_differential.csv")
+    diff_meta_path = Path("models/differential/predictions_differential_metadata.json")
+    diff_predictions = None
+    diff_metadata = None
+    if diff_pred_path.exists():
+        try:
+            diff_predictions = pd.read_csv(diff_pred_path)
+            logger.info("Loaded %d differential predictions at startup.", len(diff_predictions))
+        except Exception as exc:
+            logger.warning("Could not load differential predictions CSV: %s", exc)
+    if diff_meta_path.exists():
+        try:
+            with open(diff_meta_path, "r", encoding="utf-8") as f:
+                diff_metadata = json.load(f)
+        except Exception as exc:
+            logger.warning("Could not load differential metadata: %s", exc)
+
     return AppState(
         settings=settings,
         engineered_data=engineered_data,
@@ -231,6 +253,8 @@ def build_app_state(settings: Settings) -> AppState:
         latest_completed_gameweek=latest_completed_gw,
         predicted_gameweek=predicted_gw,
         generated_at=generated_at,
+        differential_predictions=diff_predictions,
+        differential_metadata=diff_metadata,
     )
 
 
