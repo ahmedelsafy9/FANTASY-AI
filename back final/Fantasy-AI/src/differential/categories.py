@@ -77,8 +77,8 @@ def assign_differential_categories(
 
     # Safety check: drop rare/unsupported categories
     counts = series.value_counts()
-    for cat in [CATEGORY_ELITE, CATEGORY_VALUE, CATEGORY_EMERGING, CATEGORY_STANDARD]:
-        if counts.get(cat, 0) < min_examples:
+    for cat in [CATEGORY_ELITE, CATEGORY_VALUE, CATEGORY_EMERGING]:
+        if 0 < counts.get(cat, 0) < min_examples:
             logger.info("Category '%s' has only %d examples (< %d). Demoting to '%s'.",
                         cat, counts.get(cat, 0), min_examples, CATEGORY_STANDARD)
             series[series == cat] = CATEGORY_STANDARD

@@ -109,6 +109,34 @@ def generate_differential_predictions(
     gw_feat["p_10_plus"] = mono_probs[10]
     gw_feat["p_12_plus"] = mono_probs[12]
 
+    # Enrich with live FPL bootstrap ownership & photos if available
+    bootstrap_path = Path("data/raw/fpl_api/bootstrap_static.json")
+    if bootstrap_path.exists():
+        try:
+            with open(bootstrap_path, "r", encoding="utf-8") as f:
+                boot = json.load(f)
+            elements = boot.get("elements", [])
+            own_map = {e["id"]: float(e.get("selected_by_percent", 0.0)) for e in elements if "id" in e}
+            photo_map = {
+                e["id"]: f"https://resources.premierleague.com/premierleague/photos/players/110x140/p{e.get('code')}.png"
+                for e in elements if "id" in e and e.get("code")
+            }
+            pos_map = {1: "GKP", 2: "DEF", 3: "MID", 4: "FWD"}
+            elem_pos_map = {e["id"]: pos_map.get(e.get("element_type"), "MID") for e in elements if "id" in e}
+
+            if "element" in gw_feat.columns:
+                mapped_own = gw_feat["element"].map(own_map)
+                if mapped_own.notna().any():
+                    gw_feat["ownership_pct"] = mapped_own.fillna(5.0)
+                    gw_feat["ownership_pct_approx"] = gw_feat["ownership_pct"] / 100.0
+                    gw_feat["ownership_percentile"] = gw_feat["ownership_pct_approx"].rank(pct=True)
+                gw_feat["photo_url"] = gw_feat["element"].map(photo_map)
+                if "position" not in gw_feat.columns or gw_feat["position"].isna().all():
+                    gw_feat["position"] = gw_feat["element"].map(elem_pos_map)
+            logger.info("Enriched predictions with live FPL bootstrap static data.")
+        except Exception as exc:
+            logger.warning("Could not enrich with bootstrap static: %s", exc)
+
     # 4. Compute differential scores
     scored = compute_scoring_formulas(gw_feat, prob_col="p_8_plus")
     # Use score_f3 (sublinear exponent-balanced) or best scoring formula
@@ -139,10 +167,11 @@ def generate_differential_predictions(
     # 7. Format clean output columns
     out_cols = [
         "element", "name", "team", "position", "value",
-        "ownership_pct_approx", "ownership_percentile",
+        "ownership_pct", "ownership_pct_approx", "ownership_percentile",
         "predicted_expected_points",
         "p_6_plus", "p_8_plus", "p_10_plus", "p_12_plus",
         "differential_score", "differential_category",
+        "photo_url",
         "GW", "season",
     ]
     present_cols = [c for c in out_cols if c in gw_feat.columns]
