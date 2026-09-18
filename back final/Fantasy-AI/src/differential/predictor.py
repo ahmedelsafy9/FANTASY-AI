@@ -67,7 +67,20 @@ def generate_differential_predictions(
         max_valid_gameweek=settings.prediction.max_valid_gameweek,
         target_gameweek=target_gameweek,
     )
-    predicted_gw = int(gw_rows["GW"].iloc[0]) if "GW" in gw_rows.columns and not gw_rows.empty else 1
+    # Determine the correct target Gameweek
+    if target_gameweek is not None:
+        predicted_gw = int(target_gameweek)
+    elif "predicted_for_gw" in gw_rows.columns and not gw_rows.empty:
+        # build_next_gameweek_rows already computed this on the season-filtered data
+        predicted_gw = int(gw_rows["predicted_for_gw"].iloc[0])
+    else:
+        predicted_gw = int(gw_rows["GW"].iloc[0]) + 1 if "GW" in gw_rows.columns and not gw_rows.empty else 1
+
+    # Force every row to the target Gameweek so the output CSV is consistent
+    if "GW" in gw_rows.columns:
+        gw_rows["GW"] = predicted_gw
+
+
     logger.info("Prepared %d entering player rows for Gameweek %d.", len(gw_rows), predicted_gw)
 
     # 2. Engineer differential features on entering rows

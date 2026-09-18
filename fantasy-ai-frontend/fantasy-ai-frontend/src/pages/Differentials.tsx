@@ -17,9 +17,9 @@ import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
   { id: "all", label: "All Differentials" },
-  { id: "Elite Differential", label: "Elite Differentials", icon: Flame, color: "text-amber-400 border-amber-500/30 bg-amber-500/10" },
-  { id: "Emerging Differential", label: "Emerging Starts", icon: Zap, color: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10" },
-  { id: "Value Differential", label: "Budget Gems", icon: Coins, color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
+  { id: "Elite Differential", label: "Elite Differentials", icon: Flame },
+  { id: "Emerging Differential", label: "Emerging Stars", icon: Zap },
+  { id: "Value Differential", label: "Budget Gems", icon: Coins },
 ];
 
 export default function Differentials() {
@@ -81,41 +81,41 @@ export default function Differentials() {
   }, [predictions]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 space-y-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 pb-safe-bottom sm:px-6 lg:px-8 space-y-6">
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-900/40 via-indigo-900/30 to-slate-900/60 border border-purple-500/20 p-6 md:p-8 shadow-2xl backdrop-blur-xl">
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="relative overflow-hidden rounded-chunky-xl border border-[#E2E8F0] bg-white p-6 md:p-8 shadow-card">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-72 h-72 bg-[#ECFDF5] rounded-full blur-2xl opacity-70 pointer-events-none" />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-              <Sparkles className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] shadow-sm">
+              <Sparkles className="w-3.5 h-3.5 fill-[#10B981] text-[#10B981]" />
               Gameweek {targetGw} Breakout Intelligence
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-purple-200 bg-clip-text text-transparent">
-              High-Upside Differentials
+            <h1 className="font-display text-2xl md:text-3xl lg:text-4xl font-black tracking-tight text-[#0F172A]">
+              High-Upside <span className="text-[#10B981]">Differentials</span>
             </h1>
-            <p className="text-sm md:text-base text-slate-400 max-w-2xl">
-              Targeted prediction layer identifying low-ownership players (<span className="text-purple-300 font-medium">≤20%</span>)
+            <p className="text-sm font-semibold text-[#475569] max-w-2xl leading-relaxed">
+              Targeted prediction layer identifying low-ownership players (<span className="text-[#10B981] font-black">≤20%</span>)
               with disproportionate probability of outperforming expected output in the next Gameweek.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
-              <p className="text-xs text-slate-400 uppercase tracking-wider">Candidates</p>
-              <p className="text-xl font-bold text-white mt-0.5">{kpis.total}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-chunky p-3 text-center shadow-soft">
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">Candidates</p>
+              <p className="text-2xl font-mono font-black text-[#0F172A] mt-0.5">{kpis.total}</p>
             </div>
-            <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
-              <p className="text-xs text-amber-400 uppercase tracking-wider">Elite Picks</p>
-              <p className="text-xl font-bold text-amber-300 mt-0.5">{kpis.elite}</p>
+            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-chunky p-3 text-center shadow-soft">
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#92400E]">Elite Picks</p>
+              <p className="text-2xl font-mono font-black text-[#B45309] mt-0.5">{kpis.elite}</p>
             </div>
-            <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
-              <p className="text-xs text-slate-400 uppercase tracking-wider">Avg Own %</p>
-              <p className="text-xl font-bold text-cyan-300 mt-0.5">{kpis.avgOwn}%</p>
+            <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-chunky p-3 text-center shadow-soft">
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#15803D]">Avg Own %</p>
+              <p className="text-2xl font-mono font-black text-[#16A34A] mt-0.5">{kpis.avgOwn}%</p>
             </div>
-            <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 text-center">
-              <p className="text-xs text-purple-400 uppercase tracking-wider">Peak P(≥8)</p>
-              <p className="text-xl font-bold text-purple-300 mt-0.5">{kpis.maxUpside}%</p>
+            <div className="bg-[#EEF2FF] border border-[#C7D2FE] rounded-chunky p-3 text-center shadow-soft">
+              <p className="text-[10px] font-black uppercase tracking-wider text-[#3730A3]">Peak P(≥8)</p>
+              <p className="text-2xl font-mono font-black text-[#4F46E5] mt-0.5">{kpis.maxUpside}%</p>
             </div>
           </div>
         </div>
@@ -123,9 +123,9 @@ export default function Differentials() {
 
       {/* Top 3 Featured Breakout Cards */}
       {top3.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-300 uppercase tracking-wider">
-            <Flame className="w-4 h-4 text-amber-400" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 font-display text-sm font-black text-[#0F172A] uppercase tracking-wider">
+            <Flame className="w-4 h-4 text-[#F59E0B]" />
             Top Differential Breakthroughs of the Week
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -136,64 +136,69 @@ export default function Differentials() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
                 className={cn(
-                  "relative rounded-xl border p-5 transition-all shadow-lg overflow-hidden",
+                  "relative rounded-chunky-lg border p-5 transition-all shadow-card hover:shadow-card-hover flex flex-col justify-between",
                   idx === 0
-                    ? "bg-gradient-to-b from-purple-900/30 to-slate-900/90 border-purple-500/40 shadow-purple-950/40"
-                    : "bg-slate-900/80 border-slate-800/80 hover:border-slate-700"
+                    ? "bg-gradient-to-br from-[#ECFDF5]/50 via-white to-white border-2 border-[#10B981] shadow-card-playful"
+                    : "bg-white border-[#E2E8F0] hover:border-[#CBD5E1]"
                 )}
               >
+                {idx === 0 && (
+                  <div className="absolute -top-3 right-4 rounded-full bg-[#10B981] px-2.5 py-0.5 text-[10px] font-black uppercase text-white shadow-sm">
+                    #1 Breakout Pick
+                  </div>
+                )}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <PlayerAvatar
                       photoUrl={player.photo_url}
                       name={player.name}
-                      className="w-12 h-12 rounded-lg"
+                      className="w-12 h-12 rounded-xl shadow-sm border border-[#E2E8F0]"
                     />
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <h3 className="font-bold text-base text-white">{player.name}</h3>
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                        <h3 className="font-display font-black text-base text-[#0F172A]">{player.name}</h3>
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#F1F5F9] border border-[#CBD5E1] text-[#334155] uppercase">
                           {player.position}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-400">{player.team}</p>
+                      <p className="text-xs font-semibold text-[#64748B]">{player.team}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-purple-300 font-medium">Diff Score</span>
-                    <p className="text-xl font-extrabold text-purple-400">{player.differential_score.toFixed(1)}</p>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#059669]">Diff Score</span>
+                    <p className="text-xl font-mono font-black text-[#059669]">{player.differential_score.toFixed(1)}</p>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-800/80 grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="bg-slate-950/50 rounded-lg p-2">
-                    <span className="text-slate-400 block">Price</span>
-                    <span className="font-bold text-white">£{player.price ?? ((player.value ?? 50) / 10).toFixed(1)}m</span>
+                <div className="mt-4 pt-3 border-t border-[#F1F5F9] grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-2">
+                    <span className="text-[10px] font-bold text-[#64748B] block">Price</span>
+                    <span className="font-mono font-black text-[#0F172A]">£{player.price ?? ((player.value ?? 50) / 10).toFixed(1)}m</span>
                   </div>
-                  <div className="bg-slate-950/50 rounded-lg p-2">
-                    <span className="text-slate-400 block">Ownership</span>
-                    <span className="font-bold text-cyan-300">
+                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-2">
+                    <span className="text-[10px] font-bold text-[#64748B] block">Ownership</span>
+                    <span className="font-mono font-black text-[#0284C7]">
                       {(player.ownership_pct ?? ((player.ownership_percentile ?? 0.1) * 100)).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="bg-slate-950/50 rounded-lg p-2">
-                    <span className="text-slate-400 block">P(≥8 pts)</span>
-                    <span className="font-bold text-emerald-400">{((player.p_8_plus ?? 0) * 100).toFixed(0)}%</span>
+                  <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-2">
+                    <span className="text-[10px] font-bold text-[#64748B] block">P(≥8 pts)</span>
+                    <span className="font-mono font-black text-[#059669]">{((player.p_8_plus ?? 0) * 100).toFixed(0)}%</span>
                   </div>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between text-xs">
                   <span className={cn(
-                    "px-2.5 py-1 rounded-md text-[11px] font-semibold border",
-                    player.differential_category === "Elite Differential" && "bg-amber-500/10 text-amber-300 border-amber-500/30",
-                    player.differential_category === "Emerging Differential" && "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
-                    player.differential_category === "Value Differential" && "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-                    (!player.differential_category || player.differential_category === "Standard Differential") && "bg-slate-800 text-slate-300 border-slate-700",
+                    "px-2.5 py-1 rounded-full text-[10px] font-black uppercase border tracking-wider",
+                    player.differential_category === "Elite Differential" && "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]",
+                    player.differential_category === "Emerging Differential" && "bg-[#EEF2FF] text-[#3730A3] border-[#C7D2FE]",
+                    player.differential_category === "Value Differential" && "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]",
+                    (!player.differential_category || player.differential_category === "Standard Differential") && "bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]",
                   )}>
-                    {player.differential_category || "Standard Differential"}
+                    {player.differential_category || "Standard"}
                   </span>
-                  <span className="text-slate-400">
-                    Expected: <strong className="text-slate-200">{(player.predicted_expected_points ?? 0).toFixed(1)} pts</strong>
+                  <span className="text-xs font-semibold text-[#64748B]">
+                    Expected: <strong className="font-black text-[#0F172A]">{(player.predicted_expected_points ?? 0).toFixed(1)} pts</strong>
                   </span>
                 </div>
               </motion.div>
@@ -204,45 +209,49 @@ export default function Differentials() {
 
       {/* Filter and Control Bar */}
       <div className="space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800/80">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-chunky-lg border border-[#E2E8F0] shadow-card">
           {/* Category Tabs */}
           <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5",
-                  selectedCategory === cat.id
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                    : "bg-slate-800/80 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
-                )}
-              >
-                {cat.icon && <cat.icon className="w-3.5 h-3.5" />}
-                {cat.label}
-              </button>
-            ))}
+            {CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
+              const Icon = cat.icon;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5",
+                    isSelected
+                      ? "bg-[#0F172A] text-white shadow-sm"
+                      : "bg-[#F8FAFC] text-[#475569] border border-[#E2E8F0] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+                  )}
+                >
+                  {Icon && <Icon className={cn("w-3.5 h-3.5", isSelected ? "text-white" : "text-[#64748B]")} />}
+                  {cat.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* View toggle & search */}
           <div className="flex items-center gap-3">
-            <div className="relative flex-1 md:w-56">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <div className="relative flex-1 md:w-60">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
               <input
                 type="text"
                 placeholder="Search player or team..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                className="w-full bg-[#F8FAFC] border border-[#CBD5E1] rounded-xl pl-9 pr-3 py-1.5 text-xs font-semibold text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#10B981] focus:bg-white transition-colors"
               />
             </div>
 
-            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5">
+            <div className="flex items-center bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-0.5">
               <button
                 onClick={() => setViewMode("grid")}
                 className={cn(
-                  "p-1.5 rounded-md text-xs transition-all",
-                  viewMode === "grid" ? "bg-slate-800 text-white" : "text-slate-500 hover:text-slate-300"
+                  "p-1.5 rounded-lg text-xs transition-all",
+                  viewMode === "grid" ? "bg-white text-[#0F172A] shadow-sm" : "text-[#64748B] hover:text-[#0F172A]"
                 )}
                 title="Grid View"
               >
@@ -251,8 +260,8 @@ export default function Differentials() {
               <button
                 onClick={() => setViewMode("table")}
                 className={cn(
-                  "p-1.5 rounded-md text-xs transition-all",
-                  viewMode === "table" ? "bg-slate-800 text-white" : "text-slate-500 hover:text-slate-300"
+                  "p-1.5 rounded-lg text-xs transition-all",
+                  viewMode === "table" ? "bg-white text-[#0F172A] shadow-sm" : "text-[#64748B] hover:text-[#0F172A]"
                 )}
                 title="Table View"
               >
@@ -263,16 +272,18 @@ export default function Differentials() {
         </div>
 
         {/* Secondary filters: Position & Ownership Threshold */}
-        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
+        <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-[#64748B]">
           <div className="flex items-center gap-2">
-            <span>Position:</span>
+            <span className="text-[#475569] font-bold">Position:</span>
             {["all", "GKP", "DEF", "MID", "FWD"].map((pos) => (
               <button
                 key={pos}
                 onClick={() => setSelectedPosition(pos)}
                 className={cn(
-                  "px-2.5 py-1 rounded text-xs font-medium transition-all",
-                  selectedPosition === pos ? "bg-slate-700 text-white" : "bg-slate-900 text-slate-400 hover:text-white"
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-all",
+                  selectedPosition === pos
+                    ? "bg-[#0F172A] text-white shadow-sm"
+                    : "bg-white border border-[#E2E8F0] text-[#475569] hover:border-[#CBD5E1] hover:text-[#0F172A]"
                 )}
               >
                 {pos.toUpperCase()}
@@ -281,14 +292,16 @@ export default function Differentials() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span>Ownership Cutoff:</span>
+            <span className="text-[#475569] font-bold">Ownership Cutoff:</span>
             {[10, 15, 20, 25, 100].map((own) => (
               <button
                 key={own}
                 onClick={() => setMaxOwnership(own)}
                 className={cn(
-                  "px-2.5 py-1 rounded text-xs font-medium transition-all",
-                  maxOwnership === own ? "bg-purple-900/50 text-purple-300 border border-purple-500/40" : "bg-slate-900 text-slate-400 hover:text-white"
+                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-all",
+                  maxOwnership === own
+                    ? "bg-[#10B981] text-white shadow-sm"
+                    : "bg-white border border-[#E2E8F0] text-[#475569] hover:border-[#CBD5E1] hover:text-[#0F172A]"
                 )}
               >
                 {own === 100 ? "Any" : `≤${own}%`}
@@ -318,7 +331,7 @@ export default function Differentials() {
           {filtered.map((player) => (
             <div
               key={player.element ?? player.name}
-              className="bg-slate-900/70 border border-slate-800/80 hover:border-purple-500/40 rounded-xl p-4 transition-all hover:shadow-xl hover:shadow-purple-950/20 flex flex-col justify-between"
+              className="bg-white border border-[#E2E8F0] hover:border-[#10B981] rounded-chunky-lg p-4 transition-all shadow-card hover:shadow-card-hover flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
@@ -326,78 +339,78 @@ export default function Differentials() {
                     <PlayerAvatar
                       photoUrl={player.photo_url}
                       name={player.name}
-                      className="w-10 h-10 rounded-lg"
+                      className="w-10 h-10 rounded-xl border border-[#E2E8F0] shadow-sm"
                     />
                     <div>
-                      <h4 className="font-bold text-sm text-white line-clamp-1">{player.name}</h4>
-                      <p className="text-xs text-slate-400">
-                        {player.team} • <span className="text-slate-300">{player.position}</span>
+                      <h4 className="font-display font-black text-sm text-[#0F172A] line-clamp-1">{player.name}</h4>
+                      <p className="text-xs font-semibold text-[#64748B]">
+                        {player.team} • <span className="font-bold text-[#334155]">{player.position}</span>
                       </p>
                     </div>
                   </div>
-                  <span className="text-xs font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                  <span className="text-xs font-mono font-black text-[#059669] bg-[#ECFDF5] px-2 py-0.5 rounded-lg border border-[#A7F3D0]">
                     {player.differential_score.toFixed(1)}
                   </span>
                 </div>
 
                 <div className="mt-4 grid grid-cols-3 gap-1.5 text-center text-xs">
-                  <div className="bg-slate-950/60 rounded p-1.5">
-                    <span className="text-[10px] text-slate-500 block">Price</span>
-                    <span className="font-semibold text-slate-200">
+                  <div className="bg-[#F8FAFC] border border-[#F1F5F9] rounded-lg p-1.5">
+                    <span className="text-[10px] font-bold text-[#64748B] block">Price</span>
+                    <span className="font-mono font-bold text-[#0F172A]">
                       £{player.price ?? ((player.value ?? 50) / 10).toFixed(1)}m
                     </span>
                   </div>
-                  <div className="bg-slate-950/60 rounded p-1.5">
-                    <span className="text-[10px] text-slate-500 block">Ownership</span>
-                    <span className="font-semibold text-cyan-400">
+                  <div className="bg-[#F8FAFC] border border-[#F1F5F9] rounded-lg p-1.5">
+                    <span className="text-[10px] font-bold text-[#64748B] block">Ownership</span>
+                    <span className="font-mono font-bold text-[#0284C7]">
                       {(player.ownership_pct ?? ((player.ownership_percentile ?? 0.1) * 100)).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="bg-slate-950/60 rounded p-1.5">
-                    <span className="text-[10px] text-slate-500 block">xPts</span>
-                    <span className="font-semibold text-slate-200">
+                  <div className="bg-[#F8FAFC] border border-[#F1F5F9] rounded-lg p-1.5">
+                    <span className="text-[10px] font-bold text-[#64748B] block">xPts</span>
+                    <span className="font-mono font-bold text-[#059669]">
                       {(player.predicted_expected_points ?? 0).toFixed(1)}
                     </span>
                   </div>
                 </div>
 
                 {/* Probability Chain Bars */}
-                <div className="mt-3 space-y-1 text-[11px]">
-                  <div className="flex items-center justify-between text-slate-400">
+                <div className="mt-3 space-y-1.5 text-[11px]">
+                  <div className="flex items-center justify-between font-semibold text-[#475569]">
                     <span>P(≥8 pts Haul)</span>
-                    <span className="font-medium text-emerald-400">{((player.p_8_plus ?? 0) * 100).toFixed(0)}%</span>
+                    <span className="font-mono font-bold text-[#059669]">{((player.p_8_plus ?? 0) * 100).toFixed(0)}%</span>
                   </div>
-                  <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                  <div className="w-full bg-[#F1F5F9] rounded-full h-1.5 overflow-hidden">
                     <div
-                      className="bg-emerald-500 h-full rounded-full transition-all"
+                      className="bg-[#10B981] h-full rounded-full transition-all"
                       style={{ width: `${Math.min(100, (player.p_8_plus ?? 0) * 100 * 2.5)}%` }}
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-slate-400 pt-1">
+                  <div className="flex items-center justify-between font-semibold text-[#475569] pt-1">
                     <span>P(≥10 pts Ceiling)</span>
-                    <span className="font-medium text-purple-400">{((player.p_10_plus ?? 0) * 100).toFixed(0)}%</span>
+                    <span className="font-mono font-bold text-[#4F46E5]">{((player.p_10_plus ?? 0) * 100).toFixed(0)}%</span>
                   </div>
-                  <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                  <div className="w-full bg-[#F1F5F9] rounded-full h-1.5 overflow-hidden">
                     <div
-                      className="bg-purple-500 h-full rounded-full transition-all"
+                      className="bg-[#6366F1] h-full rounded-full transition-all"
                       style={{ width: `${Math.min(100, (player.p_10_plus ?? 0) * 100 * 3.5)}%` }}
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 pt-2.5 border-t border-slate-800/80 flex items-center justify-between">
+              <div className="mt-4 pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between">
                 <span className={cn(
-                  "text-[10px] font-semibold px-2 py-0.5 rounded border",
-                  player.differential_category === "Elite Differential" && "bg-amber-500/10 text-amber-300 border-amber-500/30",
-                  player.differential_category === "Emerging Differential" && "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
-                  player.differential_category === "Value Differential" && "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-                  (!player.differential_category || player.differential_category === "Standard Differential") && "bg-slate-800 text-slate-400 border-slate-700",
+                  "text-[10px] font-black uppercase px-2 py-0.5 rounded-full border tracking-wider",
+                  player.differential_category === "Elite Differential" && "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]",
+                  player.differential_category === "Emerging Differential" && "bg-[#EEF2FF] text-[#3730A3] border-[#C7D2FE]",
+                  player.differential_category === "Value Differential" && "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]",
+                  (!player.differential_category || player.differential_category === "Standard Differential") && "bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]",
                 )}>
                   {player.differential_category || "Standard"}
                 </span>
-                <span className="text-[10px] text-slate-500">
+                <span className="text-[10px] font-bold text-[#94A3B8]">
                   GW{targetGw}
                 </span>
               </div>
@@ -406,9 +419,9 @@ export default function Differentials() {
         </div>
       ) : (
         /* Table View */
-        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/50">
+        <div className="overflow-x-auto rounded-chunky-lg border border-[#E2E8F0] bg-white shadow-card">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/80 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+            <thead className="bg-[#F8FAFC] text-[#475569] uppercase font-black tracking-wider text-[11px] border-b border-[#E2E8F0]">
               <tr>
                 <th className="py-3 px-4">Player</th>
                 <th className="py-3 px-3">Team</th>
@@ -423,37 +436,37 @@ export default function Differentials() {
                 <th className="py-3 px-4">Category</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-[#F1F5F9]">
               {filtered.map((player) => (
-                <tr key={player.element ?? player.name} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-3 px-4 font-semibold text-white flex items-center gap-2.5">
+                <tr key={player.element ?? player.name} className="hover:bg-[#F8FAFC] transition-colors">
+                  <td className="py-3 px-4 font-bold text-[#0F172A] flex items-center gap-2.5">
                     <PlayerAvatar
                       photoUrl={player.photo_url}
                       name={player.name}
-                      className="w-7 h-7 rounded"
+                      className="w-7 h-7 rounded-lg border border-[#E2E8F0]"
                     />
                     {player.name}
                   </td>
-                  <td className="py-3 px-3 text-slate-400">{player.team}</td>
-                  <td className="py-3 px-3 text-slate-300 font-medium">{player.position}</td>
-                  <td className="py-3 px-3 text-right font-medium">£{player.price ?? ((player.value ?? 50) / 10).toFixed(1)}m</td>
-                  <td className="py-3 px-3 text-right font-semibold text-cyan-400">
+                  <td className="py-3 px-3 font-semibold text-[#64748B]">{player.team}</td>
+                  <td className="py-3 px-3 font-bold text-[#334155]">{player.position}</td>
+                  <td className="py-3 px-3 text-right font-mono font-semibold text-[#0F172A]">£{player.price ?? ((player.value ?? 50) / 10).toFixed(1)}m</td>
+                  <td className="py-3 px-3 text-right font-mono font-bold text-[#0284C7]">
                     {(player.ownership_pct ?? ((player.ownership_percentile ?? 0.1) * 100)).toFixed(1)}%
                   </td>
-                  <td className="py-3 px-3 text-right font-medium text-slate-200">
+                  <td className="py-3 px-3 text-right font-mono font-bold text-[#059669]">
                     {(player.predicted_expected_points ?? 0).toFixed(1)}
                   </td>
-                  <td className="py-3 px-3 text-right text-slate-400">{((player.p_6_plus ?? 0) * 100).toFixed(0)}%</td>
-                  <td className="py-3 px-3 text-right font-bold text-emerald-400">{((player.p_8_plus ?? 0) * 100).toFixed(0)}%</td>
-                  <td className="py-3 px-3 text-right font-bold text-purple-400">{((player.p_10_plus ?? 0) * 100).toFixed(0)}%</td>
-                  <td className="py-3 px-4 text-right font-extrabold text-purple-300">{player.differential_score.toFixed(1)}</td>
+                  <td className="py-3 px-3 text-right font-mono text-[#64748B]">{((player.p_6_plus ?? 0) * 100).toFixed(0)}%</td>
+                  <td className="py-3 px-3 text-right font-mono font-bold text-[#059669]">{((player.p_8_plus ?? 0) * 100).toFixed(0)}%</td>
+                  <td className="py-3 px-3 text-right font-mono font-bold text-[#4F46E5]">{((player.p_10_plus ?? 0) * 100).toFixed(0)}%</td>
+                  <td className="py-3 px-4 text-right font-mono font-black text-[#059669]">{player.differential_score.toFixed(1)}</td>
                   <td className="py-3 px-4">
                     <span className={cn(
-                      "text-[10px] font-semibold px-2 py-0.5 rounded border",
-                      player.differential_category === "Elite Differential" && "bg-amber-500/10 text-amber-300 border-amber-500/30",
-                      player.differential_category === "Emerging Differential" && "bg-cyan-500/10 text-cyan-300 border-cyan-500/30",
-                      player.differential_category === "Value Differential" && "bg-emerald-500/10 text-emerald-300 border-emerald-500/30",
-                      (!player.differential_category || player.differential_category === "Standard Differential") && "bg-slate-800 text-slate-400 border-slate-700",
+                      "text-[10px] font-black uppercase px-2 py-0.5 rounded-full border tracking-wider",
+                      player.differential_category === "Elite Differential" && "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]",
+                      player.differential_category === "Emerging Differential" && "bg-[#EEF2FF] text-[#3730A3] border-[#C7D2FE]",
+                      player.differential_category === "Value Differential" && "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]",
+                      (!player.differential_category || player.differential_category === "Standard Differential") && "bg-[#F1F5F9] text-[#475569] border-[#E2E8F0]",
                     )}>
                       {player.differential_category || "Standard"}
                     </span>
