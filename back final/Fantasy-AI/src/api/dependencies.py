@@ -58,7 +58,9 @@ def get_prediction_query_service(request: Request) -> PredictionQueryService:
     """
     state = get_app_state(request)
     prediction_column = (
-        "predicted_fpl_rank_score"
+        "score_d"
+        if "score_d" in state.predictions.columns
+        else "predicted_fpl_rank_score"
         if "predicted_fpl_rank_score" in state.predictions.columns
         else "predicted_expected_points"
         if "predicted_expected_points" in state.predictions.columns

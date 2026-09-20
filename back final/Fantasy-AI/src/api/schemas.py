@@ -56,6 +56,7 @@ class HealthResponse(BaseModel):
 
     status: str
     model_name: str | None = None
+    scoring_model: str | None = None
     player_count: int | None = None
     live_metadata_available: bool | None = None
     season: str | None = None

@@ -181,6 +181,7 @@ def create_app() -> FastAPI:
         return HealthResponse(
             status="ok",
             model_name=state.loaded_model.model_name,
+            scoring_model=getattr(state, "scoring_model", None),
             player_count=len(state.predictions),
             live_metadata_available=state.live_metadata_available,
             season=state.season,

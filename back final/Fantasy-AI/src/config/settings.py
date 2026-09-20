@@ -787,6 +787,9 @@ class PredictionSettings:
     max_valid_gameweek: int = field(
         default_factory=lambda: _env_int("FANTASY_AI_MAX_GAMEWEEK_PREDICTION", 38)
     )
+    scoring_model: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_SCORING_MODEL", "multi_objective")
+    )
 
 
 @dataclass(frozen=True)

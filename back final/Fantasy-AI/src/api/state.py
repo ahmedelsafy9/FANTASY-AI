@@ -63,6 +63,7 @@ class AppState:
     generated_at: str | None = None
     differential_predictions: pd.DataFrame | None = None
     differential_metadata: dict[str, Any] | None = None
+    scoring_model: str = "multi_objective"
 
 
 def build_app_state(settings: Settings) -> AppState:
@@ -88,15 +89,57 @@ def build_app_state(settings: Settings) -> AppState:
         low_memory=False,
     )
 
-    model_path = settings.paths.models_dir / "best_model.joblib"
-    metadata_path = (
-        settings.paths.models_dir / "best_model_metadata.json"
-    )
+    scoring_model_type = getattr(settings.prediction, "scoring_model", "multi_objective").strip().lower()
+    loaded_model = None
 
-    loaded_model = load_model(
-        model_path,
-        metadata_path,
-    )
+    if scoring_model_type == "multi_objective":
+        exp_dir = settings.paths.models_dir / "experiments" / "multi_objective_scoring"
+        if not (exp_dir / "models" / "play_model.joblib").exists():
+            root_exp_dir = Path("models/experiments/multi_objective_scoring")
+            if (root_exp_dir / "models" / "play_model.joblib").exists() and (
+                settings.paths.models_dir.resolve() == Path("models").resolve()
+                or not (settings.paths.models_dir / "best_model.joblib").exists()
+            ):
+                exp_dir = root_exp_dir
+
+        if (exp_dir / "models" / "play_model.joblib").exists():
+            try:
+                from src.prediction.multi_objective_scorer import load_multi_objective_model
+
+                candidate_model = load_multi_objective_model(exp_dir)
+                missing_feats = [
+                    c for c in candidate_model.feature_columns if c not in engineered_data.columns
+                ]
+                if not missing_feats:
+                    loaded_model = candidate_model
+                    logger.info("Successfully loaded multi-objective model (Score_D).")
+                else:
+                    logger.warning(
+                        "Engineered dataset is missing %d required features for multi-objective model. Falling back to production model.",
+                        len(missing_feats),
+                    )
+                    scoring_model_type = "production"
+            except Exception as exc:
+                logger.warning(
+                    "Failed to load multi-objective model: %s. Falling back to production model.",
+                    exc,
+                )
+                scoring_model_type = "production"
+        else:
+            logger.info(
+                "Multi-objective model artifacts not found at %s. Falling back to production model.",
+                exp_dir,
+            )
+            scoring_model_type = "production"
+
+    if loaded_model is None:
+        model_path = settings.paths.models_dir / "best_model.joblib"
+        metadata_path = settings.paths.models_dir / "best_model_metadata.json"
+        loaded_model = load_model(
+            model_path,
+            metadata_path,
+        )
+        scoring_model_type = "production"
 
     player_id_column = next(
         (
@@ -164,7 +207,19 @@ def build_app_state(settings: Settings) -> AppState:
     if predicted_gw is None and latest_completed_gw is not None:
         predicted_gw = min(int(latest_completed_gw) + 1, settings.prediction.max_valid_gameweek)
 
+    use_feedback5 = False
     if feedback5_path.exists():
+        if scoring_model_type == "production":
+            use_feedback5 = True
+        elif scoring_model_type == "multi_objective":
+            try:
+                fb5_sample = pd.read_csv(feedback5_path, nrows=5)
+                if "score_d" in fb5_sample.columns:
+                    use_feedback5 = True
+            except Exception:
+                pass
+
+    if use_feedback5:
         logger.info(
             "Serving authoritative Feedback 5 predictions from %s...",
             feedback5_path,
@@ -183,7 +238,9 @@ def build_app_state(settings: Settings) -> AppState:
         predictions = fb5_df
     else:
         logger.info(
-            "Feedback 5 prediction artifact not found; falling back to model prediction..."
+            "Generating predictions using model '%s' (scoring_model=%s)...",
+            loaded_model.model_name,
+            scoring_model_type,
         )
         next_gw_rows = build_fixture_aware_next_gameweek_rows(
             engineered_data,
@@ -256,6 +313,7 @@ def build_app_state(settings: Settings) -> AppState:
         generated_at=generated_at,
         differential_predictions=diff_predictions,
         differential_metadata=diff_metadata,
+        scoring_model=scoring_model_type,
     )
 
 
