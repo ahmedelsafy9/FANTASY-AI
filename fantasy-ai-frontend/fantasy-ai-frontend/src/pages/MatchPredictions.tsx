@@ -164,7 +164,7 @@ export default function MatchPredictions() {
             ? `Upcoming Gameweek ${data.predicted_gameweek} Fixtures • Evaluated from official match data through GW ${data.latest_completed_gameweek}${
                 data.season ? ` • Season ${data.season}` : ""
               }`
-            : "Bivariate Poisson match outcome projections & market odds from the authoritative Match Model."}
+            : "Predicted scorelines, win probabilities, and fantasy impact picks for every fixture."}
         </p>
       </div>
 

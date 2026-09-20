@@ -5,10 +5,10 @@ import {
   Sparkles,
   Activity,
   Award,
-  Zap,
 } from "lucide-react";
 import type { MatchPrediction, MatchPlayerImpact } from "@/types/api";
 import { TeamBadge, PlayerAvatar } from "@/components/identity";
+import { AdvancedToggle } from "@/components/AdvancedToggle";
 import { cn } from "@/lib/utils";
 
 interface MatchDetailPanelProps {
@@ -75,11 +75,6 @@ function PlayerImpactCard({
         <div className="font-mono text-sm font-black text-[#10B981]">
           {player.expected_points != null ? `${player.expected_points.toFixed(1)} xPts` : "—"}
         </div>
-        {player.fpl_rank_score != null && (
-          <div className="text-[10px] font-mono font-bold text-[#64748B]">
-            Rank: {player.fpl_rank_score.toFixed(1)}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -175,13 +170,10 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-[#10B981]" />
             <span className="text-xs font-bold text-[#334155]">
-              Model Confidence:{" "}
+              Match Confidence:{" "}
               <strong className="text-[#0F172A]">{match.confidence_level}</strong>
             </span>
           </div>
-          <span className="font-mono text-xs font-black text-[#10B981]">
-            {Math.round(match.confidence * 100)}%
-          </span>
         </div>
       </div>
 
@@ -189,7 +181,7 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
       <div className="space-y-3">
         <h4 className="text-xs font-black uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
           <Activity size={14} className="text-[#10B981]" />
-          Match Outcome Probabilities (Poisson)
+          Match Outcome Probabilities
         </h4>
 
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -354,54 +346,52 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
 
       {/* Model Statistical Drivers */}
       {drivers && (
-        <div className="space-y-3">
-          <h4 className="text-xs font-black uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
-            <Zap size={14} className="text-[#10B981]" />
-            Match Model Features
-          </h4>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {drivers.home_attack_strength != null && (
-              <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
-                <span className="text-[10px] font-bold text-[#64748B] block truncate">
-                  {match.home_team} Attack
-                </span>
-                <span className="font-mono font-black text-[#0F172A]">
-                  {Number(drivers.home_attack_strength).toFixed(2)}
-                </span>
-              </div>
-            )}
-            {drivers.away_attack_strength != null && (
-              <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
-                <span className="text-[10px] font-bold text-[#64748B] block truncate">
-                  {match.away_team} Attack
-                </span>
-                <span className="font-mono font-black text-[#0F172A]">
-                  {Number(drivers.away_attack_strength).toFixed(2)}
-                </span>
-              </div>
-            )}
-            {drivers.home_defence_strength != null && (
-              <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
-                <span className="text-[10px] font-bold text-[#64748B] block truncate">
-                  {match.home_team} Defence
-                </span>
-                <span className="font-mono font-black text-[#0F172A]">
-                  {Number(drivers.home_defence_strength).toFixed(2)}
-                </span>
-              </div>
-            )}
-            {drivers.away_defence_strength != null && (
-              <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
-                <span className="text-[10px] font-bold text-[#64748B] block truncate">
-                  {match.away_team} Defence
-                </span>
-                <span className="font-mono font-black text-[#0F172A]">
-                  {Number(drivers.away_defence_strength).toFixed(2)}
-                </span>
-              </div>
-            )}
+        <AdvancedToggle label="Match statistical drivers">
+          <div className="space-y-2 pt-1">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {drivers.home_attack_strength != null && (
+                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
+                  <span className="text-[10px] font-bold text-[#64748B] block truncate">
+                    {match.home_team} Attack
+                  </span>
+                  <span className="font-mono font-black text-[#0F172A]">
+                    {Number(drivers.home_attack_strength).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {drivers.away_attack_strength != null && (
+                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
+                  <span className="text-[10px] font-bold text-[#64748B] block truncate">
+                    {match.away_team} Attack
+                  </span>
+                  <span className="font-mono font-black text-[#0F172A]">
+                    {Number(drivers.away_attack_strength).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {drivers.home_defence_strength != null && (
+                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
+                  <span className="text-[10px] font-bold text-[#64748B] block truncate">
+                    {match.home_team} Defence
+                  </span>
+                  <span className="font-mono font-black text-[#0F172A]">
+                    {Number(drivers.home_defence_strength).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              {drivers.away_defence_strength != null && (
+                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
+                  <span className="text-[10px] font-bold text-[#64748B] block truncate">
+                    {match.away_team} Defence
+                  </span>
+                  <span className="font-mono font-black text-[#0F172A]">
+                    {Number(drivers.away_defence_strength).toFixed(2)}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </AdvancedToggle>
       )}
 
       {/* Fantasy Impact Section */}
@@ -409,10 +399,10 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
         <div>
           <h4 className="text-xs font-black uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
             <Award size={14} className="text-[#F59E0B]" />
-            Fantasy Impact Highlights
+            Fantasy Picks for This Match
           </h4>
           <p className="text-[11px] font-semibold text-[#64748B] mt-0.5">
-            Derived directly from authoritative Feedback 5 player prediction pipeline.
+            Key assets to target based on expected points and match dynamics.
           </p>
         </div>
 

@@ -1,8 +1,10 @@
+import { Link } from "react-router-dom";
 import type { PlayerRecord } from "@/types/api";
 import { PlayerAvatar, TeamBadge } from "@/components/identity";
 import { UpcomingFixtures } from "@/components/UpcomingFixtures";
-import { formatStat } from "@/lib/format";
-import { deriveInsights, derivePlayingTimeReliability } from "@/lib/insights";
+import { ExpectedPoints } from "@/components/ExpectedPoints";
+import { ConfidenceBadge } from "@/components/ConfidenceBadge";
+import { deriveConfidenceLevel, deriveReasons, deriveRecommendation } from "@/lib/insights";
 import { getPlayerPrice } from "@/hooks/useSquad";
 import { Card } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
@@ -12,23 +14,43 @@ interface PlayerCardProps {
   rank?: number;
   onClick?: () => void;
   className?: string;
+  /** If true, the card links to the player detail page */
+  linkToDetail?: boolean;
 }
 
-export function PlayerCard({ player, rank, onClick, className }: PlayerCardProps) {
-  const insights = deriveInsights(player);
-  const reliability = derivePlayingTimeReliability(player);
+/**
+ * ONE reusable player card used consistently everywhere.
+ *
+ * Shows: Player identity → Expected points (prominent) → Confidence →
+ *        Next opponent → Top reason → Price
+ *
+ * Does NOT show: raw ML probabilities, rank scores, P85, P(≥6) etc.
+ */
+export function PlayerCard({
+  player,
+  rank,
+  onClick,
+  className,
+  linkToDetail = false,
+}: PlayerCardProps) {
+  const confidence = deriveConfidenceLevel(player);
+  const reasons = deriveReasons(player);
+  const recommendation = deriveRecommendation(player, confidence);
   const price = getPlayerPrice(player);
+  const xPts = player.predicted_expected_points ?? player.predicted_total_points;
+  const topReason = reasons[0];
 
-  const topInsight = insights.find((i) => i.tone === "teal" || i.tone === "gold") ?? insights[0];
+  const playerId = player.element !== undefined ? String(player.element) : player.name ?? "";
 
-  return (
+  const cardContent = (
     <Card
-      interactive={!!onClick}
+      interactive={!!onClick || linkToDetail}
       as="article"
       className={cn(
         "relative flex flex-col overflow-hidden border border-[#E2E8F0] bg-white text-[#0F172A] p-0 shadow-card transition-all duration-200 hover:border-[#10B981] hover:shadow-card-playful",
         className,
       )}
+      onClick={onClick}
     >
       {/* Top Header Bar */}
       <div className="flex items-center justify-between border-b border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5">
@@ -41,11 +63,14 @@ export function PlayerCard({ player, rank, onClick, className }: PlayerCardProps
           <TeamBadge team={player.team} logoUrl={player.team_logo_url} size="sm" showName />
         </div>
 
-        {player.position && (
-          <span className="rounded-full bg-[#F1F5F9] border border-[#CBD5E1] px-2.5 py-0.5 text-[10px] font-black uppercase text-[#334155]">
-            {player.position === "GKP" ? "GK" : player.position}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {player.position && (
+            <span className="rounded-full bg-[#F1F5F9] border border-[#CBD5E1] px-2.5 py-0.5 text-[10px] font-black uppercase text-[#334155]">
+              {player.position === "GKP" ? "GK" : player.position}
+            </span>
+          )}
+          <ConfidenceBadge level={confidence} showTooltip={false} />
+        </div>
       </div>
 
       {/* Main Content Area */}
@@ -66,32 +91,16 @@ export function PlayerCard({ player, rank, onClick, className }: PlayerCardProps
               <span className="numeral text-xs font-black text-[#059669] bg-[#ECFDF5] px-2 py-0.5 rounded border border-[#A7F3D0]">
                 £{price.toFixed(1)}m
               </span>
-              {topInsight && (
-                <span className="rounded-md bg-[#F1F5F9] border border-[#CBD5E1] px-1.5 py-0.5 text-[10px] font-black text-[#334155]">
-                  {topInsight.label}
-                </span>
-              )}
+              <span className="text-[10px] font-bold text-[#64748B]">
+                {recommendation}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Model Predicted Points Box (Prominent Feature) */}
-        <div className="flex flex-col items-end shrink-0 rounded-2xl border-2 border-[#FDE68A] bg-[#FFFBEB] p-2.5 text-right shadow-sm">
-          <span className="text-[9px] font-black uppercase tracking-wider text-[#92400E]">
-            AI Expected
-          </span>
-          <span className="numeral text-2xl font-black text-[#92400E] leading-none">
-            {formatStat(player.predicted_expected_points ?? player.predicted_total_points)}
-          </span>
-          {typeof player.predicted_fpl_rank_score === "number" ? (
-            <span className="mt-1 text-[10px] font-black text-[#92400E] bg-[#FEF3C7] px-1.5 py-0.5 rounded border border-[#FDE68A]">
-              Score: {formatStat(player.predicted_fpl_rank_score)}
-            </span>
-          ) : typeof player.predicted_p85_points === "number" ? (
-            <span className="mt-1 text-[10px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-              P85: {formatStat(player.predicted_p85_points)}
-            </span>
-          ) : null}
+        {/* Expected Points (Prominent Feature) */}
+        <div className="shrink-0">
+          <ExpectedPoints points={xPts} size="md" showLabel={true} />
         </div>
       </div>
 
@@ -100,43 +109,25 @@ export function PlayerCard({ player, rank, onClick, className }: PlayerCardProps
         <UpcomingFixtures player={player} variant="compact" maxFixtures={3} />
       </div>
 
-      {/* Quick Stats Strip */}
-      <div className="grid grid-cols-3 divide-x divide-[#E2E8F0] border-t border-[#E2E8F0] bg-white text-center">
-        <div className="py-2.5">
-          <span className="block text-[9px] font-black uppercase tracking-wider text-[#64748B]">
-            {typeof player.predicted_fpl_rank_score === "number" ? "Rank Score" : "Form (3GW)"}
-          </span>
-          <span className="numeral text-xs font-black text-[#0F172A]">
-            {typeof player.predicted_fpl_rank_score === "number"
-              ? formatStat(player.predicted_fpl_rank_score)
-              : formatStat(player.total_points_avg_last_3)}
-          </span>
+      {/* Key Reason Strip */}
+      {topReason && (
+        <div className="border-t border-[#E2E8F0] bg-white px-4 py-2.5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#475569]">
+            <span className="text-sm leading-none">{topReason.icon}</span>
+            <span>{topReason.text}</span>
+          </div>
         </div>
-        <div className="py-2.5">
-          <span className="block text-[9px] font-black uppercase tracking-wider text-[#64748B]">
-            {typeof player.prob_high_score_6 === "number" ? "P(≥6 pts)" : "Mins (5GW)"}
-          </span>
-          <span className="numeral text-xs font-black text-[#059669]">
-            {typeof player.prob_high_score_6 === "number"
-              ? `${Math.round(player.prob_high_score_6 * 100)}%`
-              : formatStat(player.minutes_avg_last_5, 0)}
-          </span>
-        </div>
-        <div className="py-2.5">
-          <span className="block text-[9px] font-black uppercase tracking-wider text-[#64748B]">
-            {typeof (player.ceiling_p85 ?? player.predicted_p85_points) === "number"
-              ? "P85 Ceiling"
-              : "Reliability"}
-          </span>
-          <span className="numeral text-xs font-black text-purple-700">
-            {typeof (player.ceiling_p85 ?? player.predicted_p85_points) === "number"
-              ? formatStat(player.ceiling_p85 ?? player.predicted_p85_points)
-              : reliability !== null
-              ? `${Math.round(reliability * 100)}%`
-              : "N/A"}
-          </span>
-        </div>
-      </div>
+      )}
     </Card>
   );
+
+  if (linkToDetail) {
+    return (
+      <Link to={`/players/${encodeURIComponent(playerId)}`} className="block">
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return cardContent;
 }

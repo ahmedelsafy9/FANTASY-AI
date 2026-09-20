@@ -20,7 +20,7 @@ export function GameweekOverview({ health, gameweek }: GameweekOverviewProps) {
       ? [
           {
             icon: Activity,
-            label: "Data Ingested Through",
+            label: "Stats Updated Through",
             value: `GW ${health.latest_completed_gameweek}`,
             color: "text-amber-800 bg-amber-50",
           },

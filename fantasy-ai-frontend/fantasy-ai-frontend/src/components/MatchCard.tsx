@@ -75,7 +75,7 @@ export function MatchCard({ match, onClick }: MatchCardProps) {
               confidenceTone
             )}
           >
-            {match.confidence_level} Conf ({Math.round(match.confidence * 100)}%)
+            {match.confidence_level} Confidence
           </span>
         </div>
       </div>
@@ -191,13 +191,13 @@ export function MatchCard({ match, onClick }: MatchCardProps) {
 
           {typeof match.over_2_5_probability === "number" && (
             <span className="rounded bg-[#F8FAFC] px-1.5 py-0.5 text-[10px] font-bold text-[#64748B] border border-[#E2E8F0]">
-              O2.5: {Math.round(match.over_2_5_probability * 100)}%
+              Over 2.5 goals: {Math.round(match.over_2_5_probability * 100)}%
             </span>
           )}
 
           {typeof match.btts_probability === "number" && (
             <span className="rounded bg-[#F8FAFC] px-1.5 py-0.5 text-[10px] font-bold text-[#64748B] border border-[#E2E8F0]">
-              BTTS: {Math.round(match.btts_probability * 100)}%
+              Both score: {Math.round(match.btts_probability * 100)}%
             </span>
           )}
         </div>

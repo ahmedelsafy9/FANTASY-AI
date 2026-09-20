@@ -70,10 +70,11 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
 interface DrawerProps {
   open: boolean;
   onClose: () => void;
+  title?: string;
   children: ReactNode;
 }
 
-export function Drawer({ open, onClose, children }: DrawerProps) {
+export function Drawer({ open, onClose, title, children }: DrawerProps) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -97,19 +98,23 @@ export function Drawer({ open, onClose, children }: DrawerProps) {
           <motion.div
             role="dialog"
             aria-modal="true"
+            aria-label={title}
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
             className="relative z-10 h-full w-full max-w-md overflow-y-auto border-l border-[#E2E8F0] bg-white p-6 text-[#0F172A] shadow-card-hover"
           >
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              className="absolute right-5 top-5 rounded-xl p-1.5 text-[#64748B] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A] cursor-pointer"
-            >
-              <X size={18} />
-            </button>
+            <div className="mb-4 flex items-center justify-between">
+              {title && <h3 className="text-lg font-black text-[#0F172A] truncate pr-2">{title}</h3>}
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="ml-auto rounded-xl p-1.5 text-[#64748B] transition-colors hover:bg-[#F1F5F9] hover:text-[#0F172A] cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
             {children}
           </motion.div>
         </div>

@@ -95,8 +95,7 @@ export default function Differentials() {
               High-Upside <span className="text-[#10B981]">Differentials</span>
             </h1>
             <p className="text-sm font-semibold text-[#475569] max-w-2xl leading-relaxed">
-              Targeted prediction layer identifying low-ownership players (<span className="text-[#10B981] font-black">≤20%</span>)
-              with disproportionate probability of outperforming expected output in the next Gameweek.
+              Low-ownership picks (<span className="text-[#10B981] font-black">≤20% owned</span>) with strong expected points and high haul potential to help you gain rank this gameweek.
             </p>
           </div>
 
@@ -182,7 +181,7 @@ export default function Differentials() {
                     </span>
                   </div>
                   <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-2">
-                    <span className="text-[10px] font-bold text-[#64748B] block">P(≥8 pts)</span>
+                    <span className="text-[10px] font-bold text-[#64748B] block">Haul Chance</span>
                     <span className="font-mono font-black text-[#059669]">{((player.p_8_plus ?? 0) * 100).toFixed(0)}%</span>
                   </div>
                 </div>
@@ -377,7 +376,7 @@ export default function Differentials() {
                 {/* Probability Chain Bars */}
                 <div className="mt-3 space-y-1.5 text-[11px]">
                   <div className="flex items-center justify-between font-semibold text-[#475569]">
-                    <span>P(≥8 pts Haul)</span>
+                    <span>Haul chance (8+ pts)</span>
                     <span className="font-mono font-bold text-[#059669]">{((player.p_8_plus ?? 0) * 100).toFixed(0)}%</span>
                   </div>
                   <div className="w-full bg-[#F1F5F9] rounded-full h-1.5 overflow-hidden">
@@ -388,7 +387,7 @@ export default function Differentials() {
                   </div>
 
                   <div className="flex items-center justify-between font-semibold text-[#475569] pt-1">
-                    <span>P(≥10 pts Ceiling)</span>
+                    <span>Ceiling chance (10+ pts)</span>
                     <span className="font-mono font-bold text-[#4F46E5]">{((player.p_10_plus ?? 0) * 100).toFixed(0)}%</span>
                   </div>
                   <div className="w-full bg-[#F1F5F9] rounded-full h-1.5 overflow-hidden">
@@ -429,10 +428,10 @@ export default function Differentials() {
                 <th className="py-3 px-3 text-right">Price</th>
                 <th className="py-3 px-3 text-right">Own %</th>
                 <th className="py-3 px-3 text-right">xPts</th>
-                <th className="py-3 px-3 text-right">P(≥6)</th>
-                <th className="py-3 px-3 text-right">P(≥8)</th>
-                <th className="py-3 px-3 text-right">P(≥10)</th>
-                <th className="py-3 px-4 text-right">Diff Score</th>
+                <th className="py-3 px-3 text-right">Return (6+)</th>
+                <th className="py-3 px-3 text-right">Haul (8+)</th>
+                <th className="py-3 px-3 text-right">Ceiling (10+)</th>
+                <th className="py-3 px-4 text-right">Diff Rating</th>
                 <th className="py-3 px-4">Category</th>
               </tr>
             </thead>

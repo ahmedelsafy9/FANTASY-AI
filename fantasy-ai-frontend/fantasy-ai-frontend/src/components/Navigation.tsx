@@ -7,7 +7,6 @@ import {
   Users,
   LayoutDashboard,
   Shirt,
-  Calendar,
   Crown,
   Trophy,
   Menu,
@@ -20,14 +19,12 @@ import { Button } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { path: "/predictions", label: "Predictions", icon: Sparkles },
+  { path: "/", label: "Gameweek", icon: LayoutDashboard },
+  { path: "/players", label: "Players", icon: Users },
+  { path: "/captain", label: "Captain", icon: Crown },
   { path: "/differentials", label: "Differentials", icon: Flame },
   { path: "/match-predictions", label: "Matches", icon: Trophy },
   { path: "/squad", label: "Squad", icon: Shirt },
-  { path: "/captain", label: "Captain", icon: Crown },
-  { path: "/players", label: "Players", icon: Users },
-  { path: "/fixtures", label: "Fixtures", icon: Calendar },
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 ];
 
 export function Navigation() {

@@ -20,6 +20,23 @@ export function formatInt(value: number | null | undefined): string {
   return String(Math.round(value));
 }
 
+/**
+ * Formats expected points for display: "6.8 pts".
+ * Uses 1 decimal place. Never implies certainty.
+ */
+export function formatExpectedPoints(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "— pts";
+  return `${value.toFixed(1)} pts`;
+}
+
+/**
+ * Returns the expected points as just the number for prominent display.
+ */
+export function formatExpectedPointsNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—";
+  return value.toFixed(1);
+}
+
 /** Extracts up to 2 initials from a player's display name. */
 export function getInitials(name: string | null | undefined): string {
   if (!name) return "??";
