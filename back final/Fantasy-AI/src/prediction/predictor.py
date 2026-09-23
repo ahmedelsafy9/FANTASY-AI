@@ -66,15 +66,21 @@ class PredictionService:
                 absent from ``rows`` (as opposed to merely having some
                 missing values, which are imputed).
         """
+        expected_features = self._loaded_model.feature_columns
         missing_columns = [
-            c for c in self._loaded_model.feature_columns if c not in rows.columns
+            c for c in expected_features if c not in rows.columns
         ]
         if missing_columns:
             raise PredictionError(
-                f"Input data is missing required feature column(s): {missing_columns}."
+                f"Feature schema mismatch: input data is missing {len(missing_columns)} required feature column(s): {missing_columns[:10]}"
             )
 
-        X = rows[self._loaded_model.feature_columns].apply(pd.to_numeric, errors="coerce")
+        X = rows[list(expected_features)].apply(pd.to_numeric, errors="coerce")
+
+        if len(X.columns) != len(expected_features) or list(X.columns) != list(expected_features):
+            raise PredictionError(
+                f"Feature schema mismatch: extracted feature columns ({len(X.columns)}) do not match expected schema ({len(expected_features)})."
+            )
         X = X.fillna(self._loaded_model.train_medians)
         remaining_na = X.isna().sum()
         still_missing = remaining_na[remaining_na > 0]

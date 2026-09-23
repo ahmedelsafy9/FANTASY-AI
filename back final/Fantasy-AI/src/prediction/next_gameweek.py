@@ -12,6 +12,11 @@ import pandas as pd
 
 from src.config.logging_config import get_logger
 from src.core.exceptions import PredictionError
+from src.feature_engineering.steps.recent_form import (
+    PRODUCTION_FEATURES_F,
+    RAW_FORM_VARIABLES,
+    WINDOWS,
+)
 
 logger = get_logger(__name__)
 
@@ -196,6 +201,10 @@ def build_next_gameweek_rows(
     # 4. If current-season matches exist, update in-season state
     # ------------------------------------------------------------------
     p_indexed = latest_rows.set_index(player_id_column)
+    missing_f = [feat for feat in PRODUCTION_FEATURES_F if feat not in p_indexed.columns]
+    if missing_f:
+        empty_df = pd.DataFrame(np.nan, index=p_indexed.index, columns=missing_f)
+        p_indexed = pd.concat([p_indexed, empty_df], axis=1).copy()
     completed_all = current_season_data.sort_values(by=sort_columns, kind="mergesort")
 
     # Map stat names to output feature prefixes
@@ -323,6 +332,63 @@ def build_next_gameweek_rows(
         if valid_pairs:
             total_w = sum(w for _, w in valid_pairs)
             p_indexed.loc[p_id, "form_index"] = sum(float(v) * (w / total_w) for v, w in valid_pairs)
+
+        # 4.5 Recent-form features (Configuration F: 112 raw recent + 16 volatility)
+        for var in RAW_FORM_VARIABLES:
+            if var in p_comp.columns:
+                num_s = pd.to_numeric(p_comp[var], errors="coerce").dropna()
+                for w in WINDOWS:
+                    for k in range(1, w + 1):
+                        out_col = f"rf_{var}_L{w}_GW_minus_{k}"
+                        val = float(num_s.iloc[-k]) if len(num_s) >= k else np.nan
+                        p_indexed.loc[p_id, out_col] = val
+
+        pts_comp = (
+            pd.to_numeric(p_comp["total_points"], errors="coerce").dropna()
+            if "total_points" in p_comp.columns
+            else pd.Series(dtype=float)
+        )
+        min_comp = (
+            pd.to_numeric(p_comp["minutes"], errors="coerce").dropna()
+            if "minutes" in p_comp.columns
+            else pd.Series(dtype=float)
+        )
+
+        for w in WINDOWS:
+            prefix = f"rf_vol_L{w}"
+            pts_win = pts_comp.tail(w)
+            min_win = min_comp.tail(w)
+            n_win = len(pts_win)
+
+            if n_win > 0:
+                h6 = float(np.sum(pts_win >= 6))
+                d10 = float(np.sum(pts_win >= 10))
+                blk = float(np.sum(pts_win <= 2))
+                ret = float(np.sum(pts_win >= 4))
+                cons = ret / n_win
+                p_std = float(pts_win.std(ddof=1)) if n_win >= 2 else np.nan
+                p_rng = float(pts_win.max() - pts_win.min())
+            else:
+                h6, d10, blk, ret, cons, p_std, p_rng = (
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                )
+
+            m_std = float(min_win.std(ddof=1)) if len(min_win) >= 2 else np.nan
+
+            p_indexed.loc[p_id, f"{prefix}_high_score_6_count"] = h6
+            p_indexed.loc[p_id, f"{prefix}_double_digit_count"] = d10
+            p_indexed.loc[p_id, f"{prefix}_blank_count"] = blk
+            p_indexed.loc[p_id, f"{prefix}_returns_count"] = ret
+            p_indexed.loc[p_id, f"{prefix}_consistency_ratio"] = cons
+            p_indexed.loc[p_id, f"{prefix}_pts_std"] = p_std
+            p_indexed.loc[p_id, f"{prefix}_pts_range"] = p_rng
+            p_indexed.loc[p_id, f"{prefix}_minutes_std"] = m_std
 
     latest_rows = p_indexed.reset_index()
     max_pred_gw = int(latest_rows["predicted_for_gw"].max()) if "predicted_for_gw" in latest_rows.columns and not latest_rows["predicted_for_gw"].isna().all() else 1

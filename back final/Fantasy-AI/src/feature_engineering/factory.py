@@ -22,6 +22,7 @@ from src.feature_engineering.steps.price_trend import PriceTrendStep
 from src.feature_engineering.steps.promoted_teams import PromotedAndHistoricalStep
 from src.feature_engineering.steps.rest_days import RestDaysStep
 from src.feature_engineering.steps.rolling_stats import RollingAverageStep
+from src.feature_engineering.steps.recent_form import RecentFormStep
 from src.feature_engineering.steps.team_form_trend import TeamFormTrendStep
 from src.feature_engineering.steps.team_strength import TeamStrengthStep
 
@@ -214,5 +215,9 @@ def build_default_feature_steps(
         FormIndexStep(
             component_columns=form_index_components,
             weights=settings.form_index_weights,
+        ),
+        RecentFormStep(
+            player_id_columns=settings.player_id_columns,
+            chronological_columns=settings.chronological_columns,
         ),
     ]

@@ -408,9 +408,9 @@ class TestAutomationCompositePromotion:
         metadata = json.loads(best_metadata_path.read_text())
         metadata["metrics"]["mae"] = 0.0000001
         metadata["metrics"]["rmse"] = 0.0000001
-        metadata["metrics"]["composite_score"] = 0.9999
-        metadata["metrics"]["spearman_rho"] = 0.9999
-        metadata["metrics"]["recall_6"] = 0.9999
+        metadata["metrics"]["composite_score"] = 1.0001
+        metadata["metrics"]["spearman_rho"] = 1.0
+        metadata["metrics"]["recall_6"] = 1.0
         best_metadata_path.write_text(json.dumps(metadata))
 
         best_model_path = isolated_settings.paths.models_dir / "best_model.joblib"

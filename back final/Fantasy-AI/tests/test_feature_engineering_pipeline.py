@@ -51,8 +51,8 @@ def test_pipeline_never_removes_rows() -> None:
     assert result.rows_before == result.rows_after
 
 
-def test_build_default_feature_steps_returns_fourteen_steps() -> None:
-    """The factory must build the full 14-step sequence including opportunity & expected_minutes."""
+def test_build_default_feature_steps_returns_fifteen_steps() -> None:
+    """The factory must build the full 15-step sequence including recent_form."""
     steps = build_default_feature_steps(FeatureEngineeringSettings())
     names = [step.name for step in steps]
     assert names == [
@@ -70,6 +70,7 @@ def test_build_default_feature_steps_returns_fourteen_steps() -> None:
         "team_form_trend",
         "price_trend",
         "form_index",
+        "recent_form",
     ]
 
 
