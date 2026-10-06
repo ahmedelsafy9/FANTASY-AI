@@ -8,6 +8,9 @@ import type {
   PlayerResponse,
   PredictionListResponse,
   SquadBuildResponse,
+  ChatResponse,
+  ChatStatusResponse,
+  ChatMessage,
 } from "@/types/api";
 
 /**
@@ -86,6 +89,26 @@ export async function getDifferentials(
   if (isMockMode()) return getMock("differentials");
   const { data } = await apiClient.get<DifferentialListResponse>("/differentials/next-gameweek", {
     params,
+  });
+  return data;
+}
+
+// ---------------------------------------------------------------
+// Chatbot endpoints
+// ---------------------------------------------------------------
+
+export async function getChatbotStatus(): Promise<ChatStatusResponse> {
+  const { data } = await apiClient.get<ChatStatusResponse>("/chatbot/status");
+  return data;
+}
+
+export async function sendChatMessage(
+  message: string,
+  conversationHistory: ChatMessage[] = [],
+): Promise<ChatResponse> {
+  const { data } = await apiClient.post<ChatResponse>("/chatbot/message", {
+    message,
+    conversation_history: conversationHistory,
   });
   return data;
 }

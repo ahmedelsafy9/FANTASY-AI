@@ -19,6 +19,7 @@ dist/
 # Environment / secrets
 .env
 .env.*
+!.env.example
 *.local
 
 # Data (never version raw or processed datasets)

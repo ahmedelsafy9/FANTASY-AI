@@ -32,7 +32,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.responses import JSONResponse
 
-from src.api.routers import differentials, match_predictions, players, predictions, squad
+from src.api.routers import chatbot, differentials, match_predictions, players, predictions, squad
 from src.api.schemas import HealthResponse
 from src.api.state import build_app_state
 from src.config.logging_config import configure_logging, get_logger
@@ -92,6 +92,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.fantasy_ai_state = build_app_state(settings)
 
         logger.info("Fantasy-AI API startup complete.")
+
+        # ---- Chatbot configuration validation ----
+        cb = getattr(settings, "chatbot", None)
+        if cb and getattr(cb, "enabled", False):
+            has_key = bool(getattr(cb, "llm_api_key", ""))
+            model = getattr(cb, "llm_model", "unknown")
+            provider = getattr(cb, "llm_provider", "unknown")
+            if has_key:
+                logger.info(
+                    "Chatbot AI mode ACTIVE: provider=%s, model=%s. "
+                    "Tool calling and natural-language responses enabled.",
+                    provider,
+                    model,
+                )
+            else:
+                logger.warning(
+                    "Chatbot is enabled but FANTASY_AI_LLM_API_KEY is not set. "
+                    "The chatbot will use data-only fallback mode (no LLM). "
+                    "To enable AI mode, add your Gemini API key to the .env file: "
+                    "FANTASY_AI_LLM_API_KEY=<your-key-from-https://aistudio.google.com/apikey>"
+                )
+        else:
+            logger.info("Chatbot feature is disabled.")
 
     except (FileNotFoundError, FantasyAIError) as exc:
         logger.error(
@@ -160,6 +183,7 @@ def create_app() -> FastAPI:
     app.include_router(differentials.router)
     app.include_router(match_predictions.router)
     app.include_router(squad.router)
+    app.include_router(chatbot.router)
 
     # ------------------------------------------------------------------
     # Health endpoint

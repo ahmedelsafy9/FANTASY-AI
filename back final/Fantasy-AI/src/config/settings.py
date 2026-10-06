@@ -6,6 +6,10 @@ deployment environments (local, CI, Docker, etc.).
 
 Settings can be overridden via environment variables, which keeps the
 configuration flexible without touching source code (12-factor style).
+
+A ``.env`` file placed in the project root is loaded automatically via
+``python-dotenv`` so that secrets (like API keys) never need to be
+hardcoded or committed to source control.
 """
 
 from __future__ import annotations
@@ -13,6 +17,27 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+
+try:
+    from dotenv import load_dotenv as _load_dotenv
+except ImportError:  # pragma: no cover – dotenv is optional
+    _load_dotenv = None  # type: ignore[assignment]
+
+
+def _bootstrap_dotenv() -> None:
+    """Load ``.env`` from the project root if python-dotenv is available.
+
+    This is called once at module import time so that every ``os.environ.get``
+    helper below can see the values defined in ``.env``.
+    """
+    if _load_dotenv is None:
+        return
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if env_path.is_file():
+        _load_dotenv(dotenv_path=env_path, override=False)
+
+
+_bootstrap_dotenv()
 
 
 def _project_root() -> Path:
@@ -1052,6 +1077,43 @@ class DifferentialSettings:
 
 
 @dataclass(frozen=True)
+class ChatbotSettings:
+    """Settings controlling the AI chatbot assistant.
+
+    The chatbot uses a tool-augmented LLM to answer Fantasy Premier League
+    questions grounded in the application's live data and predictions.
+    """
+
+    enabled: bool = field(
+        default_factory=lambda: _env_bool("FANTASY_AI_CHATBOT_ENABLED", True)
+    )
+    llm_provider: str = field(
+        default_factory=lambda: _env_str("FANTASY_AI_LLM_PROVIDER", "gemini")
+    )
+    llm_api_key: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_LLM_API_KEY",
+            _env_str("GEMINI_API_KEY", ""),
+        )
+    )
+    llm_model: str = field(
+        default_factory=lambda: _env_str(
+            "FANTASY_AI_LLM_MODEL", "gemini-2.5-flash"
+        )
+    )
+    max_conversation_turns: int = field(
+        default_factory=lambda: _env_int(
+            "FANTASY_AI_CHATBOT_MAX_TURNS", 20
+        )
+    )
+    max_tool_calls_per_turn: int = field(
+        default_factory=lambda: _env_int(
+            "FANTASY_AI_CHATBOT_MAX_TOOL_CALLS", 5
+        )
+    )
+
+
+@dataclass(frozen=True)
 class Settings:
     """Top-level application settings, aggregating all setting groups."""
 
@@ -1075,6 +1137,7 @@ class Settings:
     multi_stage: MultiStageSettings = field(default_factory=MultiStageSettings)
     high_score: HighScoreSettings = field(default_factory=HighScoreSettings)
     differential: DifferentialSettings = field(default_factory=DifferentialSettings)
+    chatbot: ChatbotSettings = field(default_factory=ChatbotSettings)
 
 
 def get_settings() -> Settings:

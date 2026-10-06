@@ -19,6 +19,10 @@ from typing import Any
 
 import pandas as pd
 
+from src.availability.player_availability import (
+    PlayerAvailability,
+    derive_player_availability,
+)
 from src.config.logging_config import get_logger
 from src.config.settings import Settings
 from src.core.exceptions import FantasyAIError
@@ -31,6 +35,9 @@ from src.metadata.player_metadata import (
 from src.metadata.team_metadata import (
     TeamMetadata,
     build_team_metadata,
+)
+from src.prediction.availability_adjustment import (
+    adjust_predictions_for_availability,
 )
 from src.prediction.fixture_aware_next_gameweek import (
     ResolvedFixture,
@@ -268,6 +275,16 @@ def build_app_state(settings: Settings) -> AppState:
         player_metadata=player_metadata,
         upcoming_team_fixtures=upcoming_team_fixtures,
     )
+
+    # ---------------------------------------------------------------
+    # Availability-adjusted predictions
+    # ---------------------------------------------------------------
+    # Adjusts expected-points columns based on each player's
+    # availability status (injury, doubt, suspension, etc.).
+    # Original predictions are preserved as *_raw columns.
+    # ---------------------------------------------------------------
+
+    predictions = adjust_predictions_for_availability(predictions)
 
     logger.info(
         "API state ready: %d current-season player(s), model '%s', "
@@ -575,6 +592,15 @@ def _build_current_fpl_prediction_pool(
             else []
         )
 
+        # -----------------------------------------------------------
+        # Derive structured availability from FPL metadata
+        # -----------------------------------------------------------
+
+        availability = derive_player_availability(
+            meta,
+            gameweek=None,  # filled later if available
+        )
+
         row: dict[str, Any] = {
             player_id_column: meta.player_id,
             "id": meta.player_id,
@@ -596,6 +622,29 @@ def _build_current_fpl_prediction_pool(
             "_norm_full": norm_full,
             "_norm_web": norm_web,
             "_is_ambiguous": is_ambiguous,
+            # --- Availability fields (from FPL API) ---
+            "availability_status": availability.availability_status,
+            "injury_flag": availability.injury_flag,
+            "doubt_flag": availability.doubt_flag,
+            "suspension_flag": availability.suspension_flag,
+            "ruled_out_flag": availability.ruled_out_flag,
+            "expected_to_start": availability.expected_to_start,
+            "availability_expected_minutes": availability.expected_minutes,
+            "rotation_risk": availability.rotation_risk,
+            "team_news": availability.team_news,
+            "team_news_flag": availability.team_news_flag,
+            "availability_source": availability.source,
+            "availability_timestamp": availability.timestamp,
+            "chance_of_playing_next_round": meta.chance_of_playing_next_round,
+            "chance_of_playing_this_round": meta.chance_of_playing_this_round,
+            "selected_by_percent": meta.selected_by_percent,
+            "ep_next": meta.ep_next,
+            "fpl_form": meta.form_score,
+            "fpl_points_per_game": meta.points_per_game,
+            "fpl_total_points_season": meta.total_points_season,
+            "fpl_expected_goals": meta.expected_goals,
+            "fpl_expected_assists": meta.expected_assists,
+            "fpl_expected_goal_involvements": meta.expected_goal_involvements,
         }
 
         # -----------------------------------------------------------

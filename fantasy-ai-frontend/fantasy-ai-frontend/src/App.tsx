@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { MockBanner } from "@/components/MockBanner";
 import { LoginModal } from "@/components/LoginModal";
 import { AuthToast } from "@/components/Toast";
+import ChatWidget from "@/components/ChatWidget";
 import Home from "@/pages/Home";
 import Players from "@/pages/Players";
 import PlayerDetails from "@/pages/PlayerDetails";
@@ -23,6 +24,7 @@ function Layout({ children }: { children: ReactNode }) {
       <Footer />
       <LoginModal />
       <AuthToast />
+      <ChatWidget />
     </div>
   );
 }

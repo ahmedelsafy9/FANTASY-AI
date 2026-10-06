@@ -292,4 +292,35 @@ export interface SquadBuildResponse {
   value_picks: SquadPlayer[];
 }
 
+// ---------------------------------------------------------------
+// Chatbot types
+// ---------------------------------------------------------------
+
+/** A single message in a chatbot conversation. */
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** A tool call made during a chatbot turn. */
+export interface ChatToolCall {
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+/** POST /chatbot/message response */
+export interface ChatResponse {
+  response: string;
+  tool_calls: ChatToolCall[];
+  conversation: ChatMessage[];
+}
+
+/** GET /chatbot/status response */
+export interface ChatStatusResponse {
+  enabled: boolean;
+  configured: boolean;
+  provider?: string | null;
+  model?: string | null;
+}
+
 export * from "./differential";
