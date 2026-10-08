@@ -145,6 +145,19 @@ class ChatbotService:
             scoring_model=getattr(app_state, "scoring_model", "unknown"),
         )
 
+        # Initialize the agentic orchestrator
+        try:
+            from src.agentic.orchestrator import AgentOrchestrator
+            self._orchestrator = AgentOrchestrator(app_state)
+            logger.info("Agentic orchestrator initialized successfully.")
+        except Exception as exc:
+            logger.warning(
+                "Agentic orchestrator failed to initialize: %s. "
+                "Falling back to direct tool calling.",
+                exc,
+            )
+            self._orchestrator = None
+
     @property
     def is_configured(self) -> bool:
         """Whether the chatbot has a valid API key configured."""
@@ -193,6 +206,9 @@ class ChatbotService:
     def _execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         """Dispatch a tool call to the appropriate executor safely.
 
+        Routes through the agentic ToolRegistry when available,
+        falling back to the legacy tool map otherwise.
+
         Args:
             tool_name: Name of the tool to execute.
             arguments: Tool arguments.
@@ -200,6 +216,22 @@ class ChatbotService:
         Returns:
             JSON-serialisable tool result.
         """
+        # Try the agentic tool registry first (supports all 16+ tools)
+        if self._orchestrator is not None:
+            registry = self._orchestrator.tool_registry
+            if tool_name in registry:
+                logger.info(
+                    "Executing tool via registry: %s with args: %s",
+                    tool_name,
+                    json.dumps(arguments, default=str)[:300],
+                )
+                result = registry.execute(tool_name, **arguments)
+                if result.success:
+                    return _make_json_safe(result.data)
+                else:
+                    return {"error": result.error}
+
+        # Legacy fallback tool map
         tool_map = {
             "search_player_by_name": self._tools.search_player_by_name,
             "get_player_info": self._tools.get_player_info,
@@ -231,6 +263,63 @@ class ChatbotService:
             logger.exception("Tool execution error (%s): %s", tool_name, exc)
             return {"error": f"Tool execution failed: {exc}"}
 
+    def _get_orchestrator_context(self, user_message: str) -> str:
+        """Run the orchestrator to gather agent analysis before LLM call.
+
+        Args:
+            user_message: The user's message.
+
+        Returns:
+            Formatted context string to inject into the LLM prompt,
+            or empty string if orchestrator is unavailable.
+        """
+        if self._orchestrator is None:
+            return ""
+
+        try:
+            result = self._orchestrator.process(user_message)
+            if result.context_for_llm:
+                logger.info(
+                    "Orchestrator provided context: %d agents, %d tool calls, %.1fms",
+                    len(result.agents_used),
+                    len(result.all_tool_calls),
+                    result.total_time_ms,
+                )
+                return result.context_for_llm
+        except Exception as exc:
+            logger.warning(
+                "Orchestrator context gathering failed: %s. "
+                "LLM will rely on its own tool calling.",
+                exc,
+            )
+
+        return ""
+
+    def _build_enhanced_system_prompt(self, user_message: str) -> str:
+        """Build system prompt with orchestrator-gathered context.
+
+        Args:
+            user_message: The user's message.
+
+        Returns:
+            Enhanced system prompt with agent analysis injected.
+        """
+        base_prompt = self._system_prompt
+        agent_context = self._get_orchestrator_context(user_message)
+
+        if not agent_context:
+            return base_prompt
+
+        return (
+            f"{base_prompt}\n\n"
+            f"## Pre-gathered Analysis\n"
+            f"The following data was gathered by specialized analysis "
+            f"agents BEFORE this conversation turn. Use it to ground "
+            f"your response in real data. You may still call tools for "
+            f"additional information if needed.\n\n"
+            f"{agent_context}"
+        )
+
     # ---------------------------------------------------------------
     # Gemini implementation
     # ---------------------------------------------------------------
@@ -252,6 +341,7 @@ class ChatbotService:
             client = genai.Client(api_key=self._api_key)
 
             # Build Gemini tool declarations
+            # Use enhanced tool definitions from registry when available
             function_declarations = []
             for tool_def in TOOL_DEFINITIONS:
                 params = tool_def.get("parameters", {})
@@ -296,11 +386,14 @@ class ChatbotService:
                     self._max_tool_calls,
                 )
 
+                # Use enhanced prompt with pre-gathered agent context
+                enhanced_prompt = self._build_enhanced_system_prompt(user_message)
+
                 response = client.models.generate_content(
                     model=self._model,
                     contents=contents,
                     config=types.GenerateContentConfig(
-                        system_instruction=self._system_prompt,
+                        system_instruction=enhanced_prompt,
                         tools=gemini_tools,
                         temperature=0.7,
                     ),
@@ -427,7 +520,7 @@ class ChatbotService:
             ]
 
             messages: list[dict[str, Any]] = [
-                {"role": "system", "content": self._system_prompt}
+                {"role": "system", "content": self._build_enhanced_system_prompt(user_message)}
             ]
             for msg in history:
                 messages.append({"role": msg["role"], "content": msg["content"]})

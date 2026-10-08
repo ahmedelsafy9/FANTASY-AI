@@ -626,4 +626,68 @@ TOOL_DEFINITIONS = [
         "description": "Get all players currently injured, doubtful, suspended, or flagged with availability concerns.",
         "parameters": {"type": "object", "properties": {}},
     },
+    # ---------------------------------------------------------------
+    # New agentic tools (added by agentic system upgrade)
+    # ---------------------------------------------------------------
+    {
+        "name": "get_player_form",
+        "description": "Get a player's recent form including average points, minutes, xG, and xA over the last 3 and 5 gameweeks.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "player_name": {
+                    "type": "string",
+                    "description": "Player name or partial name",
+                },
+            },
+            "required": ["player_name"],
+        },
+    },
+    {
+        "name": "get_player_stats",
+        "description": "Get detailed statistics for a player including xG, xA, BPS, ICT index, and season totals.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "player_name": {
+                    "type": "string",
+                    "description": "Player name or partial name",
+                },
+            },
+            "required": ["player_name"],
+        },
+    },
+    {
+        "name": "analyze_transfer",
+        "description": "Analyze a potential transfer comparing the player being sold with the player being bought. Returns side-by-side data on predictions, form, availability, fixtures, and value.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "player_out": {
+                    "type": "string",
+                    "description": "Name of the player being sold/transferred out",
+                },
+                "player_in": {
+                    "type": "string",
+                    "description": "Name of the player being bought/transferred in",
+                },
+            },
+            "required": ["player_out", "player_in"],
+        },
+    },
+    {
+        "name": "analyze_squad",
+        "description": "Analyze a squad of player names to identify strengths, weaknesses, availability risks, and transfer priorities. Pass player names as a comma-separated string.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "player_names": {
+                    "type": "string",
+                    "description": "Comma-separated list of player names in the squad (e.g. 'Salah, Palmer, Saka, Haaland')",
+                },
+            },
+            "required": ["player_names"],
+        },
+    },
 ]
+
