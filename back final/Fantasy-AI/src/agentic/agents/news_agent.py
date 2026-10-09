@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agentic.agents.base import AgentResult, BaseAgent
+from src.agentic.agents.base import AgentResult, BaseAgent, Finding
 from src.config.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -59,33 +59,53 @@ class NewsAvailabilityAgent(BaseAgent):
         query: str,
         context: dict[str, Any] | None = None,
     ) -> AgentResult:
-        """Gather availability and injury information."""
+        """Gather availability and injury information efficiently."""
         tool_calls: list[dict[str, Any]] = []
         analysis: dict[str, Any] = {}
+        findings: list[Finding] = []
+        sources: list[str] = ["FPL Availability API"]
         ctx = context or {}
 
         # Specific player availability
         player_names = ctx.get("player_names", [])
-        for pname in player_names[:3]:
-            result = self._call_tool(
-                "get_player_availability",
-                player_name=pname,
-            )
+        if player_names:
+            for pname in player_names[:3]:
+                result = self._call_tool(
+                    "get_player_availability",
+                    player_name=pname,
+                )
+                tool_calls.append({
+                    "tool": "get_player_availability",
+                    "success": result.success,
+                })
+                if result.success and isinstance(result.data, dict):
+                    analysis.setdefault("player_availability", []).append(result.data)
+                    chance = result.data.get("chance_of_playing_next_round", 100)
+                    status_desc = result.data.get("news") or "Fit and available"
+                    assessment = "favorable" if chance == 100 else ("doubtful" if chance and chance >= 50 else "unfavorable")
+                    findings.append(Finding(
+                        factor="availability",
+                        player=result.data.get("name") or pname,
+                        assessment=assessment,
+                        evidence={"chance_of_playing": chance, "news": status_desc},
+                        summary=f"Playing chance: {chance}%. Status: {status_desc}",
+                    ))
+        else:
+            # General injury report only when no specific player is requested
+            result = self._call_tool("get_injured_doubtful_players")
             tool_calls.append({
-                "tool": "get_player_availability",
+                "tool": "get_injured_doubtful_players",
                 "success": result.success,
             })
-            if result.success:
-                analysis.setdefault("player_availability", []).append(result.data)
-
-        # General injury report
-        result = self._call_tool("get_injured_doubtful_players")
-        tool_calls.append({
-            "tool": "get_injured_doubtful_players",
-            "success": result.success,
-        })
-        if result.success:
-            analysis["injury_report"] = result.data
+            if result.success and isinstance(result.data, list):
+                analysis["injury_report"] = result.data
+                findings.append(Finding(
+                    factor="availability",
+                    player=None,
+                    assessment="neutral",
+                    evidence={"flagged_count": len(result.data)},
+                    summary=f"{len(result.data)} players currently flagged across the Premier League.",
+                ))
 
         # Team-specific news
         team_name = ctx.get("team_name")
@@ -98,7 +118,7 @@ class NewsAvailabilityAgent(BaseAgent):
                 "tool": "get_team_players",
                 "success": result.success,
             })
-            if result.success:
+            if result.success and isinstance(result.data, dict):
                 team_data = result.data
                 players = team_data.get("players", [])
                 flagged = [
@@ -110,9 +130,15 @@ class NewsAvailabilityAgent(BaseAgent):
                     "flagged_players": flagged,
                 }
 
+        summary_msg = f"Checked availability for {len(player_names)} player(s)." if player_names else "General injury report compiled."
+
         return AgentResult(
             agent_name=self.name,
+            status="success",
+            findings=findings,
             analysis=analysis,
             tool_calls=tool_calls,
-            summary="Availability/news report compiled.",
+            confidence=None,
+            sources=sources,
+            summary=summary_msg,
         )

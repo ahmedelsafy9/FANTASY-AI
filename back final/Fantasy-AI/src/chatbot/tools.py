@@ -177,10 +177,12 @@ class ChatbotTools:
         """
         df = self._predictions.copy()
 
-        # Filter out unavailable/injured players with zero prediction
-        df = df[df.get("availability_status", pd.Series(["fit"] * len(df))).isin(
-            ["fit", "rotation_risk", "doubtful", "minor_injury"]
-        ) | ~df["availability_status"].notna()]
+        # Filter out unavailable/injured players with zero prediction if availability is present
+        if "availability_status" in df.columns:
+            df = df[
+                df["availability_status"].isin(["fit", "rotation_risk", "doubtful", "minor_injury"])
+                | df["availability_status"].isna()
+            ]
 
         if position:
             pos = position.upper()

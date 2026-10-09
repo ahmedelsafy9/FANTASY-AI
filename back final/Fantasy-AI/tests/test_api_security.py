@@ -252,8 +252,10 @@ def test_cors_rejects_malicious_domains_spoofing_vercel(monkeypatch: pytest.Monk
         assert "access-control-allow-origin" not in {k.lower() for k in response.headers}
 
 
-def test_cors_does_not_allow_credentials_by_default(client: TestClient) -> None:
+def test_cors_does_not_allow_credentials_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     """Without FANTASY_AI_CORS_ALLOW_CREDENTIALS=true, no ACAC header is sent."""
+    monkeypatch.delenv("FANTASY_AI_CORS_ALLOW_CREDENTIALS", raising=False)
+    client = _build_client()
     response = client.get("/", headers={"Origin": "http://localhost:5173"})
     assert "access-control-allow-credentials" not in {k.lower() for k in response.headers}
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agentic.agents.base import AgentResult, BaseAgent
+from src.agentic.agents.base import AgentResult, BaseAgent, Finding
 from src.config.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -65,11 +65,12 @@ class FixtureTransferAgent(BaseAgent):
         lower = query.lower()
         ctx = context or {}
 
+        findings: list[Finding] = []
+        sources: list[str] = ["FPL Fixture Schedule", "FDR Difficulty Model"]
+
         # Transfer analysis
         player_names = ctx.get("player_names", [])
-        if len(player_names) >= 2 and any(
-            kw in lower for kw in ("transfer", "replace", "swap", "sell", "buy")
-        ):
+        if len(player_names) >= 2:
             result = self._call_tool(
                 "analyze_transfer",
                 player_out=player_names[0],
@@ -79,8 +80,16 @@ class FixtureTransferAgent(BaseAgent):
                 "tool": "analyze_transfer",
                 "success": result.success,
             })
-            if result.success:
+            if result.success and isinstance(result.data, dict):
                 analysis["transfer_analysis"] = result.data
+                rec = result.data.get("recommendation", "")
+                findings.append(Finding(
+                    factor="fixtures",
+                    player=player_names[1],
+                    assessment="favorable",
+                    evidence=result.data,
+                    summary=f"Transfer evaluation: {rec}",
+                ))
 
         # Fixture lookup for team
         team_name = ctx.get("team_name")
@@ -93,8 +102,15 @@ class FixtureTransferAgent(BaseAgent):
                 "tool": "get_fixture_info",
                 "success": result.success,
             })
-            if result.success:
+            if result.success and isinstance(result.data, dict):
                 analysis["fixture_info"] = result.data
+                findings.append(Finding(
+                    factor="fixtures",
+                    player=None,
+                    assessment="neutral",
+                    evidence=result.data,
+                    summary=f"Upcoming fixtures retrieved for {team_name}.",
+                ))
 
         # Find best players by position for replacement
         position = ctx.get("position")
@@ -113,23 +129,6 @@ class FixtureTransferAgent(BaseAgent):
             if result.success:
                 analysis["position_alternatives"] = result.data
 
-        # General transfer suggestions
-        if not analysis and any(
-            kw in lower for kw in ("transfer", "option", "suggest", "recommend")
-        ):
-            for pos in ["MID", "FWD", "DEF"]:
-                result = self._call_tool(
-                    "get_top_by_position",
-                    position=pos,
-                    limit=3,
-                )
-                tool_calls.append({
-                    "tool": "get_top_by_position",
-                    "success": result.success,
-                })
-                if result.success:
-                    analysis[f"top_{pos.lower()}"] = result.data
-
         # Gameweek context
         gw_result = self._call_tool("get_current_gameweek")
         tool_calls.append({
@@ -141,7 +140,11 @@ class FixtureTransferAgent(BaseAgent):
 
         return AgentResult(
             agent_name=self.name,
+            status="success",
+            findings=findings,
             analysis=analysis,
             tool_calls=tool_calls,
+            confidence=None,
+            sources=sources,
             summary="Fixture/transfer analysis completed.",
         )

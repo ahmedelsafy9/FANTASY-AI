@@ -1,23 +1,21 @@
 """Agent Orchestrator: routes user requests to appropriate agents.
 
-The orchestrator decides:
-- Which agent(s) are needed for a request
-- Whether additional information is required
-- How to combine results from multiple agents
-- What knowledge context to inject
-
-For simple questions, it uses the minimum required tools.
-For complex questions, it coordinates multiple specialized agents.
-
-The orchestrator does NOT generate the final natural-language response
-itself — it gathers structured data and passes it to the LLM via
-the existing ChatbotService integration.
+The orchestrator implements the "Investigate First" architecture:
+1. Understands intent via intelligent 12-category query classification
+2. Resolves multi-turn conversation state & entity memory
+3. Formulates an explicit InvestigationPlan (agents, tools, RAG, factor matrix)
+4. Coordinates and executes specialized domain agents
+5. Selectively retrieves RAG knowledge only when required (rules, chips)
+6. Synthesizes multi-agent evidence via the DecisionEngine into clear verdicts
+7. Prepares structured context and formatting guidelines for the LLM
 """
 
 from __future__ import annotations
 
+import json
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,6 +26,14 @@ from src.agentic.agents.player_agent import PlayerAnalysisAgent
 from src.agentic.agents.research_agent import ResearchAgent
 from src.agentic.agents.squad_agent import SquadAnalysisAgent
 from src.agentic.agents.strategy_agent import StrategyAgent
+from src.agentic.conversation_state import ConversationState, extract_conversation_state
+from src.agentic.decision_engine import DecisionEngine, SynthesizedDecision
+from src.agentic.planner import (
+    INTENT_RESEARCH_QUESTION,
+    INTENT_SIMPLE_LOOKUP,
+    InvestigationPlan,
+    create_investigation_plan,
+)
 from src.agentic.rag.retriever import KnowledgeRetriever
 from src.agentic.tools.definitions import build_tool_registry
 from src.agentic.tools.registry import ToolRegistry
@@ -42,7 +48,8 @@ class OrchestratorResult:
     """Complete result from the orchestrator.
 
     Contains all agent results, tool calls made, knowledge context,
-    and a structured data payload for the LLM.
+    the explicit investigation plan, the synthesized decision, and
+    a structured data payload for the LLM.
 
     Attributes:
         agent_results: Results from each invoked agent.
@@ -51,6 +58,9 @@ class OrchestratorResult:
         context_for_llm: Structured data to inject into the LLM prompt.
         agents_used: Names of agents that were invoked.
         total_time_ms: Total orchestration time.
+        plan: The investigation plan that was executed.
+        decision: The cross-agent decision synthesized from evidence.
+        formatted_fallback: Pre-rendered expert decision response (used when LLM is offline).
     """
 
     agent_results: list[AgentResult] = field(default_factory=list)
@@ -59,72 +69,87 @@ class OrchestratorResult:
     context_for_llm: str = ""
     agents_used: list[str] = field(default_factory=list)
     total_time_ms: float = 0.0
+    plan: InvestigationPlan | None = None
+    decision: SynthesizedDecision | None = None
+    formatted_fallback: str = ""
+
+
+def _clean_extracted_name(name: str) -> str:
+    """Clean query verbs and punctuation from extracted player name candidates."""
+    cleaned = re.sub(
+        r"^(?:compare|analyze|evaluate|between|recommend|versus|vs|and|or|for|with|about|tell\s+me\s+about|is|who|replace|sell|buy)\s+",
+        "",
+        name.strip(),
+        flags=re.IGNORECASE,
+    ).strip()
+    return cleaned
 
 
 def _extract_player_names(query: str) -> list[str]:
-    """Extract potential player names from a query.
+    """Extract potential player names from a query using pattern heuristics."""
+    raw_names: list[str] = []
 
-    Uses heuristics (not an LLM) to pull out likely player references.
-    The chatbot tools handle fuzzy resolution, so approximate extraction
-    is sufficient.
-
-    Args:
-        query: User's query text.
-
-    Returns:
-        List of likely player name strings.
-    """
-    # Common patterns: "Palmer vs Saka", "replace Palmer with Saka",
-    # "should I sell Palmer", "compare Haaland and Salah"
-    names: list[str] = []
-
-    # Pattern: X vs Y / X or Y / X and Y
+    # Pattern: X vs Y / X or Y / X and Y / X with Y
     vs_pattern = re.search(
         r"(\b[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s+(?:vs|versus|or|and|with)\s+"
         r"(\b[A-Z][a-z]+(?:\s[A-Z][a-z]+)?)",
         query,
     )
     if vs_pattern:
-        names.extend([vs_pattern.group(1), vs_pattern.group(2)])
+        raw_names.extend([vs_pattern.group(1), vs_pattern.group(2)])
 
-    # Pattern: "replace X with Y" / "sell X buy Y" / "X → Y"
+    # Pattern: "replace X with Y" / "sell X buy Y" / "sell X for Y" / "X for Y"
     transfer_pattern = re.search(
         r"(?:replace|sell|drop|remove|transfer out)\s+(\b[A-Z][a-z]+)"
         r".*?(?:with|for|buy|bring in|get|transfer in)\s+(\b[A-Z][a-z]+)",
         query, re.IGNORECASE,
     )
-    if transfer_pattern and not names:
-        names.extend([transfer_pattern.group(1), transfer_pattern.group(2)])
+    if transfer_pattern and not raw_names:
+        raw_names.extend([transfer_pattern.group(1), transfer_pattern.group(2)])
 
-    # Pattern: single capitalized player name (for "tell me about Palmer")
-    if not names:
+    # Arabic patterns for comparison or transfer
+    if not raw_names:
+        ar_vs = re.search(r"(\b[A-Z][a-z]+)\s+(?:ولا|او|أو|ضد)\s+(\b[A-Z][a-z]+)", query)
+        if ar_vs:
+            raw_names.extend([ar_vs.group(1), ar_vs.group(2)])
+
+    # Single capitalized player name (for "tell me about Palmer")
+    if not raw_names:
         singles = re.findall(r"\b([A-Z][a-z]{2,}(?:\s[A-Z][a-z]+)?)\b", query)
-        # Filter out common English words that are capitalized
-        stop_words = {
-            "Should", "Would", "Could", "Which", "Where", "What",
-            "When", "Who", "How", "Give", "Tell", "Find", "Best",
-            "Good", "Bad", "Keep", "Drop", "Buy", "Sell", "The",
-            "This", "That", "From", "With", "Analyze", "Compare",
-            "Captain", "Wildcard", "Bench", "Triple", "Free", "Hit",
-            "Build", "Risk", "Safe", "High", "Low", "Yes", "Not",
-            "Premier", "League", "Fantasy", "Week", "Gameweek",
-            "Arsenal", "Liverpool", "Chelsea", "Man", "City",
-            "United", "Tottenham", "Newcastle", "Brighton",
-            "Aston", "Villa", "West", "Ham", "Crystal", "Palace",
-            "Everton", "Fulham", "Wolves", "Bournemouth",
-            "Brentford", "Nottingham", "Forest", "Burnley",
-            "Sheffield", "Luton", "Ipswich", "Leicester",
-            "Southampton",
-        }
-        for name in singles:
-            if name not in stop_words:
-                names.append(name)
+        raw_names.extend(singles)
 
-    return names[:3]  # Cap at 3 names
+    stop_words = {
+        "Should", "Would", "Could", "Which", "Where", "What",
+        "When", "Who", "How", "Give", "Tell", "Find", "Best",
+        "Good", "Bad", "Keep", "Drop", "Buy", "Sell", "The",
+        "This", "That", "From", "With", "Analyze", "Compare",
+        "Captain", "Wildcard", "Bench", "Triple", "Free", "Hit",
+        "Build", "Risk", "Safe", "High", "Low", "Yes", "Not",
+        "Are", "Is", "Am", "Was", "Were", "Has", "Have", "Had",
+        "Do", "Does", "Did", "Can", "There", "Any", "All", "Some",
+        "Please", "Players", "Player", "Injured", "Injury", "Doubts",
+        "Team", "Squad", "Starting", "Bank", "Move", "Sense", "Makes", "Most",
+        "Premier", "League", "Fantasy", "Week", "Gameweek",
+        "Arsenal", "Liverpool", "Chelsea", "Man", "City",
+        "United", "Tottenham", "Newcastle", "Brighton",
+        "Aston", "Villa", "West", "Ham", "Crystal", "Palace",
+        "Everton", "Fulham", "Wolves", "Bournemouth",
+        "Brentford", "Nottingham", "Forest", "Burnley",
+        "Sheffield", "Luton", "Ipswich", "Leicester",
+        "Southampton",
+    }
+
+    cleaned_names: list[str] = []
+    for candidate in raw_names:
+        cleaned = _clean_extracted_name(candidate)
+        if cleaned and cleaned not in stop_words and cleaned not in cleaned_names:
+            cleaned_names.append(cleaned)
+
+    return cleaned_names[:15]
 
 
 def _extract_team_name(query: str) -> str | None:
-    """Extract a team name from a query."""
+    """Extract a Premier League team name from a query."""
     teams = [
         "Arsenal", "Aston Villa", "Bournemouth", "Brentford",
         "Brighton", "Burnley", "Chelsea", "Crystal Palace",
@@ -143,42 +168,27 @@ def _extract_team_name(query: str) -> str | None:
 
 
 class AgentOrchestrator:
-    """Routes user requests to specialized agents and combines results.
-
-    The orchestrator:
-    1. Classifies the user's intent
-    2. Extracts context (player names, team names, etc.)
-    3. Selects relevant agents
-    4. Invokes agents with appropriate context
-    5. Combines results into a structured payload
-    6. Returns data for the LLM to generate the final response
-
-    Usage::
-
-        orchestrator = AgentOrchestrator(app_state)
-        result = orchestrator.process("Should I replace Palmer with Saka?")
-        # result.context_for_llm contains structured data for the LLM
-    """
+    """Investigative orchestrator implementing the Investigate-First architecture."""
 
     def __init__(self, app_state: AppState) -> None:
         self._state = app_state
         self._registry = build_tool_registry(app_state)
         self._retriever = KnowledgeRetriever()
         self._retriever.initialize()
+        self._decision_engine = DecisionEngine()
 
-        # Initialize all agents
-        self._agents: list[BaseAgent] = [
-            PlayerAnalysisAgent(self._registry),
-            SquadAnalysisAgent(self._registry),
-            FixtureTransferAgent(self._registry),
-            NewsAvailabilityAgent(self._registry),
-            StrategyAgent(self._registry, self._retriever),
-            ResearchAgent(self._registry, self._retriever),
-        ]
+        # Initialize all specialized domain agents
+        self._agents: dict[str, BaseAgent] = {
+            "player_analysis": PlayerAnalysisAgent(self._registry),
+            "squad_analysis": SquadAnalysisAgent(self._registry),
+            "fixture_transfer": FixtureTransferAgent(self._registry),
+            "news_availability": NewsAvailabilityAgent(self._registry),
+            "strategy": StrategyAgent(self._registry, self._retriever),
+            "research": ResearchAgent(self._registry, self._retriever),
+        }
 
         logger.info(
-            "AgentOrchestrator initialized: %d agents, %d tools, "
-            "%d knowledge chunks.",
+            "AgentOrchestrator initialized: %d agents, %d tools, %d knowledge chunks.",
             len(self._agents),
             self._registry.count,
             self._retriever._store.chunk_count if self._retriever.is_ready else 0,
@@ -186,75 +196,115 @@ class AgentOrchestrator:
 
     @property
     def tool_registry(self) -> ToolRegistry:
-        """The orchestrator's tool registry."""
         return self._registry
 
     @property
     def retriever(self) -> KnowledgeRetriever:
-        """The orchestrator's knowledge retriever."""
         return self._retriever
 
     def process(
         self,
         query: str,
         user_context: dict[str, Any] | None = None,
+        conversation_history: list[dict[str, str]] | None = None,
     ) -> OrchestratorResult:
-        """Process a user request through the agent system.
-
-        Args:
-            query: The user's message.
-            user_context: Optional context (e.g., squad, preferences).
-
-        Returns:
-            An :class:`OrchestratorResult` with structured data.
-        """
+        """Execute an investigative plan across agents and synthesize decision."""
         start = time.perf_counter()
 
-        # 1. Extract context from the query
-        context = self._build_context(query, user_context)
+        # 1. Named entity extraction
+        extracted_names = _extract_player_names(query)
+        team_name = _extract_team_name(query)
+        teams = [team_name] if team_name else []
 
-        # 2. Score and select agents
-        selected = self._select_agents(query, max_agents=3)
+        # 2. Conversation state resolution (multi-turn memory)
+        conv_state = extract_conversation_state(
+            conversation_history,
+            query,
+            known_player_names=extracted_names,
+        )
+        resolved_entities = conv_state.active_players if conv_state.active_players else extracted_names
 
-        logger.info(
-            "Orchestrator: query='%s', selected_agents=%s, "
-            "player_names=%s",
-            query[:80],
-            [a.name for a in selected],
-            context.get("player_names", []),
+        # 3. Formulate Investigation Plan
+        plan = create_investigation_plan(
+            query=query,
+            entities=resolved_entities,
+            teams=teams,
+            user_context=user_context,
+            conversation=conv_state,
         )
 
-        # 3. Invoke selected agents
+        logger.info(
+            "InvestigationPlan created: intent='%s', entities=%s, agents=%s, is_complex=%s",
+            plan.intent,
+            plan.entities,
+            plan.required_agents,
+            plan.is_complex,
+        )
+
+        # 4. Context for agents
+        agent_context = dict(user_context or {})
+        agent_context["player_names"] = plan.entities
+        if teams:
+            agent_context["team_name"] = teams[0]
+        if conv_state.user_squad:
+            agent_context["squad_names"] = conv_state.user_squad
+
+        # 5. Agent selection and execution
+        selected_agents: list[BaseAgent] = []
+        for agent_name in plan.required_agents:
+            if agent_name in self._agents:
+                selected_agents.append(self._agents[agent_name])
+
+        # Enforce budget: max 3 agents to prevent runaway execution
+        selected_agents = selected_agents[:3]
+
+        # Execute agents
         agent_results: list[AgentResult] = []
         all_tool_calls: list[dict[str, Any]] = []
         knowledge_context: dict[str, Any] | None = None
 
-        for agent in selected:
+        # Execute agents safely
+        for agent in selected_agents:
             try:
-                result = agent.analyze(query, context)
-                agent_results.append(result)
-                all_tool_calls.extend(result.tool_calls)
+                res = agent.analyze(query, agent_context)
+                agent_results.append(res)
+                all_tool_calls.extend(res.tool_calls)
 
-                if result.knowledge_context and result.knowledge_context.get("has_knowledge"):
-                    knowledge_context = result.knowledge_context
-
+                if res.knowledge_context and res.knowledge_context.get("has_knowledge"):
+                    knowledge_context = res.knowledge_context
             except Exception as exc:
-                logger.exception(
-                    "Agent '%s' failed: %s", agent.name, exc
-                )
+                logger.exception("Agent '%s' failed during investigation: %s", agent.name, exc)
 
-        # 4. Build LLM context
+        # 6. RAG Retrieval if planned but not yet fetched
+        if plan.use_rag and (not knowledge_context or not knowledge_context.get("has_knowledge")):
+            try:
+                cat = plan.rag_category
+                knowledge_context = self._retriever.retrieve_as_context(
+                    query, category=cat, top_k=3
+                )
+            except Exception as exc:
+                logger.warning("RAG retrieval failed: %s", exc)
+
+        # 7. Synthesize evidence into a decision
+        decision = self._decision_engine.synthesize(plan, agent_results, knowledge_context)
+
+        # 8. Build structured LLM context
         context_for_llm = self._build_llm_context(
-            query, agent_results, knowledge_context,
+            query=query,
+            plan=plan,
+            decision=decision,
+            agent_results=agent_results,
+            knowledge_context=knowledge_context,
         )
 
         elapsed = (time.perf_counter() - start) * 1000
 
         logger.info(
-            "Orchestrator completed in %.1fms: %d agents, %d tool calls.",
+            "Orchestrator completed in %.1fms: %d agents, %d tool calls, intent='%s'",
             elapsed,
             len(agent_results),
             len(all_tool_calls),
+            plan.intent,
         )
 
         return OrchestratorResult(
@@ -264,126 +314,85 @@ class AgentOrchestrator:
             context_for_llm=context_for_llm,
             agents_used=[a.agent_name for a in agent_results],
             total_time_ms=round(elapsed, 1),
+            plan=plan,
+            decision=decision,
+            formatted_fallback=decision.formatted_text,
         )
-
-    def _build_context(
-        self,
-        query: str,
-        user_context: dict[str, Any] | None,
-    ) -> dict[str, Any]:
-        """Build context dict from the query and user context."""
-        ctx: dict[str, Any] = dict(user_context or {})
-
-        # Extract player names
-        if "player_names" not in ctx:
-            ctx["player_names"] = _extract_player_names(query)
-
-        # Extract team name
-        if "team_name" not in ctx:
-            ctx["team_name"] = _extract_team_name(query)
-
-        return ctx
-
-    def _select_agents(
-        self,
-        query: str,
-        max_agents: int = 3,
-    ) -> list[BaseAgent]:
-        """Select the most relevant agents for a query.
-
-        Args:
-            query: The user's message.
-            max_agents: Maximum number of agents to invoke.
-
-        Returns:
-            List of selected agents, ordered by relevance.
-        """
-        scored = [
-            (agent, agent.can_handle(query))
-            for agent in self._agents
-        ]
-
-        # Sort by score descending
-        scored.sort(key=lambda x: x[1], reverse=True)
-
-        # Select agents with score > 0, up to max
-        selected = [
-            agent for agent, score in scored
-            if score > 0.0
-        ][:max_agents]
-
-        # If nothing matched, default to research agent
-        if not selected:
-            research = next(
-                (a for a in self._agents if a.name == "research"),
-                self._agents[0],
-            )
-            selected = [research]
-
-        return selected
 
     def _build_llm_context(
         self,
         query: str,
+        plan: InvestigationPlan,
+        decision: SynthesizedDecision,
         agent_results: list[AgentResult],
         knowledge_context: dict[str, Any] | None,
     ) -> str:
-        """Build a structured context string for the LLM.
-
-        This is injected into the LLM prompt so it can generate
-        a grounded, evidence-based response.
-
-        Args:
-            query: The user's original query.
-            agent_results: Results from all invoked agents.
-            knowledge_context: Any RAG knowledge retrieved.
-
-        Returns:
-            Formatted context string.
-        """
+        """Format the investigation findings and decision matrix into structured LLM instructions."""
         parts: list[str] = []
 
+        parts.append("=== INVESTIGATION PLAN & INTENT ===")
+        parts.append(f"Intent Category: {plan.intent}")
+        parts.append(f"Target Entities: {', '.join(plan.entities) if plan.entities else 'None'}")
+        parts.append(f"Investigation Rationale: {plan.rationale}")
+        parts.append("")
+
         parts.append("=== AGENT ANALYSIS RESULTS ===\n")
+        for res in agent_results:
+            parts.append(f"--- Agent: {res.agent_name} (Status: {res.status}) ---")
+            if res.summary:
+                parts.append(f"Summary: {res.summary}")
 
-        for result in agent_results:
-            parts.append(f"--- Agent: {result.agent_name} ---")
-            if result.summary:
-                parts.append(f"Summary: {result.summary}")
+            # Include findings if available
+            if res.findings:
+                for f in res.findings:
+                    parts.append(f"  • [{f.factor.upper()}] {f.player or ''}: {f.assessment} — {f.summary}")
 
-            # Include analysis data (compacted)
-            import json
+            # Include raw data
             try:
-                analysis_str = json.dumps(
-                    result.analysis, default=str, indent=None,
-                )
-                # Truncate very long analysis to avoid overwhelming the LLM
-                if len(analysis_str) > 4000:
-                    analysis_str = analysis_str[:4000] + "... [truncated]"
+                analysis_str = json.dumps(res.analysis, default=str, indent=None)
+                if len(analysis_str) > 3000:
+                    analysis_str = analysis_str[:3000] + "... [truncated]"
                 parts.append(f"Data: {analysis_str}")
-            except (TypeError, ValueError):
-                parts.append("Data: [serialization error]")
-
+            except Exception:
+                parts.append("Data: [unavailable]")
             parts.append("")
 
         if knowledge_context and knowledge_context.get("has_knowledge"):
-            parts.append("=== KNOWLEDGE BASE (Static FPL Rules/Strategy) ===")
-            parts.append(
-                "NOTE: This is curated knowledge, NOT live player data. "
-                "Use it for rules and strategy context only."
-            )
+            parts.append("=== RETRIEVED KNOWLEDGE BASE (FPL Rules / Mechanics) ===")
+            parts.append("NOTE: This is curated static knowledge. Never use it to contradict live player data.")
             for chunk in knowledge_context.get("chunks", []):
-                parts.append(
-                    f"[{chunk.get('title', 'Unknown')}]: "
-                    f"{chunk.get('text', '')[:500]}"
-                )
+                parts.append(f"[{chunk.get('title', 'Rules')}]: {chunk.get('text', '')[:400]}")
             parts.append("")
 
+        parts.append("=== SYNTHESIZED DECISION MATRIX ===")
+        parts.append(f"Recommended Decision: {decision.recommendation}")
+        if decision.why:
+            parts.append("Key Supporting Factors:")
+            for w in decision.why:
+                parts.append(f"  - {w}")
+        if decision.risks_and_catches:
+            parts.append("Risks & Nuances:")
+            for r in decision.risks_and_catches:
+                parts.append(f"  - {r}")
+        if decision.verdict:
+            parts.append(f"Verdict: {decision.verdict}")
+        if decision.sources:
+            parts.append(f"Data Sources: {', '.join(decision.sources)}")
+        parts.append("")
+
+        parts.append("=== RESPONSE FORMAT INSTRUCTIONS ===")
+        parts.append("Act as a decisive Fantasy Premier League analyst. Follow this structure strictly:")
+        if plan.intent in ("transfer_decision", "player_comparison"):
+            parts.append("1. State the winner / pick clearly upfront ('My pick: [Player]' or 'Recommendation: [Move]').")
+            parts.append("2. Provide 2-3 concise bullet points under 'Why' citing expected points, form, or fixtures.")
+            parts.append("3. Highlight 'The catch / Risks' (injury doubt, rotation, or -4 hit penalty).")
+            parts.append("4. Conclude with a crisp 'Verdict' (distinguish free transfer vs hit).")
+        elif plan.intent == "squad_analysis" and plan.missing_context:
+            parts.append("Politely ask for the user's specific starting XI/squad players so you can evaluate their team accurately.")
+        elif plan.intent == "chip_strategy":
+            parts.append("State clearly whether to hold or activate the chip, the gameweek window rationale, and trigger conditions.")
+        else:
+            parts.append("Provide a direct, factual, data-backed answer without generic fluff.")
         parts.append("=== END ANALYSIS ===")
-        parts.append(
-            "Use the above data to answer the user's question. "
-            "NEVER invent statistics, availability, or predictions "
-            "not present in the data above. If data is missing, "
-            "say so explicitly."
-        )
 
         return "\n".join(parts)

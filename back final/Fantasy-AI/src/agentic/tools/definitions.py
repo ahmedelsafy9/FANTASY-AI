@@ -637,7 +637,11 @@ class AnalyzeSquadTool(BaseTool):
         from src.chatbot.player_resolver import PlayerResolver
 
         resolver = PlayerResolver(self._predictions)
-        raw_names = [n.strip() for n in kwargs["player_names"].split(",") if n.strip()]
+        p_names = kwargs.get("player_names", "")
+        if isinstance(p_names, list):
+            raw_names = [str(n).strip() for n in p_names if str(n).strip()]
+        else:
+            raw_names = [n.strip() for n in str(p_names).split(",") if n.strip()]
 
         squad_players = []
         not_found = []

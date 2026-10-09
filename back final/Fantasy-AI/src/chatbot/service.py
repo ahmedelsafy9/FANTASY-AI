@@ -263,11 +263,16 @@ class ChatbotService:
             logger.exception("Tool execution error (%s): %s", tool_name, exc)
             return {"error": f"Tool execution failed: {exc}"}
 
-    def _get_orchestrator_context(self, user_message: str) -> str:
+    def _get_orchestrator_context(
+        self,
+        user_message: str,
+        history: list[dict[str, str]] | None = None,
+    ) -> str:
         """Run the orchestrator to gather agent analysis before LLM call.
 
         Args:
             user_message: The user's message.
+            history: Prior conversation turns.
 
         Returns:
             Formatted context string to inject into the LLM prompt,
@@ -277,13 +282,17 @@ class ChatbotService:
             return ""
 
         try:
-            result = self._orchestrator.process(user_message)
+            result = self._orchestrator.process(
+                user_message,
+                conversation_history=history,
+            )
             if result.context_for_llm:
                 logger.info(
-                    "Orchestrator provided context: %d agents, %d tool calls, %.1fms",
+                    "Orchestrator provided context: %d agents, %d tool calls, %.1fms, intent=%s",
                     len(result.agents_used),
                     len(result.all_tool_calls),
                     result.total_time_ms,
+                    result.plan.intent if result.plan else "unknown",
                 )
                 return result.context_for_llm
         except Exception as exc:
@@ -295,28 +304,31 @@ class ChatbotService:
 
         return ""
 
-    def _build_enhanced_system_prompt(self, user_message: str) -> str:
+    def _build_enhanced_system_prompt(
+        self,
+        user_message: str,
+        history: list[dict[str, str]] | None = None,
+    ) -> str:
         """Build system prompt with orchestrator-gathered context.
 
         Args:
             user_message: The user's message.
+            history: Prior conversation turns.
 
         Returns:
             Enhanced system prompt with agent analysis injected.
         """
         base_prompt = self._system_prompt
-        agent_context = self._get_orchestrator_context(user_message)
+        agent_context = self._get_orchestrator_context(user_message, history=history)
 
         if not agent_context:
             return base_prompt
 
         return (
             f"{base_prompt}\n\n"
-            f"## Pre-gathered Analysis\n"
-            f"The following data was gathered by specialized analysis "
-            f"agents BEFORE this conversation turn. Use it to ground "
-            f"your response in real data. You may still call tools for "
-            f"additional information if needed.\n\n"
+            f"## Pre-gathered Investigative Analysis & Decision Matrix\n"
+            f"The following investigative evidence and decision matrix were gathered by specialized analysis "
+            f"agents BEFORE this conversation turn. Ground your response firmly in this evidence.\n\n"
             f"{agent_context}"
         )
 
@@ -376,6 +388,9 @@ class ChatbotService:
             tool_calls_made: list[dict[str, Any]] = []
             iteration = 0
 
+            # Use enhanced prompt with pre-gathered agent context once per user turn
+            enhanced_prompt = self._build_enhanced_system_prompt(user_message, history=history)
+
             while iteration < self._max_tool_calls:
                 iteration += 1
 
@@ -385,9 +400,6 @@ class ChatbotService:
                     iteration,
                     self._max_tool_calls,
                 )
-
-                # Use enhanced prompt with pre-gathered agent context
-                enhanced_prompt = self._build_enhanced_system_prompt(user_message)
 
                 response = client.models.generate_content(
                     model=self._model,
@@ -520,7 +532,7 @@ class ChatbotService:
             ]
 
             messages: list[dict[str, Any]] = [
-                {"role": "system", "content": self._build_enhanced_system_prompt(user_message)}
+                {"role": "system", "content": self._build_enhanced_system_prompt(user_message, history=history)}
             ]
             for msg in history:
                 messages.append({"role": msg["role"], "content": msg["content"]})
@@ -607,6 +619,35 @@ class ChatbotService:
             user_message[:100],
             is_ar,
         )
+
+        # Check if the agentic orchestrator can synthesize an evidence-backed decision
+        if not is_ar and self._orchestrator is not None:
+            try:
+                orch_result = self._orchestrator.process(
+                    user_message,
+                    conversation_history=conversation_history,
+                )
+                if orch_result.formatted_fallback:
+                    logger.info(
+                        "Fallback response synthesized via orchestrator: intent=%s, agents=%d, time=%.1fms",
+                        orch_result.plan.intent if orch_result.plan else "unknown",
+                        len(orch_result.agents_used),
+                        orch_result.total_time_ms,
+                    )
+                    updated_history = list(conversation_history or [])
+                    updated_history.append({"role": "user", "content": user_message})
+                    updated_history.append({"role": "assistant", "content": orch_result.formatted_fallback})
+                    return {
+                        "response": orch_result.formatted_fallback,
+                        "tool_calls": orch_result.all_tool_calls,
+                        "conversation": updated_history,
+                    }
+            except Exception as exc:
+                logger.warning(
+                    "Orchestrator fallback synthesis failed (%s): %s. Falling back to rule engine.",
+                    type(exc).__name__,
+                    exc,
+                )
 
         gw = self._state.predicted_gameweek or 6
         gw_str = f" {gw}"

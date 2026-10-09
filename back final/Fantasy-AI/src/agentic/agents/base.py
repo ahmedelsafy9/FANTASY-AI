@@ -26,32 +26,69 @@ logger = get_logger(__name__)
 
 
 @dataclass
+class Finding:
+    """A single structured finding from an agent's investigation.
+
+    Attributes:
+        factor: Domain factor ('availability', 'fixtures', 'form', 'predictions', 'risk', 'strategy', 'rules').
+        player: Optional player name if finding is player-specific.
+        assessment: Qualitative evaluation ('favorable', 'unfavorable', 'neutral', 'doubtful', 'warning').
+        evidence: Raw data metrics supporting the assessment.
+        summary: Clear human-readable summary of the finding.
+    """
+
+    factor: str
+    player: str | None = None
+    assessment: str = "neutral"
+    evidence: dict[str, Any] = field(default_factory=dict)
+    summary: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "factor": self.factor,
+            "player": self.player,
+            "assessment": self.assessment,
+            "evidence": self.evidence,
+            "summary": self.summary,
+        }
+
+
+@dataclass
 class AgentResult:
     """Structured result from an agent's analysis.
 
     Attributes:
         agent_name: Which agent produced this result.
-        analysis: The structured analysis data.
+        status: Execution status ('success', 'partial', 'failed').
+        findings: Structured findings across domain factors.
+        analysis: Raw data dictionary.
         tool_calls: Tools that were called and their results.
         knowledge_context: Any RAG knowledge retrieved.
-        confidence: Agent's confidence in its analysis (0–1).
+        confidence: Statistically calculated confidence (0–1), or None if not calculated.
+        sources: List of data or knowledge sources used.
         summary: Short summary of what was found.
     """
 
     agent_name: str
-    analysis: dict[str, Any]
+    status: str = "success"
+    findings: list[Finding] = field(default_factory=list)
+    analysis: dict[str, Any] = field(default_factory=dict)
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     knowledge_context: dict[str, Any] | None = None
-    confidence: float = 0.8
+    confidence: float | None = None
+    sources: list[str] = field(default_factory=list)
     summary: str = ""
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to a JSON-safe dict for LLM consumption."""
-        result = {
+        """Convert to a JSON-safe dict for LLM consumption and reporting."""
+        result: dict[str, Any] = {
             "agent": self.agent_name,
+            "status": self.status,
             "confidence": self.confidence,
             "summary": self.summary,
+            "findings": [f.to_dict() if isinstance(f, Finding) else f for f in self.findings],
             "analysis": self.analysis,
+            "sources": self.sources,
         }
         if self.tool_calls:
             result["tools_used"] = [

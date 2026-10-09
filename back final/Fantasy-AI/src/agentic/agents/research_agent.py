@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agentic.agents.base import AgentResult, BaseAgent
+from src.agentic.agents.base import AgentResult, BaseAgent, Finding
 from src.agentic.rag.retriever import KnowledgeRetriever
 from src.config.logging_config import get_logger
 
@@ -57,6 +57,8 @@ class ResearchAgent(BaseAgent):
     ) -> AgentResult:
         """Retrieve knowledge relevant to the query."""
         tool_calls: list[dict[str, Any]] = []
+        findings: list[Finding] = []
+        sources: list[str] = ["FPL Official Rulebook & Guidelines"]
 
         # Retrieve from knowledge base
         knowledge = self._retriever.retrieve_as_context(
@@ -67,6 +69,16 @@ class ResearchAgent(BaseAgent):
             "knowledge": knowledge,
         }
 
+        if knowledge.get("has_knowledge"):
+            for chunk in knowledge.get("chunks", [])[:2]:
+                findings.append(Finding(
+                    factor="rules",
+                    player=None,
+                    assessment="neutral",
+                    evidence={"chunk_id": chunk.get("chunk_id")},
+                    summary=f"{chunk.get('title')}: {chunk.get('text')[:180]}...",
+                ))
+
         # Add gameweek context
         gw_result = self._call_tool("get_current_gameweek")
         tool_calls.append({
@@ -76,13 +88,14 @@ class ResearchAgent(BaseAgent):
         if gw_result.success:
             analysis["gameweek_context"] = gw_result.data
 
-        confidence = 0.7 if knowledge.get("has_knowledge") else 0.3
-
         return AgentResult(
             agent_name=self.name,
+            status="success",
+            findings=findings,
             analysis=analysis,
             tool_calls=tool_calls,
             knowledge_context=knowledge if knowledge.get("has_knowledge") else None,
-            confidence=confidence,
+            confidence=None,
+            sources=sources,
             summary="Knowledge retrieval completed.",
         )
