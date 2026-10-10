@@ -45,6 +45,53 @@ def _is_arabic(text: str) -> bool:
     return bool(re.search(r"[\u0600-\u06FF]", text))
 
 
+def _classify_gemini_error(exc: Exception) -> tuple[str, str, bool]:
+    """Classify a Gemini API error into a structured category, summary, and permanence flag.
+
+    Returns:
+        (category, concise_summary, is_permanent)
+        where category is one of:
+          - "MODEL_NOT_FOUND" (e.g. 404, deprecated or invalid model name)
+          - "AUTH_ERROR" (e.g. 401/403, invalid or unauthorized API key)
+          - "QUOTA_EXHAUSTED" (e.g. 429, resource exhausted or rate limited)
+          - "NETWORK_ERROR" (connection failure, timeout)
+          - "API_ERROR" (generic upstream API or server error)
+    """
+    code = getattr(exc, "code", None)
+    status = getattr(exc, "status", None)
+    msg = str(getattr(exc, "message", exc))
+
+    # Sanitize message to avoid exposing any keys or sensitive tokens
+    clean_msg = re.sub(r"AIza[0-9A-Za-z\-_]{35}", "[REDACTED_API_KEY]", msg)
+    clean_msg = re.sub(r"key=[a-zA-Z0-9_\-]+", "key=[REDACTED]", clean_msg)
+    clean_msg = clean_msg.replace("\n", " ").strip()
+
+    exc_str = (str(exc) + " " + type(exc).__name__).lower()
+
+    summary_prefix = f"HTTP {code} ({status}): " if code else f"{type(exc).__name__}: "
+    summary = f"{summary_prefix}{clean_msg[:160]}"
+
+    if code == 404 or "404" in exc_str or "not_found" in exc_str or "no longer available" in exc_str:
+        return "MODEL_NOT_FOUND", summary, True
+    if (
+        code in (401, 403)
+        or "401" in exc_str
+        or "403" in exc_str
+        or "permission_denied" in exc_str
+        or "api_key_invalid" in exc_str
+        or "unauthorized" in exc_str
+    ):
+        return "AUTH_ERROR", summary, True
+    if code == 429 or "429" in exc_str or "resource_exhausted" in exc_str or "quota" in exc_str or "rate limit" in exc_str:
+        return "QUOTA_EXHAUSTED", summary, False
+    if code in (500, 502, 503, 504) or "503" in exc_str or "unavailable" in exc_str or "high demand" in exc_str or "overloaded" in exc_str:
+        return "SERVER_ERROR", summary, False
+    if "timeout" in exc_str or "connect" in exc_str or isinstance(exc, (TimeoutError, ConnectionError)):
+        return "NETWORK_ERROR", summary, False
+
+    return "API_ERROR", summary, False
+
+
 def _make_json_safe(obj: Any) -> Any:
     """Recursively convert any pandas, numpy, or special object to JSON-safe primitives."""
     if obj is None:
@@ -127,13 +174,17 @@ class ChatbotService:
         *,
         provider: str = "gemini",
         api_key: str = "",
-        model: str = "gemini-2.5-flash",
+        model: str = "gemini-3.8-flash",
         max_tool_calls: int = 5,
     ) -> None:
         self._state = app_state
         self._provider = provider.lower()
         self._api_key = api_key.strip()
-        self._model = model
+        # Normalize model ID: Google GenAI SDK expects bare model ID (e.g. 'gemini-3.8-flash')
+        clean_model = (model or "gemini-3.8-flash").strip()
+        if clean_model.startswith("models/"):
+            clean_model = clean_model.replace("models/", "", 1)
+        self._model = clean_model
         self._max_tool_calls = max_tool_calls
         self._tools = ChatbotTools(app_state)
         self._system_prompt = build_system_prompt(
@@ -193,7 +244,7 @@ class ChatbotService:
 
         if not self.is_configured:
             logger.info("No API key configured for provider '%s'. Using expert fallback.", self._provider)
-            return self._fallback_response(user_message, conversation_history=history)
+            return self._fallback_response(user_message, conversation_history=history, reason="missing_api_key")
 
         if self._provider == "gemini":
             return await self._chat_gemini(user_message, history)
@@ -201,7 +252,7 @@ class ChatbotService:
             return await self._chat_openai(user_message, history)
         else:
             logger.warning("Unknown LLM provider '%s'. Using fallback.", self._provider)
-            return self._fallback_response(user_message, conversation_history=history)
+            return self._fallback_response(user_message, conversation_history=history, reason="unknown_provider")
 
     def _execute_tool(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         """Dispatch a tool call to the appropriate executor safely.
@@ -347,7 +398,7 @@ class ChatbotService:
             from google.genai import types
         except ImportError:
             logger.error("google-genai package not installed. Falling back to rule-based engine.")
-            return self._fallback_response(user_message, conversation_history=history)
+            return self._fallback_response(user_message, conversation_history=history, reason="google_genai_not_installed")
 
         try:
             client = genai.Client(api_key=self._api_key)
@@ -401,15 +452,51 @@ class ChatbotService:
                     self._max_tool_calls,
                 )
 
-                response = client.models.generate_content(
-                    model=self._model,
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=enhanced_prompt,
-                        tools=gemini_tools,
-                        temperature=0.7,
-                    ),
-                )
+                # Bounded retry: up to 1 retry for transient server/network errors
+                # Never retry permanent errors (404, 401/403) or quota exhaustion (429)
+                response = None
+                max_transient_attempts = 2
+                for attempt in range(max_transient_attempts):
+                    try:
+                        response = client.models.generate_content(
+                            model=self._model,
+                            contents=contents,
+                            config=types.GenerateContentConfig(
+                                system_instruction=enhanced_prompt,
+                                tools=gemini_tools,
+                                temperature=0.7,
+                            ),
+                        )
+                        break
+                    except Exception as exc:
+                        category, summary, is_permanent = _classify_gemini_error(exc)
+                        is_transient = not is_permanent and category in ("SERVER_ERROR", "NETWORK_ERROR")
+                        if is_transient and attempt < max_transient_attempts - 1:
+                            logger.warning(
+                                "Gemini API transient failure [%s] for model '%s': %s. Retrying in 1.0s (attempt %d/%d)...",
+                                category,
+                                self._model,
+                                summary,
+                                attempt + 1,
+                                max_transient_attempts,
+                            )
+                            import asyncio
+                            await asyncio.sleep(1.0)
+                            continue
+
+                        logger.error(
+                            "Gemini API failure [%s] for model '%s': %s (permanent=%s). Using expert fallback.",
+                            category,
+                            self._model,
+                            summary,
+                            is_permanent,
+                        )
+                        return self._fallback_response(
+                            user_message,
+                            conversation_history=history,
+                            reason=f"gemini_{category.lower()}",
+                            tool_calls=tool_calls_made,
+                        )
 
                 # Check if the response contains function calls
                 if (
@@ -476,15 +563,20 @@ class ChatbotService:
                     response_text = "\n".join(text_parts)
 
             if not response_text.strip():
-                logger.warning("Gemini returned empty text response. Falling back.")
-                return self._fallback_response(user_message, conversation_history=history)
+                logger.warning("Gemini model '%s' returned empty text response. Falling back.", self._model)
+                return self._fallback_response(
+                    user_message,
+                    conversation_history=history,
+                    reason="gemini_empty_response",
+                )
 
             updated_history = list(history)
             updated_history.append({"role": "user", "content": user_message})
             updated_history.append({"role": "assistant", "content": response_text})
 
             logger.info(
-                "Gemini response generated successfully: response_len=%d, tools_used=%d",
+                "Gemini response generated successfully: model='%s', response_len=%d, tools_used=%d",
+                self._model,
                 len(response_text),
                 len(tool_calls_made),
             )
@@ -493,11 +585,25 @@ class ChatbotService:
                 "response": response_text,
                 "tool_calls": tool_calls_made,
                 "conversation": updated_history,
+                "provider": "gemini",
+                "model": self._model,
+                "fallback": False,
             }
 
         except Exception as exc:
-            logger.exception("Gemini API call failed (%s): %s. Using expert fallback.", type(exc).__name__, exc)
-            return self._fallback_response(user_message, conversation_history=history)
+            category, summary, is_permanent = _classify_gemini_error(exc)
+            logger.error(
+                "Gemini API initialization/execution failed [%s] for model '%s': %s (permanent=%s). Using expert fallback.",
+                category,
+                self._model,
+                summary,
+                is_permanent,
+            )
+            return self._fallback_response(
+                user_message,
+                conversation_history=history,
+                reason=f"gemini_{category.lower()}",
+            )
 
     # ---------------------------------------------------------------
     # OpenAI implementation
@@ -513,7 +619,7 @@ class ChatbotService:
             from openai import OpenAI
         except ImportError:
             logger.error("openai package not installed. Falling back to rule-based engine.")
-            return self._fallback_response(user_message, conversation_history=history)
+            return self._fallback_response(user_message, conversation_history=history, reason="openai_not_installed")
 
         try:
             client = OpenAI(api_key=self._api_key)
@@ -580,7 +686,7 @@ class ChatbotService:
 
             response_text = choice.message.content or ""
             if not response_text.strip():
-                return self._fallback_response(user_message, conversation_history=history)
+                return self._fallback_response(user_message, conversation_history=history, reason="openai_empty_response")
 
             updated_history = list(history)
             updated_history.append({"role": "user", "content": user_message})
@@ -590,11 +696,14 @@ class ChatbotService:
                 "response": response_text,
                 "tool_calls": tool_calls_made,
                 "conversation": updated_history,
+                "provider": "openai",
+                "model": self._model,
+                "fallback": False,
             }
 
         except Exception as exc:
             logger.exception("OpenAI API call failed (%s): %s. Using expert fallback.", type(exc).__name__, exc)
-            return self._fallback_response(user_message, conversation_history=history)
+            return self._fallback_response(user_message, conversation_history=history, reason="openai_api_error")
 
     # ---------------------------------------------------------------
     # Fallback (Offline / No API Key / Network Failure)
@@ -604,6 +713,8 @@ class ChatbotService:
         self,
         user_message: str,
         conversation_history: list[dict[str, str]] | None = None,
+        reason: str | None = None,
+        tool_calls: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Generate a knowledgeable FPL analyst response using tools directly.
 
@@ -615,10 +726,28 @@ class ChatbotService:
         lower = user_message.lower()
 
         logger.info(
-            "Executing fallback response generator: query='%s', is_arabic=%s",
+            "Executing fallback response generator: query='%s', is_arabic=%s, reason=%s",
             user_message[:100],
             is_ar,
+            reason or "unspecified",
         )
+
+        def _make_fallback_result(text: str, tools_used: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+            hist = list(conversation_history or [])
+            hist.append({"role": "user", "content": user_message})
+            hist.append({"role": "assistant", "content": text})
+            combined_tools = list(tool_calls or [])
+            if tools_used:
+                combined_tools.extend(tools_used)
+            return {
+                "response": text,
+                "tool_calls": combined_tools,
+                "conversation": hist,
+                "provider": "fallback",
+                "model": None,
+                "fallback": True,
+                "fallback_reason": reason or "expert_fallback",
+            }
 
         # Check if the agentic orchestrator can synthesize an evidence-backed decision
         if not is_ar and self._orchestrator is not None:
@@ -634,14 +763,7 @@ class ChatbotService:
                         len(orch_result.agents_used),
                         orch_result.total_time_ms,
                     )
-                    updated_history = list(conversation_history or [])
-                    updated_history.append({"role": "user", "content": user_message})
-                    updated_history.append({"role": "assistant", "content": orch_result.formatted_fallback})
-                    return {
-                        "response": orch_result.formatted_fallback,
-                        "tool_calls": orch_result.all_tool_calls,
-                        "conversation": updated_history,
-                    }
+                    return _make_fallback_result(orch_result.formatted_fallback, orch_result.all_tool_calls)
             except Exception as exc:
                 logger.warning(
                     "Orchestrator fallback synthesis failed (%s): %s. Falling back to rule engine.",
@@ -698,7 +820,7 @@ class ChatbotService:
                     a_name = alt.get("web_name") or alt.get("name")
                     a_team = alt.get("team") or ""
                     a_pos = alt.get("position") or ""
-                    a_pts = float(
+                    a_pts = round(
                         alt.get("predicted_expected_points")
                         or alt.get("score_d")
                         or 0.0
@@ -707,18 +829,19 @@ class ChatbotService:
                     a_fix = f" (ضد {a_opp})" if a_opp else ""
                     a_fix_en = f" (vs {a_opp})" if a_opp else ""
                     alt_lines_ar.append(
-                        f"• **{a_name}** ({a_team} - {a_pos}): متوقع **{a_pts:.1f}** نقطة{a_fix}"
+                        f"• **{a_name}** ({a_team} - {a_pos}): متوقع **{a_pts}** نقطة{a_fix}"
                     )
                     alt_lines_en.append(
-                        f"• **{a_name}** ({a_team} - {a_pos}): projected **{a_pts:.1f}** pts{a_fix_en}"
+                        f"• **{a_name}** ({a_team} - {a_pos}): projected **{a_pts}** pts{a_fix_en}"
                     )
 
+                top_pts = round(pts)
                 if is_ar:
                     resp = (
                         f"بناءً على تحليلات ونموذج **Fantasy AI** للجولة{gw_str} "
                         f"(مع مراعاة الجاهزية الرسمية والدقائق المتوقعة):\n\n"
                         f"🏆 **أفضل خيار للكابتنة:** **{top_name}** ({top_team} - {top_pos})\n"
-                        f"• **النقاط المتوقعة:** **{pts:.1f}** نقطة\n"
+                        f"• **النقاط المتوقعة:** **{top_pts}** نقطة\n"
                         f"• **المواجهة:** {fix_ar}\n"
                         f"• **حالة الجاهزية:** جاهز للمشاركة وأساسي بنسبة 100% مع أمان تام في الدقائق.\n\n"
                     )
@@ -733,7 +856,7 @@ class ChatbotService:
                         f"Based on **Fantasy AI** predictions for Gameweek{gw_str} "
                         f"(availability-adjusted):\n\n"
                         f"🏆 **Recommended Captain:** **{top_name}** ({top_team} - {top_pos})\n"
-                        f"• **Projected Points:** **{pts:.1f}** pts\n"
+                        f"• **Projected Points:** **{top_pts}** pts\n"
                         f"• **Fixture:** {fix_en}\n"
                         f"• **Availability:** Fully fit starter with strong minutes security.\n\n"
                     )
@@ -744,15 +867,10 @@ class ChatbotService:
                         f"and lowest rotation risk for this gameweek. Recommended as the safest armband pick."
                     )
 
-                updated_history = list(conversation_history or [])
-                updated_history.append({"role": "user", "content": user_message})
-                updated_history.append({"role": "assistant", "content": resp})
-
-                return {
-                    "response": resp,
-                    "tool_calls": [{"tool": "get_captain_recommendation", "args": {}}],
-                    "conversation": updated_history,
-                }
+                return _make_fallback_result(
+                    resp,
+                    [{"tool": "get_captain_recommendation", "args": {}}],
+                )
 
         # ---------------------------------------------------------------
         # 2. Injuries / Doubts / Availability Intent
@@ -801,15 +919,10 @@ class ChatbotService:
                     resp += f"• **{p_name}** ({p_team}): **{p_status}** - *{news}*\n"
                 resp += "\n💡 Check official pre-match press conferences before the deadline."
 
-            updated_history = list(conversation_history or [])
-            updated_history.append({"role": "user", "content": user_message})
-            updated_history.append({"role": "assistant", "content": resp})
-
-            return {
-                "response": resp,
-                "tool_calls": [{"tool": "get_injured_doubtful_players", "args": {}}],
-                "conversation": updated_history,
-            }
+            return _make_fallback_result(
+                resp,
+                [{"tool": "get_injured_doubtful_players", "args": {}}],
+            )
 
         # ---------------------------------------------------------------
         # 3. Top Predicted Players Intent
@@ -836,10 +949,10 @@ class ChatbotService:
                     p_name = p.get("web_name") or p.get("name")
                     p_team = p.get("team", "")
                     p_pos = p.get("position", "")
-                    p_pts = float(p.get("predicted_expected_points") or p.get("score_d") or 0.0)
+                    p_pts = round(float(p.get("predicted_expected_points") or p.get("score_d") or 0.0))
                     opp = p.get("opponent_team")
                     fix = f" (ضد {opp})" if opp else ""
-                    resp += f"{i}. **{p_name}** ({p_team} - {p_pos}): **{p_pts:.1f}** نقطة متوقعة{fix}\n"
+                    resp += f"{i}. **{p_name}** ({p_team} - {p_pos}): **{p_pts}** نقطة متوقعة{fix}\n"
                 resp += "\n💡 التوقعات تأخذ في الاعتبار صعوبة الخصم والجوانب التكتيكية ومعدل xG/xA الأخير."
             else:
                 resp = f"🔥 **Top 5 Predicted Players for Gameweek{gw_str}:**\n\n"
@@ -847,27 +960,22 @@ class ChatbotService:
                     p_name = p.get("web_name") or p.get("name")
                     p_team = p.get("team", "")
                     p_pos = p.get("position", "")
-                    p_pts = float(p.get("predicted_expected_points") or p.get("score_d") or 0.0)
+                    p_pts = round(float(p.get("predicted_expected_points") or p.get("score_d") or 0.0))
                     opp = p.get("opponent_team")
                     fix = f" (vs {opp})" if opp else ""
-                    resp += f"{i}. **{p_name}** ({p_team} - {p_pos}): **{p_pts:.1f}** predicted pts{fix}\n"
+                    resp += f"{i}. **{p_name}** ({p_team} - {p_pos}): **{p_pts}** predicted pts{fix}\n"
                 resp += "\n💡 Projections factor in recent xG/xA form, minutes security, and fixture difficulty."
 
-            updated_history = list(conversation_history or [])
-            updated_history.append({"role": "user", "content": user_message})
-            updated_history.append({"role": "assistant", "content": resp})
-
-            return {
-                "response": resp,
-                "tool_calls": [{"tool": "get_gameweek_predictions", "args": {"limit": 5}}],
-                "conversation": updated_history,
-            }
+            return _make_fallback_result(
+                resp,
+                [{"tool": "get_gameweek_predictions", "args": {"limit": 5}}],
+            )
 
         # ---------------------------------------------------------------
-        # 4. Differentials Intent
+        # 4. Low-Ownership Picks Intent
         # ---------------------------------------------------------------
-        arabic_diff_keywords = ("دفرنشل", "ديفرنشيل", "دفرنشال", "ديفرنشال", "مغمور", "ريسك")
-        english_diff_keywords = ("differential", "differentials", "low ownership")
+        arabic_diff_keywords = ("دفرنشل", "ديفرنشيل", "دفرنشال", "ديفرنشال", "مغمور", "ريسك", "ملكية منخفضة")
+        english_diff_keywords = ("differential", "differentials", "low ownership", "under the radar")
 
         is_diff = any(w in norm_ar for w in arabic_diff_keywords) or any(
             w in lower for w in english_diff_keywords
@@ -878,35 +986,30 @@ class ChatbotService:
             diffs = data.get("differentials", [])
 
             if is_ar:
-                resp = f"💎 **أفضل خيارات الـ Differentials للجولة{gw_str} (نسبة امتلاك منخفضة مع سقف عالي):**\n\n"
+                resp = f"💎 **أفضل اللاعبين بنسبة ملكية منخفضة للجولة{gw_str} (مع توقعات نقاط قوية):**\n\n"
                 for p in diffs:
                     p_name = p.get("web_name") or p.get("name")
                     p_team = p.get("team", "")
                     p_pos = p.get("position", "")
-                    p_pts = float(p.get("predicted_expected_points") or p.get("score_d") or 0.0)
-                    own = float(p.get("selected_by_percent") or 0.0)
-                    resp += f"• **{p_name}** ({p_team} - {p_pos}): متوقع **{p_pts:.1f}** نقطة (ملكية: {own:.1f}%)\n"
+                    p_pts = round(float(p.get("predicted_expected_points") or p.get("score_d") or 0.0))
+                    own = round(float(p.get("selected_by_percent") or 0.0))
+                    resp += f"• **{p_name}** ({p_team} - {p_pos}): متوقع **{p_pts}** نقطة (ملكية: {own}%)\n"
                 resp += "\n💡 هذه الخيارات ممتازة لتعويض الفارق في الترتيب والمنافسة في الدوريات الخاصة."
             else:
-                resp = f"💎 **Top Differential Picks for Gameweek{gw_str} (Low Ownership, High Upside):**\n\n"
+                resp = f"💎 **Top Low-Ownership Gems for Gameweek{gw_str} (Low Ownership & Strong Projections):**\n\n"
                 for p in diffs:
                     p_name = p.get("web_name") or p.get("name")
                     p_team = p.get("team", "")
                     p_pos = p.get("position", "")
-                    p_pts = float(p.get("predicted_expected_points") or p.get("score_d") or 0.0)
-                    own = float(p.get("selected_by_percent") or 0.0)
-                    resp += f"• **{p_name}** ({p_team} - {p_pos}): **{p_pts:.1f}** proj pts (ownership: {own:.1f}%)\n"
+                    p_pts = round(float(p.get("predicted_expected_points") or p.get("score_d") or 0.0))
+                    own = round(float(p.get("selected_by_percent") or 0.0))
+                    resp += f"• **{p_name}** ({p_team} - {p_pos}): **{p_pts}** proj pts (ownership: {own}%)\n"
                 resp += "\n💡 Great picks for climbing ranks and gaining an edge in mini-leagues."
 
-            updated_history = list(conversation_history or [])
-            updated_history.append({"role": "user", "content": user_message})
-            updated_history.append({"role": "assistant", "content": resp})
-
-            return {
-                "response": resp,
-                "tool_calls": [{"tool": "get_differential_picks", "args": {"limit": 5}}],
-                "conversation": updated_history,
-            }
+            return _make_fallback_result(
+                resp,
+                [{"tool": "get_differential_picks", "args": {"limit": 5}}],
+            )
 
         # ---------------------------------------------------------------
         # 5. Specific Player Search Intent (e.g. "مين صلاح؟", "Palmer", "Haaland")
@@ -927,7 +1030,7 @@ class ChatbotService:
                 p_team = p.get("team", "")
                 p_pos = p.get("position", "")
                 p_price = float(p.get("value") or (p.get("now_cost", 0) / 10.0))
-                p_pts = float(p.get("predicted_expected_points") or p.get("score_d") or 0.0)
+                p_pts = round(float(p.get("predicted_expected_points") or p.get("score_d") or 0.0))
                 p_status = p.get("availability_status", "fit")
                 p_news = p.get("team_news")
                 opp = p.get("opponent_team")
@@ -951,7 +1054,7 @@ class ChatbotService:
                     resp = (
                         f"📊 **تقرير اللاعب:** **{p_name}** ({p_team} - {p_pos})\n\n"
                         f"• **السعر:** £{p_price:.1f}m\n"
-                        f"• **النقاط المتوقعة للجولة{gw_str}:** **{p_pts:.1f}** نقطة\n"
+                        f"• **النقاط المتوقعة للجولة{gw_str}:** **{p_pts}** نقطة\n"
                         f"• **المواجهة القادمة:** {fix_str_ar}\n"
                         f"• **حالة الجاهزية:** {status_desc}\n"
                     )
@@ -961,22 +1064,17 @@ class ChatbotService:
                     resp = (
                         f"📊 **Player Profile:** **{p_name}** ({p_team} - {p_pos})\n\n"
                         f"• **Price:** £{p_price:.1f}m\n"
-                        f"• **Expected Points (GW{gw_str}):** **{p_pts:.1f}** pts\n"
+                        f"• **Expected Points (GW{gw_str}):** **{p_pts}** pts\n"
                         f"• **Next Fixture:** {fix_str_en}\n"
                         f"• **Availability:** {p_status.replace('_', ' ').title()}\n"
                     )
                     if p_news:
                         resp += f"• **Team News:** {p_news}\n"
 
-                updated_history = list(conversation_history or [])
-                updated_history.append({"role": "user", "content": user_message})
-                updated_history.append({"role": "assistant", "content": resp})
-
-                return {
-                    "response": resp,
-                    "tool_calls": [{"tool": "get_player_info", "args": {"player_name": p_name}}],
-                    "conversation": updated_history,
-                }
+                return _make_fallback_result(
+                    resp,
+                    [{"tool": "get_player_info", "args": {"player_name": p_name}}],
+                )
 
         # ---------------------------------------------------------------
         # 6. Greetings Intent
@@ -997,7 +1095,7 @@ class ChatbotService:
                     "• 🏆 **ترشيحات الكابتنة:** (مثال: *تفتكر اكبتن مين الجولة الجاية؟*)\n"
                     "• 🤕 **الإصابات والشكوك:** (مثال: *مين المصابين الأسبوع ده؟*)\n"
                     "• 🔥 **أعلى التوقعات:** (مثال: *مين أفضل لاعبين للجولة؟*)\n"
-                    "• 💎 **الـ Differentials:** (مثال: *اقترح عليا differential picks*)\n"
+                    "• 💎 **خيارات الملكية المنخفضة:** (مثال: *مين أفضل لاعبين بنسبة ملكية منخفضة؟*)\n"
                     "• 📊 **فحص أي لاعب:** (مثال: *مين صلاح؟* أو *هل بالمر جاهز؟*)"
                 )
             else:
@@ -1008,19 +1106,11 @@ class ChatbotService:
                     "• 🏆 **Captain Picks:** (e.g. *Who should I captain this gameweek?*)\n"
                     "• 🤕 **Injuries & Team News:** (e.g. *Who is injured or doubtful?*)\n"
                     "• 🔥 **Top Predicted Players:** (e.g. *Who are the top projected players?*)\n"
-                    "• 💎 **Differentials:** (e.g. *Give me differential picks*)\n"
+                    "• 💎 **Low-Ownership Gems:** (e.g. *Who are the top low-ownership picks?*)\n"
                     "• 📊 **Player Analysis:** (e.g. *Tell me about Palmer* or *Is Saka fit?*)"
                 )
 
-            updated_history = list(conversation_history or [])
-            updated_history.append({"role": "user", "content": user_message})
-            updated_history.append({"role": "assistant", "content": resp})
-
-            return {
-                "response": resp,
-                "tool_calls": [],
-                "conversation": updated_history,
-            }
+            return _make_fallback_result(resp, [])
 
         # ---------------------------------------------------------------
         # 7. General Fallback
@@ -1032,7 +1122,7 @@ class ChatbotService:
                 "• 🏆 اختيار الكابتن الأنسب وتوقع النقاط\n"
                 "• 🤕 متابعة تقارير الإصابات والشكوك الرسمية\n"
                 "• 🔥 أفضل اللاعبين المتوقع تألقهم\n"
-                "• 💎 خيارات الـ Differentials ذات الملكية المنخفضة\n\n"
+                "• 💎 لاعبين مميزين بنسبة ملكية منخفضة\n\n"
                 "جرّب سؤالي مثل: **«تفتكر اكبتن مين الجولة الجاية؟»** أو **«مين المصابين؟»**"
             )
         else:
@@ -1042,16 +1132,8 @@ class ChatbotService:
                 "• 🏆 Captain recommendations based on expected points\n"
                 "• 🤕 Official injury status and rotation risks\n"
                 "• 🔥 Top predicted players across all positions\n"
-                "• 💎 Low-ownership differential picks\n\n"
+                "• 💎 High-upside picks with low ownership\n\n"
                 "Try asking: **'Who should I captain this gameweek?'** or **'Which players are injured?'**"
             )
 
-        updated_history = list(conversation_history or [])
-        updated_history.append({"role": "user", "content": user_message})
-        updated_history.append({"role": "assistant", "content": resp})
-
-        return {
-            "response": resp,
-            "tool_calls": [],
-            "conversation": updated_history,
-        }
+        return _make_fallback_result(resp, [])

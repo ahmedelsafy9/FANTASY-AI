@@ -81,16 +81,16 @@ export function AuthToast() {
             className={cn(
               "pointer-events-auto flex max-w-sm items-start gap-3 rounded-xl border px-4 py-3 shadow-card",
               toast.variant === "success"
-                ? "border-teal/25 bg-teal/10 text-teal"
-                : "border-coral/25 bg-coral/10 text-coral",
+                ? "border-[#D5C6F0] bg-[#EEE7FA] text-[#452477]"
+                : "border-red-200 bg-red-50 text-red-700",
             )}
           >
             {toast.variant === "success" ? (
-              <CheckCircle size={18} className="mt-0.5 shrink-0" />
+              <CheckCircle size={18} className="mt-0.5 shrink-0 text-[#7041C5]" />
             ) : (
-              <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+              <AlertTriangle size={18} className="mt-0.5 shrink-0 text-red-600" />
             )}
-            <p className="text-sm font-medium leading-snug text-ink">
+            <p className="text-sm font-semibold leading-snug text-[#19171D]">
               {toast.message}
             </p>
             <button

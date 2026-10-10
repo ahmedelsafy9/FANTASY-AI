@@ -57,6 +57,8 @@ def predict(
         latest_completed_gameweek=latest_completed_gw,
         predicted_gameweek=predicted_gw,
         generated_at=generated_at,
+        gameweek_synced=getattr(app_state, "gameweek_synced", True),
+        sync_status=getattr(app_state, "sync_status", "synchronized"),
         predicted_for_gw_note=(
             f"Predictions generated for Gameweek {predicted_gw} based on data through Gameweek {latest_completed_gw}."
             if predicted_gw is not None and latest_completed_gw is not None

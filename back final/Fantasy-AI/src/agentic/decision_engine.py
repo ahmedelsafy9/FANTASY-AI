@@ -37,6 +37,16 @@ from src.config.logging_config import get_logger
 logger = get_logger(__name__)
 
 
+def _format_pts(val: Any) -> str:
+    """Format expected points as an integer string without decimals."""
+    try:
+        if val is None or val == "N/A":
+            return "N/A"
+        return str(round(float(val)))
+    except (ValueError, TypeError):
+        return str(val)
+
+
 @dataclass
 class DecisionFactor:
     """A cross-checked evaluation factor comparing entities."""
@@ -151,14 +161,17 @@ class DecisionEngine:
         p1_name = p1.get("name") or p_out
         p2_name = p2.get("name") or p_in
 
-        diff_pts = round(abs(p2_pts - p1_pts), 1)
+        diff_pts = round(abs(float(p2_pts) - float(p1_pts)))
         recommended_player = p2_name if p2_pts >= p1_pts else p1_name
+
+        p1_pts_str = _format_pts(p1_pts)
+        p2_pts_str = _format_pts(p2_pts)
 
         why_bullets = []
         if p2_pts > p1_pts:
-            why_bullets.append(f"Immediate projection edge: **{p2_name}** ({p2_pts} pts) vs **{p1_name}** ({p1_pts} pts) [+ {diff_pts} pts next GW]")
+            why_bullets.append(f"Immediate projection edge: **{p2_name}** ({p2_pts_str} pts) vs **{p1_name}** ({p1_pts_str} pts) [+ {diff_pts} pts next GW]")
         else:
-            why_bullets.append(f"Current holder edge: **{p1_name}** projects {p1_pts} pts vs {p2_pts} pts for **{p2_name}**")
+            why_bullets.append(f"Current holder edge: **{p1_name}** projects {p1_pts_str} pts vs {p2_pts_str} pts for **{p2_name}**")
 
         p2_form = p2.get("form", "N/A")
         p1_form = p1.get("form", "N/A")
@@ -184,7 +197,7 @@ class DecisionEngine:
                 f"Statistically viable for a **-4 hit**: Because {p1_name} is unlikely to feature (0 pts), "
                 f"{p2_name} only needs 2 appearance points plus an attacking return over the next 2 gameweeks to yield positive net expected value."
             )
-        elif diff_pts >= 4.0:
+        elif diff_pts >= 4:
             hit_verdict = (
                 f"Statistically defensible for a **-4 hit**: The single-gameweek delta (+{diff_pts} pts) exceeds the 4-point entry fee, "
                 f"and expected value compounds if {p2_name} holds the stronger 3–5 fixture run."
@@ -192,7 +205,7 @@ class DecisionEngine:
         else:
             hit_verdict = (
                 f"Taking a **-4 hit is NOT recommended**: The 1-gameweek projection gap (+{diff_pts} pts) does not clear "
-                f"the 4-point penalty after factoring in model variance (±2.8 pts). Only make the move on a **free transfer**."
+                f"the 4-point penalty after factoring in model variance (±3 pts). Only make the move on a **free transfer**."
             )
 
         risks.append(f"Transfer cost analysis: {hit_verdict}")
@@ -200,7 +213,7 @@ class DecisionEngine:
 
         verdict = (
             f"If on a free transfer → **{'Transfer in ' + p2_name if p2_pts >= p1_pts else 'Hold ' + p1_name}**.\n"
-            f"If taking a -4 hit → **{('Proceed with ' + p2_name) if (p1_is_injured or diff_pts >= 4.0) else ('Hold ' + p1_name)}**."
+            f"If taking a -4 hit → **{('Proceed with ' + p2_name) if (p1_is_injured or diff_pts >= 4) else ('Hold ' + p1_name)}**."
         )
 
         formatted = (
@@ -246,10 +259,10 @@ class DecisionEngine:
         p2_pts = p2.get("predicted_points", 0)
 
         winner = p1_name if p1_pts >= p2_pts else p2_name
-        diff = round(abs(p1_pts - p2_pts), 1)
+        diff = round(abs(float(p1_pts) - float(p2_pts)))
 
         diffs = [
-            f"**Projected Points**: {p1_name} ({p1_pts} pts) vs {p2_name} ({p2_pts} pts) [Delta: {diff} pts]",
+            f"**Projected Points**: {p1_name} ({_format_pts(p1_pts)} pts) vs {p2_name} ({_format_pts(p2_pts)} pts) [Delta: {diff} pts]",
             f"**Form**: {p1_name} ({p1.get('form', 'N/A')}) vs {p2_name} ({p2.get('form', 'N/A')})",
             f"**Price**: £{p1.get('cost', 0.0)}m vs £{p2.get('cost', 0.0)}m",
             f"**Goal Involvements (xGI)**: {p1_name} ({p1.get('expected_goal_involvements', 'N/A')}) vs {p2_name} ({p2.get('expected_goal_involvements', 'N/A')})",
@@ -316,20 +329,20 @@ class DecisionEngine:
         )
 
         why = [
-            f"Highest expected ceiling: **{c_name}** leads the model with **{c_pts}** projected points.",
+            f"Highest expected ceiling: **{c_name}** leads the model with **{_format_pts(c_pts)}** projected points.",
             f"Consistent underlying goal threat and high penalty/set-piece involvement.",
             f"Secure starting minutes with zero reported fitness concerns.",
         ]
 
-        alt_strs = [f"**{a.get('name', 'Alt')}** ({a.get('predicted_points', 0)} pts)" for a in alts[:2]]
+        alt_strs = [f"**{a.get('name', 'Alt')}** ({_format_pts(a.get('predicted_points') or a.get('predicted_expected_points') or a.get('score_d') or 0)} pts)" for a in alts[:2]]
 
         formatted = (
             f"### Gameweek Captaincy Recommendation\n\n"
-            f"**Armband Pick**: **{c_name}** ({c_pts} pts)\n"
-            f"**Vice Captain**: **{vc_name}** ({vc_pts} pts)\n\n"
+            f"**Armband Pick**: **{c_name}** ({_format_pts(c_pts)} pts)\n"
+            f"**Vice Captain**: **{vc_name}** ({_format_pts(vc_pts)} pts)\n\n"
             f"**Why**:\n"
             + "\n".join(f"• {w}" for w in why) + "\n\n"
-            f"**Alternatives / Differentials**:\n"
+            f"**Alternative Options**:\n"
             + (f"• {', '.join(alt_strs)}\n\n" if alt_strs else "• No close alternatives\n\n")
             + f"**Verdict**:\nHand the armband to **{c_name}**. His combination of ceiling and xGI makes him the safest and highest-upside captaincy choice this gameweek."
         )
@@ -420,7 +433,7 @@ class DecisionEngine:
             for w in weakest[:3]:
                 weakness_bullets.append(
                     f"**Low projected output**: **{w.get('name')}** ({w.get('team')} - {w.get('position')}) "
-                    f"projects only **{w.get('predicted_points'):.1f} pts** this gameweek"
+                    f"projects only **{_format_pts(w.get('predicted_points'))} pts** this gameweek"
                 )
         if not weakness_bullets:
             weakness_bullets.append("No immediate availability doubts or low-output liabilities detected among evaluated players.")
@@ -437,7 +450,7 @@ class DecisionEngine:
         # Squad strengths
         strength_bullets = []
         if total_pts > 0:
-            strength_bullets.append(f"Combined projection of **{total_pts:.1f} expected points** across the analyzed assets.")
+            strength_bullets.append(f"Combined projection of **{_format_pts(total_pts)} expected points** across the analyzed assets.")
         strength_bullets.append("Core premium starters hold solid underlying baseline minutes.")
 
         # Incomplete / Partial squad notice
@@ -483,28 +496,34 @@ class DecisionEngine:
         diffs = strat_data.get("differential_picks", [])
         if not diffs:
             diffs = [
-                {"name": "Bryan Mbeumo", "team": "Brentford", "ownership": "<12%", "predicted_points": 6.8},
-                {"name": "Antoine Semenyo", "team": "Bournemouth", "ownership": "<9%", "predicted_points": 5.9},
-                {"name": "Dominic Solanke", "team": "Spurs", "ownership": "<14%", "predicted_points": 6.4},
+                {"name": "Bryan Mbeumo", "team": "Brentford", "ownership": "<12%", "predicted_points": 7},
+                {"name": "Antoine Semenyo", "team": "Bournemouth", "ownership": "<9%", "predicted_points": 6},
+                {"name": "Dominic Solanke", "team": "Spurs", "ownership": "<14%", "predicted_points": 6},
             ]
 
         bullets = []
         for d in diffs[:3]:
-            bullets.append(f"• **{d.get('name')}** ({d.get('team', '')}) — Ownership: {d.get('ownership', d.get('selected_by_percent', '<10%'))} | Projected: **{d.get('predicted_points', '6.0+')} pts**")
+            pts_str = _format_pts(d.get("predicted_points", 6))
+            own_val = d.get("ownership", d.get("selected_by_percent", "<10%"))
+            if isinstance(own_val, (int, float)):
+                own_str = f"{round(float(own_val))}%"
+            else:
+                own_str = str(own_val)
+            bullets.append(f"• **{d.get('name')}** ({d.get('team', '')}) — Ownership: {own_str} | Projected: **{pts_str} pts**")
 
         formatted = (
-            f"### Top 3 Differential Picks for this Gameweek (<15% Ownership)\n\n"
+            f"### Top Low-Ownership Gems for this Gameweek (<10% Ownership & High Projections)\n\n"
             + "\n".join(bullets) + "\n\n"
-            f"**Why These Differentials**:\n"
-            f"• Low overall ownership ensures massive rank climbs when they return.\n"
+            f"**Why These Low-Ownership Picks**:\n"
+            f"• Low overall ownership ensures significant rank gains when they return.\n"
             f"• Each player holds favorable immediate fixture difficulty and guaranteed 80+ expected minutes.\n"
-            f"• High shot volume and penalty box touches over the last 3 gameweeks."
+            f"• High shot volume and penalty box touches over recent gameweeks."
         )
 
         return SynthesizedDecision(
             intent=plan.intent,
-            recommendation="Target top differentials",
-            sources=["FPL Differential Pipeline", "Ownership Analytics"],
+            recommendation="Target high-performing low-ownership assets",
+            sources=["FPL Performance Pipeline", "Ownership Analytics"],
             formatted_text=formatted,
         )
 
@@ -562,7 +581,7 @@ class DecisionEngine:
         team = p_data.get("team") or "Premier League"
         pos = p_data.get("position") or "Asset"
         cost = p_data.get("cost") or p_data.get("now_cost", 0) / 10.0
-        pts = p_data.get("predicted_points", "N/A")
+        pts = _format_pts(p_data.get("predicted_points", "N/A"))
 
         formatted = (
             f"**{name}** ({team})\n\n"
@@ -624,7 +643,7 @@ class DecisionEngine:
         avail = p_data.get("availability", {})
 
         name = info.get("name") or (plan.entities[0] if plan.entities else "Player")
-        pts = info.get("predicted_points", "N/A")
+        pts = _format_pts(info.get("predicted_points", "N/A"))
         cost = info.get("cost", 0.0)
         team = info.get("team", "")
 

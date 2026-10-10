@@ -1,4 +1,4 @@
-import { formatStat } from "@/lib/format";
+import { formatInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface PredictionScoreProps {
@@ -17,18 +17,18 @@ const SIZE_MAP = {
 export function PredictionScore({ points, size = "md", className }: PredictionScoreProps) {
   const value = typeof points === "number" ? points : null;
   const isHigh = value !== null && value >= 7;
-  const formatted = formatStat(points);
+  const formatted = formatInt(points);
 
   return (
     <div className={cn("flex flex-col", className)}>
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+      <span className="text-[10px] font-black uppercase tracking-widest text-[#6F6A76]">
         Expected Pts
       </span>
       <span
         className={cn(
-          "numeral font-black leading-none text-amber-600",
+          "numeral font-black leading-none",
           SIZE_MAP[size],
-          isHigh && "text-amber-700",
+          isHigh ? "text-[#8C680E]" : "text-[#452477]",
         )}
       >
         {formatted}

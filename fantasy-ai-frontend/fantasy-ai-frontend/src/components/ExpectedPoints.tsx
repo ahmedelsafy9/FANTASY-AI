@@ -39,7 +39,7 @@ export function ExpectedPoints({
       {showLabel && (
         <span
           className={cn(
-            "font-black uppercase tracking-widest text-[#92400E]",
+            "font-bold uppercase tracking-wider text-[#6F6A76]",
             sizes.label,
           )}
         >
@@ -50,7 +50,7 @@ export function ExpectedPoints({
         <span
           className={cn(
             "numeral font-black leading-none",
-            value !== null && value >= 7 ? "text-[#B45309]" : "text-[#92400E]",
+            value !== null && value >= 7 ? "text-[#B58A18]" : "text-[#452477]",
             sizes.number,
           )}
         >
@@ -58,7 +58,7 @@ export function ExpectedPoints({
         </span>
         <span
           className={cn(
-            "font-bold text-[#B45309]/70",
+            "font-semibold text-[#6F6A76]",
             sizes.suffix,
           )}
         >

@@ -13,15 +13,17 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", children, ...props }, ref) => {
     const base =
-      "inline-flex items-center justify-center gap-2 rounded-xl font-black transition-all duration-150 disabled:bg-[#F1F5F9] disabled:text-[#94A3B8] disabled:border-transparent disabled:shadow-none disabled:pointer-events-none active:translate-y-0.5 active:shadow-btn-pressed cursor-pointer";
+      "inline-flex items-center justify-center gap-2 rounded-xl font-black transition-all duration-150 disabled:bg-[#F8F7FA] disabled:text-[#B5B0BC] disabled:border-transparent disabled:shadow-none disabled:pointer-events-none active:translate-y-0.5 active:shadow-btn-pressed cursor-pointer";
     const variants: Record<string, string> = {
       primary:
-        "bg-[#10B981] text-white border border-[#059669] shadow-btn-raised hover:bg-[#059669] hover:shadow-glow",
+        "bg-[#7041C5] text-white border border-[#5B32A8] shadow-btn-raised hover:bg-[#5B32A8] hover:shadow-glow-purple",
       secondary:
-        "bg-white text-[#0F172A] border-2 border-[#10B981] shadow-btn-raised hover:bg-[#ECFDF5] hover:border-[#059669]",
+        "bg-white text-[#19171D] border-2 border-[#D8C7F4] shadow-btn-raised hover:bg-[#EEE7FA] hover:border-[#7041C5]",
       gold:
-        "bg-[#F59E0B] text-[#0F172A] border border-[#D97706] shadow-btn-raised hover:bg-[#D97706] hover:text-white hover:shadow-glow-gold",
-      ghost: "bg-transparent text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9] rounded-xl",
+        "bg-[#B58A18] text-white border border-[#8C680E] shadow-btn-raised hover:bg-[#8C680E] hover:shadow-glow-mustard",
+      mustard:
+        "bg-[#B58A18] text-white border border-[#8C680E] shadow-btn-raised hover:bg-[#8C680E] hover:shadow-glow-mustard",
+      ghost: "bg-transparent text-[#6F6A76] hover:text-[#19171D] hover:bg-[#F2EEF8] rounded-xl",
     };
     const sizes: Record<string, string> = {
       sm: "text-xs px-3.5 py-2",
@@ -47,23 +49,26 @@ Button.displayName = "Button";
 
 interface BadgeProps {
   children: ReactNode;
-  tone?: "gold" | "signal" | "teal" | "coral" | "neutral";
+  tone?: "purple" | "mustard" | "baby" | "gold" | "signal" | "teal" | "coral" | "neutral";
   className?: string;
 }
 
 export function Badge({ children, tone = "neutral", className }: BadgeProps) {
   const tones: Record<string, string> = {
-    gold: "bg-[#FFFBEB] text-[#92400E] border-[#FDE68A]",
-    signal: "bg-[#EEF2FF] text-[#3730A3] border-indigo-200",
-    teal: "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]",
+    purple: "bg-[#EEE7FA] text-[#452477] border-[#D8C7F4]",
+    mustard: "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E]",
+    baby: "bg-[#EDF6FC] text-[#246B9C] border-[#B9DDF5]",
+    gold: "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E]",
+    signal: "bg-[#EEE7FA] text-[#452477] border-[#D8C7F4]",
+    teal: "bg-[#EDF6FC] text-[#246B9C] border-[#B9DDF5]",
     coral: "bg-[#FEF2F2] text-[#991B1B] border-red-200",
-    neutral: "bg-[#F1F5F9] text-[#334155] border-[#CBD5E1]",
+    neutral: "bg-[#F8F7FA] text-[#19171D] border-[#E8E3ED]",
   };
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black leading-none shadow-sm",
-        tones[tone],
+        tones[tone] || tones.neutral,
         className,
       )}
     >
@@ -90,9 +95,9 @@ export function Card({ children, className, interactive, as = "div", onClick }: 
     <Comp
       onClick={onClick}
       className={cn(
-        "rounded-chunky-lg border border-[#E2E8F0] bg-white text-[#0F172A] shadow-card",
+        "rounded-chunky-lg border border-[#E8E3ED] bg-white text-[#19171D] shadow-card",
         interactive &&
-          "transition-all duration-200 hover:border-[#10B981] hover:shadow-card-playful cursor-pointer hover:-translate-y-0.5",
+          "transition-all duration-200 hover:border-[#7041C5] hover:shadow-card-hover cursor-pointer hover:-translate-y-0.5",
         className,
       )}
     >

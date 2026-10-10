@@ -8,9 +8,10 @@ export function formatPrice(value: number | null | undefined): string {
   return `£${(value / 10).toFixed(1)}m`;
 }
 
-/** Formats a points/stat number to one decimal place, or "N/A" if absent. */
-export function formatStat(value: number | null | undefined, digits = 1): string {
+/** Formats a points/stat number to whole number (nearest integer), or "N/A" if absent. */
+export function formatStat(value: number | null | undefined, digits = 0): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "N/A";
+  if (digits === 0) return String(Math.round(value));
   return value.toFixed(digits);
 }
 
@@ -21,20 +22,29 @@ export function formatInt(value: number | null | undefined): string {
 }
 
 /**
- * Formats expected points for display: "6.8 pts".
- * Uses 1 decimal place. Never implies certainty.
+ * Formats expected points for display as whole number: e.g. "7 pts".
+ * Rounds to the nearest integer. Never displays decimal places in prediction numbers.
  */
 export function formatExpectedPoints(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "— pts";
-  return `${value.toFixed(1)} pts`;
+  return `${Math.round(value)} pts`;
 }
 
 /**
- * Returns the expected points as just the number for prominent display.
+ * Returns the expected points as just the whole number for prominent display (e.g. "7").
  */
 export function formatExpectedPointsNumber(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—";
-  return value.toFixed(1);
+  return String(Math.round(value));
+}
+
+/**
+ * Formats a probability or percentage to the nearest whole percentage point (e.g. "73%").
+ */
+export function formatPercent(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return "—%";
+  const pct = value <= 1.0 && value >= 0.0 ? value * 100 : value;
+  return `${Math.round(pct)}%`;
 }
 
 /** Extracts up to 2 initials from a player's display name. */

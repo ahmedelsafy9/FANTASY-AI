@@ -1097,8 +1097,10 @@ class ChatbotSettings:
         )
     )
     llm_model: str = field(
-        default_factory=lambda: _env_str(
-            "FANTASY_AI_LLM_MODEL", "gemini-2.5-flash"
+        default_factory=lambda: (
+            (os.environ.get("FANTASY_AI_LLM_MODEL", "").strip() or os.environ.get("GEMINI_MODEL", "").strip() or "gemini-3.8-flash")
+            .removeprefix("models/")
+            .strip()
         )
     )
     max_conversation_turns: int = field(

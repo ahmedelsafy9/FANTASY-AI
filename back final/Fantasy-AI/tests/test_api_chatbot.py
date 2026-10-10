@@ -108,6 +108,7 @@ def test_chatbot_status_endpoint(client: TestClient):
     assert data["enabled"] is True
     assert data["configured"] is False  # empty API key in fixture
     assert data["provider"] == "gemini"
+    assert data["model"] == "gemini-3.8-flash"
 
 
 def test_chatbot_message_fallback_endpoint(client: TestClient):
@@ -120,6 +121,9 @@ def test_chatbot_message_fallback_endpoint(client: TestClient):
     assert "response" in data
     assert len(data["response"]) > 0
     assert "Salah" in data["response"] or "captain" in data["response"].lower()
+    assert data.get("fallback") is True
+    assert data.get("provider") == "fallback"
+    assert data.get("model") is None
 
 
 def test_chatbot_message_validation(client: TestClient):

@@ -5,76 +5,83 @@ export default {
     extend: {
       colors: {
         /* ── Page & Card Surfaces ── */
-        page: "#F4F6F8",
+        page: "#F8F7FA",
         card: "#FFFFFF",
         surface: {
           DEFAULT: "#FFFFFF",
-          elevated: "#F8FAFC",
-          hover: "#F1F5F9",
+          elevated: "#F8F7FA",
+          hover: "#F2EEF8",
+          subtle: "#FAF9FC",
         },
         border: {
-          DEFAULT: "#E2E8F0",
-          soft: "#E2E8F0",
-          medium: "#CBD5E1",
-          bold: "#94A3B8",
+          DEFAULT: "#E8E3ED",
+          soft: "#E8E3ED",
+          medium: "#D8D2E0",
+          bold: "#B8AFC4",
+          purple: "#D8C7F4",
         },
         /* ── Text Color Hierarchy (High Contrast) ── */
         ink: {
-          DEFAULT: "#0F172A",
-          primary: "#0F172A",
-          secondary: "#475569",
-          muted: "#64748B",
-          disabled: "#94A3B8",
+          DEFAULT: "#19171D",
+          primary: "#19171D",
+          secondary: "#6F6A76",
+          muted: "#938E9B",
+          disabled: "#B5B0BC",
           inverse: "#FFFFFF",
         },
-        navy: {
-          DEFAULT: "#0F172A",
-          light: "#1E293B",
-          dark: "#020617",
+        /* ── Premier League Purple Brand Identity ── */
+        brand: {
+          DEFAULT: "#7041C5",
+          primary: "#7041C5",
+          deep: "#452477",
+          soft: "#EEE7FA",
+          lavender: "#EEE7FA",
+          border: "#D8C7F4",
+          hover: "#5B32A8",
+          dark: "#371B62",
         },
-        /* ── Primary Green Brand Colors ── */
-        emerald: {
-          DEFAULT: "#10B981",
-          dark: "#059669",
-          light: "#ECFDF5",
-          border: "#A7F3D0",
-          bright: "#34D399",
+        purple: {
+          DEFAULT: "#7041C5",
+          50: "#F8F5FD",
+          100: "#EEE7FA",
+          200: "#DCCEF6",
+          300: "#C4ABEF",
+          400: "#A17FE5",
+          500: "#865CD6",
+          600: "#7041C5",
+          700: "#5B32A8",
+          800: "#452477",
+          900: "#33185B",
+          950: "#210C3F",
         },
-        /* ── Secondary Gold/Yellow Accent ── */
-        gold: {
-          DEFAULT: "#F59E0B",
-          light: "#FFFBEB",
-          border: "#FDE68A",
-          dark: "#92400E",
-          bright: "#FBBF24",
+        /* ── Secondary Accents (Baby Blue & Selective Dark Mustard) ── */
+        accent: {
+          baby: "#B9DDF5",
+          babyDark: "#4A98CF",
+          babySoft: "#EDF6FC",
+          mustard: "#B58A18",
+          mustardLight: "#FDF8EC",
+          mustardBorder: "#E5D08E",
+          mustardDark: "#8C680E",
         },
-        /* ── Secondary Accent Colors ── */
-        lime: {
-          DEFAULT: "#84CC16",
-          light: "#F7FEE7",
-          dark: "#3F6212",
+        mustard: {
+          DEFAULT: "#B58A18",
+          light: "#FDF8EC",
+          border: "#E5D08E",
+          dark: "#8C680E",
         },
-        signal: {
-          DEFAULT: "#6366F1",
-          light: "#EEF2FF",
-          dark: "#3730A3",
+        baby: {
+          DEFAULT: "#B9DDF5",
+          light: "#EDF6FC",
+          dark: "#4A98CF",
         },
-        sky: {
-          DEFAULT: "#0EA5E9",
-          light: "#F0F9FF",
-          dark: "#075985",
-        },
-        coral: {
-          DEFAULT: "#EF4444",
-          light: "#FEF2F2",
-          dark: "#991B1B",
-        },
-        /* ── Football Pitch Surface ── */
+        /* ── Football Pitch Surface (Tactical Board) ── */
         pitch: {
-          DEFAULT: "#15803D",
-          dark: "#166534",
-          deep: "#14532D",
-          light: "#448d5fff",
+          DEFAULT: "#1F4E38",
+          dark: "#163E2B",
+          deep: "#113222",
+          light: "#2B684C",
+          lines: "rgba(255, 255, 255, 0.75)",
         },
       },
       fontFamily: {
@@ -88,14 +95,15 @@ export default {
         "chunky-xl": "1.75rem",
       },
       boxShadow: {
-        glow: "0 4px 20px -2px rgba(16,185,129,0.3)",
-        "glow-gold": "0 4px 20px -2px rgba(245,158,11,0.3)",
-        card: "0 2px 12px -2px rgba(15,23,42,0.06), 0 1px 3px rgba(15,23,42,0.04)",
-        "card-hover": "0 10px 28px -4px rgba(15,23,42,0.1), 0 2px 6px rgba(15,23,42,0.04)",
-        "card-playful": "0 6px 20px -4px rgba(16,185,129,0.15), 0 2px 4px rgba(0,0,0,0.04)",
-        "btn-raised": "0 2px 0 0 rgba(15,23,42,0.12), 0 2px 4px -1px rgba(15,23,42,0.08)",
-        "btn-pressed": "0 1px 0 0 rgba(15,23,42,0.12), 0 1px 2px -1px rgba(15,23,42,0.08)",
-        soft: "0 2px 6px -2px rgba(15,23,42,0.05)",
+        glow: "0 4px 20px -2px rgba(112,65,197,0.25)",
+        "glow-purple": "0 4px 20px -2px rgba(112,65,197,0.3)",
+        "glow-mustard": "0 4px 18px -2px rgba(181,138,24,0.3)",
+        card: "0 2px 10px -2px rgba(25,23,29,0.05), 0 1px 3px rgba(25,23,29,0.03)",
+        "card-hover": "0 8px 24px -4px rgba(69,36,119,0.12), 0 2px 6px rgba(25,23,29,0.04)",
+        "card-playful": "0 6px 20px -4px rgba(112,65,197,0.15), 0 2px 4px rgba(0,0,0,0.04)",
+        "btn-raised": "0 2px 0 0 rgba(69,36,119,0.2), 0 2px 4px -1px rgba(25,23,29,0.08)",
+        "btn-pressed": "0 1px 0 0 rgba(69,36,119,0.2), 0 1px 2px -1px rgba(25,23,29,0.08)",
+        soft: "0 2px 6px -2px rgba(25,23,29,0.04)",
       },
       animation: {
         "fade-up": "fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both",

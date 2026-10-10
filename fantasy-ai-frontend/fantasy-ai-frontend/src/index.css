@@ -3,27 +3,28 @@
 @tailwind utilities;
 
 :root {
-  --bg-page: #F4F6F8;
+  --bg-page: #F8F7FA;
   --bg-card: #FFFFFF;
-  --bg-card-subtle: #F8FAFC;
-  --text-primary: #0F172A;
-  --text-secondary: #475569;
-  --text-muted: #64748B;
-  --text-disabled: #94A3B8;
-  --primary: #10B981;
-  --primary-dark: #059669;
-  --primary-light: #ECFDF5;
-  --primary-border: #A7F3D0;
-  --gold: #F59E0B;
-  --gold-light: #FFFBEB;
-  --gold-border: #FDE68A;
-  --gold-dark: #92400E;
-  --border: #E2E8F0;
+  --bg-card-subtle: #FAF9FC;
+  --text-primary: #19171D;
+  --text-secondary: #6F6A76;
+  --text-muted: #938E9B;
+  --text-disabled: #B5B0BC;
+  --primary: #7041C5;
+  --primary-deep: #452477;
+  --primary-soft: #EEE7FA;
+  --primary-border: #D8C7F4;
+  --accent-mustard: #B58A18;
+  --accent-mustard-light: #FDF8EC;
+  --accent-mustard-border: #E5D08E;
+  --accent-baby: #B9DDF5;
+  --accent-baby-light: #EDF6FC;
+  --border: #E8E3ED;
 }
 
 @layer base {
   * {
-    border-color: #E2E8F0;
+    border-color: #E8E3ED;
   }
 
   html {
@@ -31,18 +32,20 @@
   }
 
   body {
-    background-color: #F4F6F8;
-    color: #c5cad6;
-    font-family: 'Inter', sans-serif;
+    background-color: #F8F7FA;
+    color: #19171D;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
-    background-color: rgba(16, 185, 129, 0.25);
-    color: #ffffff;
+    background-color: rgba(112, 65, 197, 0.2);
+    color: #19171D;
   }
 
   :focus-visible {
-    outline: 2px solid #10B981;
+    outline: 2px solid #7041C5;
     outline-offset: 2px;
     border-radius: 6px;
   }
@@ -52,14 +55,14 @@
   h3,
   h4 {
     font-family: 'Space Grotesk', sans-serif;
-    letter-spacing: -0.02em;
-    color: #0F172A;
+    letter-spacing: -0.025em;
+    color: #19171D;
     font-weight: 800;
   }
 
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
   }
 
   ::-webkit-scrollbar-track {
@@ -67,18 +70,24 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background-color: rgba(15, 23, 42, 0.18);
+    background-color: rgba(111, 106, 118, 0.2);
     border-radius: 8px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(15, 23, 42, 0.32);
+    background-color: rgba(112, 65, 197, 0.35);
   }
 }
 
 @layer utilities {
   .glass {
-    background: rgba(255, 255, 255, 0.96);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .glass-purple {
+    background: rgba(69, 36, 119, 0.95);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
@@ -88,30 +97,36 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .text-gradient-emerald {
-    background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  .text-gradient-purple {
+    background: linear-gradient(135deg, #452477 0%, #7041C5 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
-  .text-gradient-gold {
-    background: linear-gradient(135deg, #92400E 0%, #D97706 100%);
+  .text-gradient-mustard {
+    background: linear-gradient(135deg, #8C680E 0%, #B58A18 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
-  /* Football pitch surface */
+  /* Football tactical pitch surface */
   .pitch-surface {
-    background-color: #1b803a;
+    background-color: #17422E;
     background-image: repeating-linear-gradient(
       0deg,
-      #1e893e 0px,
-      #1e893e 40px,
-      #177333 40px,
-      #177333 80px
+      #1A4B35 0px,
+      #1A4B35 44px,
+      #143B29 44px,
+      #143B29 88px
     );
+  }
+
+  /* Stadium matchday ticket edge effect */
+  .ticket-border {
+    border-style: dashed;
+    border-color: #E8E3ED;
   }
 
   .scrollbar-none::-webkit-scrollbar {
@@ -128,7 +143,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {

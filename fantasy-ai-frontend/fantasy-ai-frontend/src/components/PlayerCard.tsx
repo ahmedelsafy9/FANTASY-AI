@@ -6,6 +6,7 @@ import { ExpectedPoints } from "@/components/ExpectedPoints";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
 import { deriveConfidenceLevel, deriveReasons, deriveRecommendation } from "@/lib/insights";
 import { getPlayerPrice } from "@/hooks/useSquad";
+import { LowOwnershipBadge } from "@/components/LowOwnershipBadge";
 import { Card } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
@@ -47,16 +48,23 @@ export function PlayerCard({
       interactive={!!onClick || linkToDetail}
       as="article"
       className={cn(
-        "relative flex flex-col overflow-hidden border border-[#E2E8F0] bg-white text-[#0F172A] p-0 shadow-card transition-all duration-200 hover:border-[#10B981] hover:shadow-card-playful",
+        "relative flex flex-col overflow-hidden border border-[#E8E3ED] bg-white text-[#19171D] p-0 shadow-sm transition-all duration-200 hover:border-[#7041C5] hover:shadow-md",
         className,
       )}
       onClick={onClick}
     >
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between border-b border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-[#E8E3ED] bg-[#F8F7FA] px-4 py-2.5">
         <div className="flex items-center gap-2">
           {typeof rank === "number" && (
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#F59E0B] border border-[#D97706] font-mono text-xs font-black text-[#0F172A] shadow-sm">
+            <span
+              className={cn(
+                "flex h-6 w-6 items-center justify-center rounded-full font-mono text-xs font-black shadow-sm border",
+                rank <= 3
+                  ? "bg-[#FDF8EC] border-[#E5D08E] text-[#8C680E]"
+                  : "bg-[#EEE7FA] border-[#D4C3ED] text-[#452477]",
+              )}
+            >
               #{rank}
             </span>
           )}
@@ -65,7 +73,7 @@ export function PlayerCard({
 
         <div className="flex items-center gap-2">
           {player.position && (
-            <span className="rounded-full bg-[#F1F5F9] border border-[#CBD5E1] px-2.5 py-0.5 text-[10px] font-black uppercase text-[#334155]">
+            <span className="rounded-full bg-[#EEE7FA] border border-[#D4C3ED] px-2.5 py-0.5 text-[10px] font-black uppercase text-[#452477]">
               {player.position === "GKP" ? "GK" : player.position}
             </span>
           )}
@@ -81,17 +89,21 @@ export function PlayerCard({
             name={player.name}
             photoUrl={player.photo_url}
             size="lg"
-            className="ring-2 ring-[#10B981] shadow-sm"
+            className="ring-2 ring-[#7041C5]/20 shadow-sm"
           />
           <div className="min-w-0 flex-1">
-            <h3 className="font-display text-base font-black text-[#0F172A] truncate">
+            <h3 className="font-display text-base font-black text-[#19171D] truncate">
               {player.name ?? "N/A"}
             </h3>
-            <div className="mt-1 flex items-center gap-2">
-              <span className="numeral text-xs font-black text-[#059669] bg-[#ECFDF5] px-2 py-0.5 rounded border border-[#A7F3D0]">
+            <div className="mt-1 flex items-center gap-2 flex-wrap">
+              <span className="numeral text-xs font-black text-[#19171D] bg-[#F4F3F6] px-2 py-0.5 rounded border border-[#E8E3ED]">
                 £{price.toFixed(1)}m
               </span>
-              <span className="text-[10px] font-bold text-[#64748B]">
+              <LowOwnershipBadge
+                ownership={player.selected_by_percent ?? (player as Record<string, unknown>).ownership_pct as number | undefined}
+                predictedPoints={xPts}
+              />
+              <span className="text-[10px] font-bold text-[#6F6A76]">
                 {recommendation}
               </span>
             </div>
@@ -105,14 +117,14 @@ export function PlayerCard({
       </div>
 
       {/* Upcoming Fixtures */}
-      <div className="border-t border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5">
+      <div className="border-t border-[#E8E3ED] bg-[#F8F7FA] px-4 py-2.5">
         <UpcomingFixtures player={player} variant="compact" maxFixtures={3} />
       </div>
 
       {/* Key Reason Strip */}
       {topReason && (
-        <div className="border-t border-[#E2E8F0] bg-white px-4 py-2.5">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#475569]">
+        <div className="border-t border-[#E8E3ED] bg-white px-4 py-2.5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#6F6A76]">
             <span className="text-sm leading-none">{topReason.icon}</span>
             <span>{topReason.text}</span>
           </div>

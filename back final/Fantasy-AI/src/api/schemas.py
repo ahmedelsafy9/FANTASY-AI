@@ -40,6 +40,12 @@ class PredictionListResponse(BaseModel):
         description="Reminder that each player's predicted_for_gw may differ slightly "
         "depending on how many matches they've played."
     )
+    gameweek_synced: bool = Field(
+        default=True, description="Whether predictions are synchronized with match models."
+    )
+    sync_status: str = Field(
+        default="synchronized", description="Gameweek synchronization status."
+    )
     predictions: list[dict[str, Any]] = Field(description="Predictions, sorted highest to lowest.")
 
 
@@ -120,6 +126,12 @@ class MatchPredictionResponse(BaseModel):
     season: str | None = None
     latest_completed_gameweek: int | None = None
     predicted_gameweek: int | None = None
+    gameweek_synced: bool = Field(
+        default=True, description="Whether match predictions match the active player predictions gameweek."
+    )
+    sync_status: str = Field(
+        default="synchronized", description="Gameweek synchronization status."
+    )
     generated_at: str | None = None
     count: int = Field(description="Number of fixtures predicted.")
     predictions: list[MatchPrediction] = Field(description="Match predictions for the upcoming gameweek.")

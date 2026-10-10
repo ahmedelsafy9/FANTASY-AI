@@ -251,6 +251,7 @@ def build_fixture_aware_next_gameweek_rows(
     max_valid_gameweek: int,
     team_column: str = "team",
     team_fixtures: dict[str, ResolvedFixture] | None = None,
+    target_gameweek: int | None = None,
 ) -> pd.DataFrame:
     """Build next-Gameweek rows, preferring real fixture data over the proxy.
 
@@ -277,6 +278,7 @@ def build_fixture_aware_next_gameweek_rows(
             :func:`resolve_team_fixtures`. ``None`` or empty makes this
             function behave identically to the original proxy-only
             builder (full backward compatibility).
+        target_gameweek: Explicit target Gameweek number to build features for.
 
     Returns:
         pd.DataFrame: One row per player, with real fixture data
@@ -291,6 +293,7 @@ def build_fixture_aware_next_gameweek_rows(
         player_id_columns=player_id_columns,
         chronological_columns=chronological_columns,
         max_valid_gameweek=max_valid_gameweek,
+        target_gameweek=target_gameweek,
     )
     rows = rows.copy()
     rows["fixture_source"] = "proxy_last_played"

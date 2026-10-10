@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +72,9 @@ class AppState:
     differential_predictions: pd.DataFrame | None = None
     differential_metadata: dict[str, Any] | None = None
     scoring_model: str = "multi_objective"
+    gameweek_context: Any | None = None
+    gameweek_synced: bool = True
+    sync_status: str = "synchronized"
 
 
 def build_app_state(settings: Settings) -> AppState:
@@ -179,56 +183,62 @@ def build_app_state(settings: Settings) -> AppState:
     )
 
     # ---------------------------------------------------------------
+    # Authoritative Gameweek Context Resolution
+    # ---------------------------------------------------------------
+    from src.prediction.gameweek_context import resolve_authoritative_gameweek
+
+    gw_context = resolve_authoritative_gameweek(
+        settings=settings,
+        engineered_data=engineered_data,
+    )
+    season = gw_context.season
+    latest_completed_gw = gw_context.latest_completed_gameweek
+    predicted_gw = gw_context.target_gameweek
+    generated_at = None
+
+    # ---------------------------------------------------------------
     # Authoritative Predictions: load Feedback 5 artifact if present
+    # and valid for the authoritative target gameweek
     # ---------------------------------------------------------------
     feedback5_path = settings.paths.processed_data_dir / "predictions_feedback5.csv"
     feedback5_meta_path = settings.paths.processed_data_dir / "predictions_feedback5_metadata.json"
 
-    season = None
-    latest_completed_gw = None
-    predicted_gw = None
-    generated_at = None
-
-    if feedback5_meta_path.exists():
-        try:
-            fb5_meta = json.loads(feedback5_meta_path.read_text(encoding="utf-8"))
-            season = fb5_meta.get("season")
-            latest_completed_gw = fb5_meta.get("latest_completed_gameweek")
-            predicted_gw = fb5_meta.get("predicted_gameweek")
-            generated_at = fb5_meta.get("generated_at")
-        except Exception as exc:
-            logger.warning("Could not read feedback5 metadata: %s", exc)
-
-    if season is None and "season" in engineered_data.columns:
-        season = str(sorted(engineered_data["season"].dropna().unique())[-1])
-
-    if latest_completed_gw is None:
-        from src.prediction.next_gameweek import find_latest_completed_gameweek
-        s_data = (
-            engineered_data[engineered_data["season"] == season]
-            if season and "season" in engineered_data.columns
-            else engineered_data
-        )
-        latest_completed_gw = find_latest_completed_gameweek(s_data)
-
-    if predicted_gw is None and latest_completed_gw is not None:
-        predicted_gw = min(int(latest_completed_gw) + 1, settings.prediction.max_valid_gameweek)
-
     use_feedback5 = False
     if feedback5_path.exists():
-        if scoring_model_type == "production":
-            use_feedback5 = True
-        elif scoring_model_type == "multi_objective":
+        cached_gw = None
+        if feedback5_meta_path.exists():
             try:
-                fb5_sample = pd.read_csv(feedback5_path, nrows=5)
-                if "score_d" in fb5_sample.columns:
-                    use_feedback5 = True
-            except Exception:
-                pass
+                fb5_meta = json.loads(feedback5_meta_path.read_text(encoding="utf-8"))
+                cached_gw = fb5_meta.get("predicted_gameweek")
+                if cached_gw == predicted_gw:
+                    generated_at = fb5_meta.get("generated_at")
+            except Exception as exc:
+                logger.warning("Could not read feedback5 metadata: %s", exc)
+
+        if cached_gw is not None and cached_gw != predicted_gw:
+            logger.warning(
+                "Cached Feedback 5 predictions are STALE (cached target GW %s != authoritative target GW %s). "
+                "Invalidating stale cache; generating fresh predictions for GW %s.",
+                cached_gw,
+                predicted_gw,
+                predicted_gw,
+            )
+            use_feedback5 = False
+        else:
+            if scoring_model_type == "production":
+                use_feedback5 = True
+            elif scoring_model_type == "multi_objective":
+                try:
+                    fb5_sample = pd.read_csv(feedback5_path, nrows=5)
+                    if "score_d" in fb5_sample.columns:
+                        use_feedback5 = True
+                except Exception:
+                    pass
 
     if use_feedback5:
         logger.info(
-            "Serving authoritative Feedback 5 predictions from %s...",
+            "Serving authoritative Feedback 5 predictions for GW %s from %s...",
+            predicted_gw,
             feedback5_path,
         )
         fb5_df = pd.read_csv(feedback5_path, low_memory=False)
@@ -245,7 +255,8 @@ def build_app_state(settings: Settings) -> AppState:
         predictions = fb5_df
     else:
         logger.info(
-            "Generating predictions using model '%s' (scoring_model=%s)...",
+            "Generating predictions for authoritative target GW %s using model '%s' (scoring_model=%s)...",
+            predicted_gw,
             loaded_model.model_name,
             scoring_model_type,
         )
@@ -255,6 +266,7 @@ def build_app_state(settings: Settings) -> AppState:
             chronological_columns=settings.feature_engineering.chronological_columns,
             max_valid_gameweek=settings.prediction.max_valid_gameweek,
             team_fixtures=team_fixtures,
+            target_gameweek=predicted_gw,
         )
         prediction_service = PredictionService(loaded_model)
         predictions = prediction_service.predict(next_gw_rows)
@@ -327,10 +339,13 @@ def build_app_state(settings: Settings) -> AppState:
         season=season,
         latest_completed_gameweek=latest_completed_gw,
         predicted_gameweek=predicted_gw,
-        generated_at=generated_at,
+        generated_at=generated_at or datetime.now(timezone.utc).isoformat(),
         differential_predictions=diff_predictions,
         differential_metadata=diff_metadata,
         scoring_model=scoring_model_type,
+        gameweek_context=gw_context,
+        gameweek_synced=gw_context.is_synchronized,
+        sync_status=gw_context.status,
     )
 
 

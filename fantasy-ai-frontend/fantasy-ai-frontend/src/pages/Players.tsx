@@ -149,14 +149,14 @@ export default function Players() {
       {/* Header */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEE7FA] text-[#452477] border border-[#D4C3ED] shadow-sm">
             <Users size={20} />
           </div>
           <div>
-            <h1 className="font-display text-2xl font-black text-[#0F172A] sm:text-3xl">
+            <h1 className="font-display text-2xl font-black text-[#19171D] sm:text-3xl">
               Find Your Next Pick
             </h1>
-            <p className="text-sm font-semibold text-[#475569]">
+            <p className="text-sm font-semibold text-[#6F6A76]">
               Compare expected points, confidence signals, and fixtures to find the best transfer for Gameweek {targetGw}.
             </p>
           </div>
@@ -166,52 +166,52 @@ export default function Players() {
       {/* KPI Highlight Strip */}
       {!loading && !error && kpis && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-soft flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
+          <div className="rounded-xl border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEE7FA] text-[#452477] border border-[#D4C3ED]">
               <Sparkles size={18} />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#6F6A76]">
                 #1 Expected Scorer
               </span>
-              <div className="font-display font-black text-sm text-[#0F172A] truncate">
+              <div className="font-display font-black text-sm text-[#19171D] truncate">
                 {kpis.topPick?.name}
               </div>
-              <div className="text-[11px] font-bold text-[#059669]">
-                {(kpis.topPick?.predicted_expected_points ?? kpis.topPick?.predicted_total_points ?? 0).toFixed(1)} Expected Pts
+              <div className="text-[11px] font-bold text-[#452477]">
+                {Math.round(kpis.topPick?.predicted_expected_points ?? kpis.topPick?.predicted_total_points ?? 0)} Expected Pts
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-soft flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]">
+          <div className="rounded-xl border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FDF8EC] text-[#8C680E] border border-[#E5D08E]">
               <DollarSign size={18} />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#92400E]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#8C680E]">
                 Top Budget Gem (≤£6.0m)
               </span>
-              <div className="font-display font-black text-sm text-[#0F172A] truncate">
+              <div className="font-display font-black text-sm text-[#19171D] truncate">
                 {kpis.topBudget?.name}
               </div>
-              <div className="text-[11px] font-bold text-[#D97706]">
-                £{getPlayerPrice(kpis.topBudget).toFixed(1)}m • {(kpis.topBudget?.predicted_expected_points ?? 0).toFixed(1)} xPts
+              <div className="text-[11px] font-bold text-[#8C680E]">
+                £{getPlayerPrice(kpis.topBudget).toFixed(1)}m • {Math.round(kpis.topBudget?.predicted_expected_points ?? 0)} xPts
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-soft flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#4F46E5] border border-indigo-200">
+          <div className="rounded-xl border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF7FC] text-[#1E4D6B] border border-[#B9DDF5]">
               <TrendingUp size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#6F6A76]">
                 Players Tracked
               </span>
-              <div className="font-display font-black text-base text-[#0F172A]">
+              <div className="font-display font-black text-base text-[#19171D]">
                 {kpis.total} Premier League Assets
               </div>
-              <div className="text-[11px] font-semibold text-[#64748B]">
+              <div className="text-[11px] font-semibold text-[#6F6A76]">
                 Live fixture analysis
               </div>
             </div>
@@ -220,11 +220,11 @@ export default function Players() {
       )}
 
       {/* Control / Filter Bar */}
-      <div className="space-y-3 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-soft">
+      <div className="space-y-3 rounded-2xl border border-[#E8E3ED] bg-white p-4 shadow-sm">
         <div className="flex flex-col md:flex-row gap-3">
           {/* Search */}
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#6F6A76]" />
             <input
               type="text"
               placeholder="Search player or team..."
@@ -233,7 +233,7 @@ export default function Players() {
                 setQuery(e.target.value);
                 setVisibleCount(INITIAL_PAGE_SIZE);
               }}
-              className="h-10 w-full rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] pl-10 pr-4 text-xs font-bold text-[#0F172A] placeholder-[#94A3B8] transition-all focus:border-[#10B981] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+              className="h-10 w-full rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] pl-10 pr-4 text-xs font-bold text-[#19171D] placeholder-[#6F6A76] transition-all focus:border-[#7041C5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7041C5]/20"
             />
           </div>
 
@@ -252,8 +252,8 @@ export default function Players() {
                   className={cn(
                     "px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer",
                     isSelected
-                      ? "bg-[#0F172A] text-white shadow-sm"
-                      : "bg-[#F8FAFC] text-[#475569] border border-[#E2E8F0] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
+                      ? "bg-[#7041C5] text-white shadow-sm"
+                      : "bg-[#F8F7FA] text-[#6F6A76] border border-[#E8E3ED] hover:bg-[#EEE7FA] hover:text-[#452477]"
                   )}
                 >
                   {label}
@@ -263,12 +263,12 @@ export default function Players() {
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-[#F1F5F9] border border-[#E2E8F0] rounded-xl p-1 self-start md:self-auto">
+          <div className="flex items-center bg-[#F4F3F6] border border-[#E8E3ED] rounded-xl p-1 self-start md:self-auto">
             <button
               onClick={() => setViewMode("grid")}
               className={cn(
                 "p-1.5 rounded-lg text-xs transition-all cursor-pointer",
-                viewMode === "grid" ? "bg-white text-[#0F172A] shadow-sm font-black" : "text-[#64748B] hover:text-[#0F172A]"
+                viewMode === "grid" ? "bg-white text-[#19171D] shadow-sm font-black" : "text-[#6F6A76] hover:text-[#19171D]"
               )}
               title="Cards Grid View"
             >
@@ -278,7 +278,7 @@ export default function Players() {
               onClick={() => setViewMode("table")}
               className={cn(
                 "p-1.5 rounded-lg text-xs transition-all cursor-pointer",
-                viewMode === "table" ? "bg-white text-[#0F172A] shadow-sm font-black" : "text-[#64748B] hover:text-[#0F172A]"
+                viewMode === "table" ? "bg-white text-[#19171D] shadow-sm font-black" : "text-[#6F6A76] hover:text-[#19171D]"
               )}
               title="Detailed Table View"
             >
@@ -288,7 +288,7 @@ export default function Players() {
         </div>
 
         {/* Secondary Filter Row: Team, Max Price, Sort */}
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#F1F5F9] text-xs">
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#E8E3ED] text-xs">
           <div className="w-44">
             <Dropdown
               label="Team"
@@ -325,7 +325,7 @@ export default function Players() {
             />
           </div>
 
-          <span className="ml-auto text-xs font-bold text-[#64748B]">
+          <span className="ml-auto text-xs font-bold text-[#6F6A76]">
             Showing {Math.min(visibleCount, filtered.length)} of {filtered.length} players
           </span>
         </div>

@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import type { PlayerRecord } from "@/types/api";
 import { PlayerAvatar, TeamBadge } from "@/components/identity";
 import { FDRBadge } from "@/components/FDRBadge";
-import { formatPrice, formatStat } from "@/lib/format";
+import { formatPrice, formatStat, formatInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface PredictionRankProps {
@@ -11,13 +11,12 @@ interface PredictionRankProps {
 }
 
 /**
- * A ranked leaderboard of players, ordered by predicted points. Used on
- * the Home page "Top AI Picks" section. Each row is a compact,
- * sport-style rank row with player identity, fixture, and prediction.
+ * A ranked leaderboard of players, ordered by predicted points.
+ * Sport-style rank row with player identity, fixture, and whole-number prediction.
  */
 export function PredictionRank({ players, onSelect }: PredictionRankProps) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2">
       {players.map((player, i) => {
         const rank = i + 1;
         const isTop3 = rank <= 3;
@@ -31,17 +30,19 @@ export function PredictionRank({ players, onSelect }: PredictionRankProps) {
             transition={{ duration: 0.35, delay: i * 0.04 }}
             onClick={() => onSelect(player)}
             className={cn(
-              "group flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all",
+              "group flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all cursor-pointer shadow-xs",
               isTop3
-                ? "border-gold/10 bg-gold/[0.03] hover:border-gold/20 hover:bg-gold/[0.06]"
-                : "border-border-soft bg-surface hover:border-emerald/15 hover:bg-surface-hover",
+                ? "border-[#E5D08E] bg-[#FDF8EC] hover:border-[#B58A18] hover:bg-[#FBF4E4]"
+                : "border-[#E8E3ED] bg-white hover:border-[#7041C5] hover:bg-[#F8F7FA]",
             )}
           >
             {/* Rank */}
             <div
               className={cn(
-                "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-bold",
-                isTop3 ? "bg-gold/15 text-gold" : "bg-white/5 text-ink-tertiary",
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-black shadow-xs",
+                isTop3
+                  ? "bg-[#B58A18] text-white"
+                  : "bg-[#EEE7FA] text-[#452477]",
               )}
             >
               {rank}
@@ -51,16 +52,18 @@ export function PredictionRank({ players, onSelect }: PredictionRankProps) {
             <PlayerAvatar name={player.name} photoUrl={player.photo_url} size="md" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="truncate text-sm font-semibold text-ink">{player.name ?? "N/A"}</span>
+                <span className="truncate text-sm font-black text-[#19171D] group-hover:text-[#7041C5] transition-colors">
+                  {player.name ?? "N/A"}
+                </span>
                 {player.position && (
-                  <span className="hidden rounded bg-white/5 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-ink-tertiary sm:inline">
+                  <span className="hidden rounded bg-[#452477] px-1.5 py-0.5 text-[9px] font-black uppercase text-white sm:inline">
                     {player.position}
                   </span>
                 )}
               </div>
               <div className="mt-0.5 flex items-center gap-2">
                 <TeamBadge team={player.team} logoUrl={player.team_logo_url} size="sm" />
-                <span className="hidden text-xs text-ink-tertiary sm:inline">
+                <span className="hidden text-xs font-bold text-[#6F6A76] sm:inline">
                   {player.team ?? ""}
                 </span>
               </div>
@@ -69,7 +72,7 @@ export function PredictionRank({ players, onSelect }: PredictionRankProps) {
             {/* Fixture + FDR */}
             <div className="hidden flex-col items-end gap-0.5 sm:flex">
               {player.opponent_team && (
-                <span className="text-xs text-ink-secondary">
+                <span className="text-xs font-bold text-[#6F6A76]">
                   vs {player.opponent_team}
                   {player.is_home === 1 ? " (H)" : player.is_home === 0 ? " (A)" : ""}
                 </span>
@@ -79,26 +82,26 @@ export function PredictionRank({ players, onSelect }: PredictionRankProps) {
 
             {/* Stats */}
             <div className="hidden flex-col items-end gap-0.5 md:flex">
-              <span className="numeral text-xs text-ink-tertiary">
+              <span className="numeral text-xs font-bold text-[#6F6A76]">
                 Form {formatStat(player.total_points_avg_last_3)}
               </span>
-              <span className="numeral text-xs text-ink-tertiary">
+              <span className="numeral text-xs font-bold text-[#6F6A76]">
                 {formatPrice(player.value)}
               </span>
             </div>
 
             {/* Predicted points */}
             <div className="shrink-0 text-right">
-              <span className="text-[8px] font-medium uppercase tracking-widest text-ink-tertiary">
+              <span className="text-[8px] font-black uppercase tracking-widest text-[#6F6A76] block">
                 xPts
               </span>
               <div
                 className={cn(
-                  "numeral text-xl font-bold leading-none",
-                  isTop3 ? "text-gradient-gold" : "text-ink",
+                  "numeral text-xl font-black leading-none",
+                  isTop3 ? "text-[#8C680E]" : "text-[#7041C5]",
                 )}
               >
-                {formatStat(player.predicted_total_points)}
+                {formatInt(player.predicted_total_points)}
               </div>
             </div>
           </motion.button>

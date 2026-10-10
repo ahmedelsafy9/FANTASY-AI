@@ -20,7 +20,7 @@ export function FixtureBadge({ player, size = "sm", className }: FixtureBadgePro
     return (
       <div
         className={cn(
-          "flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] font-bold",
+          "flex items-center gap-2 rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] text-[#6F6A76] font-bold",
           size === "sm" ? "px-2.5 py-1.5 text-xs" : size === "md" ? "px-3 py-2 text-sm" : "px-4 py-3 text-sm",
           className,
         )}
@@ -33,7 +33,7 @@ export function FixtureBadge({ player, size = "sm", className }: FixtureBadgePro
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 rounded-xl border border-[#E2E8F0] bg-white shadow-sm",
+        "flex items-center gap-2.5 rounded-xl border border-[#E8E3ED] bg-white shadow-sm",
         size === "sm" ? "px-2.5 py-1.5" : size === "md" ? "px-3 py-2" : "px-4 py-3",
         className,
       )}
@@ -44,7 +44,7 @@ export function FixtureBadge({ player, size = "sm", className }: FixtureBadgePro
         size={size === "lg" ? "md" : "sm"}
       />
       <div className="flex flex-col text-left">
-        <span className={cn("font-display font-black text-[#0F172A] leading-none", size === "lg" ? "text-base" : "text-xs")}>
+        <span className={cn("font-display font-black text-[#19171D] leading-none", size === "lg" ? "text-base" : "text-xs")}>
           {opponentCode}
         </span>
         <div className="flex items-center gap-1.5 mt-1">
@@ -52,7 +52,7 @@ export function FixtureBadge({ player, size = "sm", className }: FixtureBadgePro
             <span
               className={cn(
                 "font-mono text-[10px] font-black uppercase",
-                isHome ? "text-[#059669]" : "text-[#94A3B8]",
+                isHome ? "text-[#7041C5]" : "text-[#6F6A76]",
               )}
             >
               {isHome ? "HOME" : "AWAY"}

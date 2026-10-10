@@ -301,10 +301,23 @@ class ChatbotTools:
         Returns:
             Season, completed GW, predicted GW, generation timestamp.
         """
+        gw_ctx = getattr(self._state, "gameweek_context", None)
+        target_gw = (
+            (gw_ctx.target_gameweek if gw_ctx else None)
+            or self._state.predicted_gameweek
+        )
         return {
-            "season": self._state.season,
-            "latest_completed_gameweek": self._state.latest_completed_gameweek,
-            "predicted_gameweek": self._state.predicted_gameweek,
+            "season": (gw_ctx.season if gw_ctx else None) or self._state.season,
+            "latest_completed_gameweek": (
+                (gw_ctx.latest_completed_gameweek if gw_ctx else None)
+                or self._state.latest_completed_gameweek
+            ),
+            "predicted_gameweek": target_gw,
+            "target_gameweek": target_gw,
+            "gameweek_context": gw_ctx.__dict__ if gw_ctx else None,
+            "gameweek_synced": getattr(self._state, "gameweek_synced", True),
+            "sync_status": getattr(self._state, "sync_status", "synchronized"),
+            "next_deadline": gw_ctx.next_deadline if gw_ctx else None,
             "generated_at": self._state.generated_at,
             "player_count": len(self._predictions),
             "scoring_model": self._state.scoring_model,

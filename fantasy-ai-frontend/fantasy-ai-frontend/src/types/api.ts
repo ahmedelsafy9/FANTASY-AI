@@ -35,6 +35,8 @@ export interface PlayerRecord {
   GW?: number;
   predicted_for_gw?: number;
   value?: number;
+  now_cost?: number;
+  selected_by_percent?: number | string | null;
   total_points?: number;
   minutes?: number;
   goals_scored?: number;

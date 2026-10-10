@@ -12,13 +12,15 @@ interface GameweekBadgeProps {
  */
 export function GameweekBadge({ gameweek }: GameweekBadgeProps) {
   return (
-    <div className="glass inline-flex items-center gap-3 rounded-xl border border-emerald/20 px-5 py-3">
-      <CalendarClock size={18} className="text-emerald" aria-hidden="true" />
+    <div className="inline-flex items-center gap-3 rounded-xl border border-[#E8E3ED] bg-white px-4 py-2.5 shadow-sm">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EEE7FA] text-[#7041C5]">
+        <CalendarClock size={18} aria-hidden="true" />
+      </div>
       <div>
-        <div className="text-[10px] font-medium uppercase tracking-wider text-ink-tertiary">
-          Upcoming Gameweek
+        <div className="text-[10px] font-bold uppercase tracking-wider text-[#6F6A76]">
+          Target Gameweek
         </div>
-        <div className="numeral text-xl font-bold text-ink">
+        <div className="numeral text-lg font-black text-[#19171D]">
           {typeof gameweek === "number" ? `GW ${gameweek}` : "N/A"}
         </div>
       </div>

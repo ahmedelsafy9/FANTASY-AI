@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
-  Flame,
   Users,
   LayoutDashboard,
   Shirt,
@@ -19,12 +18,11 @@ import { Button } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { path: "/", label: "Gameweek", icon: LayoutDashboard },
-  { path: "/players", label: "Players", icon: Users },
+  { path: "/", label: "Overview", icon: LayoutDashboard },
+  { path: "/squad", label: "My Team", icon: Shirt },
+  { path: "/players", label: "Player Analytics", icon: Users },
+  { path: "/match-predictions", label: "Match Predictions", icon: Trophy },
   { path: "/captain", label: "Captain", icon: Crown },
-  { path: "/differentials", label: "Differentials", icon: Flame },
-  { path: "/match-predictions", label: "Matches", icon: Trophy },
-  { path: "/squad", label: "Squad", icon: Shirt },
 ];
 
 export function Navigation() {
@@ -33,18 +31,18 @@ export function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#E2E8F0] bg-white shadow-soft">
+    <header className="sticky top-0 z-40 w-full border-b border-[#E8E3ED] bg-white shadow-soft">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link
           to="/"
           className="flex items-center gap-2.5 transition-transform hover:scale-105 active:scale-95"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#10B981] text-white shadow-sm">
-            <Sparkles size={18} className="fill-white text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#452477] text-white shadow-sm border border-[#7041C5]">
+            <Sparkles size={18} className="fill-[#B9DDF5] text-[#B9DDF5]" />
           </div>
-          <span className="font-display text-xl font-black tracking-tight text-[#0F172A]">
-            FANTASY<span className="text-[#10B981] font-black">.AI</span>
+          <span className="font-display text-xl font-black tracking-tight text-[#19171D]">
+            FANTASY<span className="text-[#7041C5] font-black">.AI</span>
           </span>
         </Link>
 
@@ -60,11 +58,11 @@ export function Navigation() {
                 className={cn(
                   "relative flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-black transition-all duration-150",
                   isActive
-                    ? "bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] shadow-sm"
-                    : "text-[#475569] hover:text-[#0F172A] hover:bg-[#F1F5F9]",
+                    ? "bg-[#EEE7FA] text-[#452477] border border-[#D8C7F4] shadow-xs"
+                    : "text-[#6F6A76] hover:text-[#19171D] hover:bg-[#F8F7FA]",
                 )}
               >
-                <Icon size={14} className={isActive ? "text-[#059669]" : "text-[#64748B]"} />
+                <Icon size={14} className={isActive ? "text-[#7041C5]" : "text-[#938E9B]"} />
                 <span>{item.label}</span>
               </Link>
             );
@@ -74,19 +72,19 @@ export function Navigation() {
         {/* User Auth Section */}
         <div className="hidden items-center gap-3 md:flex">
           {isAuthenticated && user ? (
-            <div className="flex items-center gap-2.5 rounded-full border border-[#E2E8F0] bg-[#F8FAFC] p-1 pr-3.5 shadow-sm">
+            <div className="flex items-center gap-2.5 rounded-full border border-[#E8E3ED] bg-[#F8F7FA] p-1 pr-3.5 shadow-sm">
               <img
                 src={user.picture}
                 alt={user.name}
-                className="h-7 w-7 rounded-full border-2 border-[#10B981]"
+                className="h-7 w-7 rounded-full border-2 border-[#7041C5]"
               />
-              <span className="text-xs font-black text-[#0F172A] max-w-[120px] truncate">
+              <span className="text-xs font-black text-[#19171D] max-w-[120px] truncate">
                 {user.name}
               </span>
               <button
                 onClick={logout}
                 title="Sign Out"
-                className="ml-1 rounded-full p-1 text-[#64748B] hover:bg-red-50 hover:text-[#DC2626] transition-colors cursor-pointer"
+                className="ml-1 rounded-full p-1 text-[#6F6A76] hover:bg-red-50 hover:text-[#DC2626] transition-colors cursor-pointer"
               >
                 <LogOut size={14} />
               </button>
@@ -107,7 +105,7 @@ export function Navigation() {
         {/* Mobile Menu Button */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-[#0F172A] md:hidden shadow-sm hover:bg-[#F1F5F9] cursor-pointer"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] text-[#19171D] md:hidden shadow-sm hover:bg-[#EEE7FA] cursor-pointer"
           aria-label="Toggle Menu"
         >
           {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -121,7 +119,7 @@ export function Navigation() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-b border-[#E2E8F0] bg-white px-4 py-4 md:hidden shadow-card-hover"
+            className="border-b border-[#E8E3ED] bg-white px-4 py-4 md:hidden shadow-card-hover"
           >
             <nav className="flex flex-col gap-1.5">
               {NAV_ITEMS.map((item) => {
@@ -135,29 +133,29 @@ export function Navigation() {
                     className={cn(
                       "flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-black transition-all",
                       isActive
-                        ? "bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]"
-                        : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
+                        ? "bg-[#EEE7FA] text-[#452477] border border-[#D8C7F4]"
+                        : "text-[#6F6A76] hover:bg-[#F8F7FA] hover:text-[#19171D]",
                     )}
                   >
-                    <Icon size={16} className={isActive ? "text-[#059669]" : "text-[#64748B]"} />
+                    <Icon size={16} className={isActive ? "text-[#7041C5]" : "text-[#938E9B]"} />
                     <span>{item.label}</span>
                   </Link>
                 );
               })}
             </nav>
 
-            <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+            <div className="mt-4 pt-4 border-t border-[#E8E3ED]">
               {isAuthenticated && user ? (
-                <div className="flex items-center justify-between rounded-xl bg-[#F8FAFC] p-2.5 border border-[#E2E8F0]">
+                <div className="flex items-center justify-between rounded-xl bg-[#F8F7FA] p-2.5 border border-[#E8E3ED]">
                   <div className="flex items-center gap-2.5">
                     <img
                       src={user.picture}
                       alt={user.name}
-                      className="h-8 w-8 rounded-full border-2 border-[#10B981]"
+                      className="h-8 w-8 rounded-full border-2 border-[#7041C5]"
                     />
                     <div className="flex flex-col">
-                      <span className="text-xs font-black text-[#0F172A]">{user.name}</span>
-                      <span className="text-[10px] font-bold text-[#64748B]">{user.email}</span>
+                      <span className="text-xs font-black text-[#19171D]">{user.name}</span>
+                      <span className="text-[10px] font-bold text-[#6F6A76]">{user.email}</span>
                     </div>
                   </div>
                   <Button variant="ghost" size="sm" onClick={logout}>

@@ -823,7 +823,7 @@ export function useSquad() {
             posCoreCounts[pos]++;
             metaMap[getPlayerId(p)] = {
               type: "core",
-              reason: `Core Pick: High predicted points (${getPoints(p).toFixed(1)} pts)`,
+              reason: `Core Pick: High predicted points (${Math.round(getPoints(p))} pts)`,
             };
           }
         }
@@ -934,7 +934,7 @@ export function useSquad() {
             delete metaMap[getPlayerId(oldP)];
             metaMap[getPlayerId(newP)] = {
               type: getPoints(newP) >= 6.0 ? "core" : "value",
-              reason: `Budget Optimization: Upgraded +${gain.toFixed(1)} pts within remaining budget`,
+              reason: `Budget Optimization: Upgraded +${Math.round(gain)} pts within remaining budget`,
             };
             improved = true;
           }

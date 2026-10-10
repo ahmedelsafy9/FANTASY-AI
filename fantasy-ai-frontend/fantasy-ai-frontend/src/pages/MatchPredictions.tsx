@@ -18,8 +18,8 @@ import { cn } from "@/lib/utils";
 
 function MatchCardSkeleton() {
   return (
-    <div className="flex flex-col rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-card space-y-4">
-      <div className="flex justify-between items-center border-b border-[#F1F5F9] pb-3">
+    <div className="flex flex-col rounded-chunky-lg border border-[#E8E3ED] bg-white p-4 shadow-sm space-y-4">
+      <div className="flex justify-between items-center border-b border-[#E8E3ED] pb-3">
         <Skeleton className="h-5 w-20 rounded-md" />
         <Skeleton className="h-5 w-24 rounded-full" />
       </div>
@@ -38,7 +38,7 @@ function MatchCardSkeleton() {
         </div>
       </div>
       <Skeleton className="h-3 w-full rounded-full" />
-      <div className="border-t border-[#F1F5F9] pt-3 flex justify-between">
+      <div className="border-t border-[#E8E3ED] pt-3 flex justify-between">
         <Skeleton className="h-5 w-32 rounded-md" />
         <Skeleton className="h-5 w-16 rounded-md" />
       </div>
@@ -145,21 +145,21 @@ export default function MatchPredictions() {
       {/* Header */}
       <div className="mb-6 flex flex-col gap-1">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEE7FA] text-[#452477] border border-[#D4C3ED] shadow-sm">
             <Trophy size={20} />
           </div>
           <div>
-            <h1 className="font-display text-2xl font-black text-[#0F172A] sm:text-3xl">
+            <h1 className="font-display text-2xl font-black text-[#19171D] sm:text-3xl">
               Match Predictions
               {data?.predicted_gameweek && (
-                <span className="ml-2.5 text-[#10B981] font-black">
+                <span className="ml-2.5 text-[#7041C5] font-black">
                   GW {data.predicted_gameweek}
                 </span>
               )}
             </h1>
           </div>
         </div>
-        <p className="mt-1 text-sm font-semibold text-[#475569]">
+        <p className="mt-1 text-sm font-semibold text-[#6F6A76]">
           {data?.predicted_gameweek && data?.latest_completed_gameweek
             ? `Upcoming Gameweek ${data.predicted_gameweek} Fixtures • Evaluated from official match data through GW ${data.latest_completed_gameweek}${
                 data.season ? ` • Season ${data.season}` : ""
@@ -172,76 +172,76 @@ export default function MatchPredictions() {
       {!loading && !error && summaryStats && (
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Card 1: Matches Evaluated */}
-          <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669]">
+          <div className="rounded-chunky-lg border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEE7FA] text-[#452477]">
               <Calendar size={20} />
             </div>
             <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#6F6A76]">
                 Fixtures Analyzed
               </div>
-              <div className="font-display text-lg font-black text-[#0F172A]">
+              <div className="font-display text-lg font-black text-[#19171D]">
                 {data?.count ?? predictions.length} Matches
               </div>
-              <div className="text-[11px] font-semibold text-[#10B981]">
+              <div className="text-[11px] font-semibold text-[#7041C5]">
                 Full GW {data?.predicted_gameweek} Schedule
               </div>
             </div>
           </div>
 
           {/* Card 2: Highest Win Probability */}
-          <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEF3C7] text-[#D97706]">
+          <div className="rounded-chunky-lg border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FDF8EC] text-[#8C680E]">
               <Sparkles size={20} />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#6F6A76]">
                 Strongest Favorite
               </div>
-              <div className="font-display text-lg font-black text-[#0F172A] truncate">
+              <div className="font-display text-lg font-black text-[#19171D] truncate">
                 {summaryStats.highestProbTeam.team}
               </div>
-              <div className="text-[11px] font-semibold text-[#D97706]">
+              <div className="text-[11px] font-semibold text-[#8C680E]">
                 {Math.round(summaryStats.highestProbTeam.prob * 100)}% Win Probability
               </div>
             </div>
           </div>
 
           {/* Card 3: Highest xG Match */}
-          <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEF2F2] text-[#DC2626]">
+          <div className="rounded-chunky-lg border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEE2E2] text-[#DC2626]">
               <Flame size={20} />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#6F6A76]">
                 Projected Goal Fest
               </div>
-              <div className="font-display text-sm font-black text-[#0F172A] truncate">
+              <div className="font-display text-sm font-black text-[#19171D] truncate">
                 {summaryStats.highestXgMatch.home_team} vs {summaryStats.highestXgMatch.away_team}
               </div>
               <div className="text-[11px] font-semibold text-[#DC2626]">
-                {(
+                {Math.round(
                   summaryStats.highestXgMatch.predicted_home_goals +
                   summaryStats.highestXgMatch.predicted_away_goals
-                ).toFixed(2)}{" "}
+                )}{" "}
                 Combined xG
               </div>
             </div>
           </div>
 
           {/* Card 4: Clean Sheet Favorite */}
-          <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#4F46E5]">
+          <div className="rounded-chunky-lg border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF7FC] text-[#1E4D6B]">
               <Shield size={20} />
             </div>
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-wider text-[#64748B]">
+              <div className="text-[10px] font-black uppercase tracking-wider text-[#6F6A76]">
                 Best Clean Sheet Odds
               </div>
-              <div className="font-display text-lg font-black text-[#0F172A] truncate">
+              <div className="font-display text-lg font-black text-[#19171D] truncate">
                 {summaryStats.bestCsTeam.team}
               </div>
-              <div className="text-[11px] font-semibold text-[#4F46E5]">
+              <div className="text-[11px] font-semibold text-[#1E4D6B]">
                 {Math.round(summaryStats.bestCsTeam.prob * 100)}% Shutout Chance
               </div>
             </div>
@@ -250,33 +250,33 @@ export default function MatchPredictions() {
       )}
 
       {/* Filter and Control Bar */}
-      <div className="mb-6 flex flex-col gap-3 rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="mb-6 flex flex-col gap-3 rounded-chunky-lg border border-[#E8E3ED] bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
         {/* Search */}
         <div className="relative flex-1">
           <Search
             size={16}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#6F6A76]"
           />
           <input
             type="text"
             placeholder="Search match or team..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-10 w-full rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] pl-10 pr-4 text-xs font-bold text-[#0F172A] placeholder-[#94A3B8] transition-all focus:border-[#10B981] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/20"
+            className="h-10 w-full rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] pl-10 pr-4 text-xs font-bold text-[#19171D] placeholder-[#6F6A76] transition-all focus:border-[#7041C5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7041C5]/20"
           />
         </div>
 
         {/* Filters and Sort */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Predicted Result Filter */}
-          <div className="flex items-center rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] p-1 text-xs font-bold">
+          <div className="flex items-center rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] p-1 text-xs font-bold">
             <button
               onClick={() => setResultFilter("ALL")}
               className={cn(
                 "rounded-lg px-2.5 py-1 transition-all cursor-pointer",
                 resultFilter === "ALL"
-                  ? "bg-white text-[#0F172A] shadow-sm font-black"
-                  : "text-[#64748B] hover:text-[#0F172A]"
+                  ? "bg-white text-[#19171D] shadow-sm font-black"
+                  : "text-[#6F6A76] hover:text-[#19171D]"
               )}
             >
               All Results
@@ -286,8 +286,8 @@ export default function MatchPredictions() {
               className={cn(
                 "rounded-lg px-2.5 py-1 transition-all cursor-pointer",
                 resultFilter === "HOME_WIN"
-                  ? "bg-[#10B981] text-white shadow-sm font-black"
-                  : "text-[#64748B] hover:text-[#0F172A]"
+                  ? "bg-[#7041C5] text-white shadow-sm font-black"
+                  : "text-[#6F6A76] hover:text-[#19171D]"
               )}
             >
               Home Wins
@@ -297,8 +297,8 @@ export default function MatchPredictions() {
               className={cn(
                 "rounded-lg px-2.5 py-1 transition-all cursor-pointer",
                 resultFilter === "DRAW"
-                  ? "bg-[#F59E0B] text-white shadow-sm font-black"
-                  : "text-[#64748B] hover:text-[#0F172A]"
+                  ? "bg-[#B58A18] text-white shadow-sm font-black"
+                  : "text-[#6F6A76] hover:text-[#19171D]"
               )}
             >
               Draws
@@ -308,8 +308,8 @@ export default function MatchPredictions() {
               className={cn(
                 "rounded-lg px-2.5 py-1 transition-all cursor-pointer",
                 resultFilter === "AWAY_WIN"
-                  ? "bg-[#6366F1] text-white shadow-sm font-black"
-                  : "text-[#64748B] hover:text-[#0F172A]"
+                  ? "bg-[#1E4D6B] text-white shadow-sm font-black"
+                  : "text-[#6F6A76] hover:text-[#19171D]"
               )}
             >
               Away Wins
@@ -321,7 +321,7 @@ export default function MatchPredictions() {
             <select
               value={confidenceFilter}
               onChange={(e) => setConfidenceFilter(e.target.value)}
-              className="h-10 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] px-3.5 pr-8 text-xs font-bold text-[#0F172A] transition-all focus:border-[#10B981] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 cursor-pointer"
+              className="h-10 rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] px-3.5 pr-8 text-xs font-bold text-[#19171D] transition-all focus:border-[#7041C5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7041C5]/20 cursor-pointer"
             >
               <option value="ALL">Confidence: All</option>
               <option value="HIGH">Confidence: High</option>
@@ -335,7 +335,7 @@ export default function MatchPredictions() {
             <select
               value={sortKey}
               onChange={(e) => setSortKey(e.target.value)}
-              className="h-10 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] px-3.5 pr-8 text-xs font-bold text-[#0F172A] transition-all focus:border-[#10B981] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#10B981]/20 cursor-pointer"
+              className="h-10 rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] px-3.5 pr-8 text-xs font-bold text-[#19171D] transition-all focus:border-[#7041C5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7041C5]/20 cursor-pointer"
             >
               <option value="KICKOFF">Sort: Kickoff Time</option>
               <option value="CONFIDENCE">Sort: Model Confidence</option>

@@ -228,14 +228,14 @@ export default function Squad() {
       <div className="mb-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEE7FA] text-[#452477] border border-[#D4C3ED] shadow-sm">
               <Shield size={20} />
             </div>
             <div>
-              <h1 className="font-display text-2xl font-black text-[#0F172A] sm:text-3xl">
+              <h1 className="font-display text-2xl font-black text-[#19171D] sm:text-3xl">
                 Squad Builder
               </h1>
-              <p className="text-xs font-semibold text-[#475569]">
+              <p className="text-xs font-semibold text-[#6F6A76]">
                 Assemble your 15-player squad (2 GK, 5 DEF, 5 MID, 3 FWD) with drag & drop flexibility.
               </p>
             </div>
@@ -268,16 +268,16 @@ export default function Squad() {
         </div>
 
         {/* STATS SUMMARY BAR */}
-        <div className="flex flex-wrap items-center gap-2.5 rounded-chunky-lg border border-[#E2E8F0] bg-white p-3 sm:gap-4 sm:p-3.5 shadow-card">
+        <div className="flex flex-wrap items-center gap-2.5 rounded-chunky-lg border border-[#E8E3ED] bg-white p-3 sm:gap-4 sm:p-3.5 shadow-sm">
           {/* Squad Count */}
           <div className="flex items-center gap-2">
-            <Users size={16} className="text-[#10B981]" />
+            <Users size={16} className="text-[#7041C5]" />
             <Badge tone={sq.isFull ? "teal" : "neutral"}>
               {sq.squad.length}/{sq.maxSize} Players
             </Badge>
           </div>
 
-          <div className="h-5 w-px bg-[#E2E8F0]" />
+          <div className="h-5 w-px bg-[#E8E3ED]" />
 
           {/* Formation Selector Dropdown */}
           <div className="relative">
@@ -285,16 +285,16 @@ export default function Squad() {
               type="button"
               onClick={() => setShowFormationMenu((o) => !o)}
               onBlur={() => setTimeout(() => setShowFormationMenu(false), 150)}
-              className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] px-2.5 py-1 text-xs font-black text-[#0F172A] shadow-xs hover:border-[#10B981] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] px-2.5 py-1 text-xs font-black text-[#19171D] shadow-xs hover:border-[#7041C5] transition-colors cursor-pointer"
             >
-              <span className="text-[10px] font-bold uppercase text-[#64748B]">
+              <span className="text-[10px] font-bold uppercase text-[#6F6A76]">
                 Formation:
               </span>
-              <span className="font-black text-[#0F172A]">{sq.formation}</span>
+              <span className="font-black text-[#19171D]">{sq.formation}</span>
               <ChevronDown
                 size={12}
                 className={cn(
-                  "text-[#64748B] transition-transform",
+                  "text-[#6F6A76] transition-transform",
                   showFormationMenu && "rotate-180",
                 )}
               />
@@ -306,7 +306,7 @@ export default function Squad() {
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className="absolute left-0 top-full z-40 mt-1 w-32 overflow-hidden rounded-chunky border border-[#E2E8F0] bg-white p-1 shadow-card"
+                  className="absolute left-0 top-full z-40 mt-1 w-32 overflow-hidden rounded-chunky border border-[#E8E3ED] bg-white p-1 shadow-card"
                 >
                   {SUPPORTED_FORMATIONS.map((f) => (
                     <li key={f}>
@@ -319,8 +319,8 @@ export default function Squad() {
                         className={cn(
                           "block w-full rounded-lg px-3 py-1.5 text-left text-xs font-black transition-colors cursor-pointer",
                           sq.formation === f
-                            ? "bg-[#ECFDF5] text-[#059669]"
-                            : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]",
+                            ? "bg-[#EEE7FA] text-[#452477]"
+                            : "text-[#6F6A76] hover:bg-[#F8F7FA] hover:text-[#19171D]",
                         )}
                       >
                         {f}
@@ -332,7 +332,7 @@ export default function Squad() {
             </AnimatePresence>
           </div>
 
-          <div className="h-5 w-px bg-[#E2E8F0] hidden sm:block" />
+          <div className="h-5 w-px bg-[#E8E3ED] hidden sm:block" />
 
           {/* Starting xPts */}
           <Stat
@@ -341,7 +341,7 @@ export default function Squad() {
             tone="gold"
           />
 
-          <div className="h-5 w-px bg-[#E2E8F0] hidden sm:block" />
+          <div className="h-5 w-px bg-[#E8E3ED] hidden sm:block" />
 
           {/* Total Value */}
           <Stat
@@ -349,7 +349,7 @@ export default function Squad() {
             value={`£${sq.totalSquadPrice.toFixed(1)}m`}
           />
 
-          <div className="h-5 w-px bg-[#E2E8F0] hidden sm:block" />
+          <div className="h-5 w-px bg-[#E8E3ED] hidden sm:block" />
 
           {/* Remaining Budget */}
           <Stat
@@ -361,14 +361,14 @@ export default function Squad() {
           {/* Active Captain Callout */}
           {sq.effectiveCaptain && (
             <>
-              <div className="h-5 w-px bg-[#E2E8F0] hidden md:block" />
+              <div className="h-5 w-px bg-[#E8E3ED] hidden md:block" />
               <div className="hidden md:flex items-center gap-2">
-                <Crown size={15} className="text-[#D97706]" />
-                <span className="text-xs font-black text-[#0F172A]">
+                <Crown size={15} className="text-[#B58A18]" />
+                <span className="text-xs font-black text-[#19171D]">
                   Captain: {sq.effectiveCaptain.name ?? "N/A"}{" "}
-                  <span className="numeral text-[#D97706] font-black">
+                  <span className="numeral text-[#B58A18] font-black">
                     {formatInt((sq.effectiveCaptain.predicted_total_points ?? 0) * 2)} xP
-                    <span className="text-[#64748B] text-[9px] ml-0.5 font-bold">
+                    <span className="text-[#6F6A76] text-[9px] ml-0.5 font-bold">
                       (2×)
                     </span>
                   </span>
@@ -386,11 +386,11 @@ export default function Squad() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mb-4 rounded-2xl border-2 border-[#10B981] bg-[#0F172A] p-3.5 text-white shadow-xl z-30"
+            className="mb-4 rounded-2xl border-2 border-[#7041C5] bg-[#19171D] p-3.5 text-white shadow-xl z-30"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white font-black">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#7041C5] text-white font-black">
                   <ArrowUpDown size={16} />
                 </div>
                 <div>
@@ -400,7 +400,7 @@ export default function Squad() {
                         <span className="text-xs font-black text-white">
                           Swap Mode: {swapSelectedPlayer.name}
                         </span>
-                        <span className="rounded bg-emerald-500/20 border border-emerald-400/40 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-300">
+                        <span className="rounded bg-[#7041C5]/30 border border-[#8C60DF]/50 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#EEE7FA]">
                           {normalizePosition(swapSelectedPlayer.position)}
                         </span>
                       </div>
@@ -445,7 +445,7 @@ export default function Squad() {
           <Pitch className="min-h-[460px] sm:min-h-[540px]">
             {/* Formation Tag Pill on Pitch */}
             <div className="flex justify-center -mb-2">
-              <span className="rounded-full bg-slate-900/80 backdrop-blur-xs px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-400 border border-emerald-500/40 shadow-sm">
+              <span className="rounded-full bg-black/60 backdrop-blur-xs px-3 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#EEE7FA] border border-white/20 shadow-sm">
                 Active Formation • {sq.formation}
               </span>
             </div>
@@ -704,13 +704,13 @@ export default function Squad() {
           </Pitch>
 
           {/* BENCH DUGOUT */}
-          <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-card">
+          <div className="rounded-chunky-lg border border-[#E8E3ED] bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-xs font-black uppercase text-[#64748B]">
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#64748B]" />
+              <h2 className="flex items-center gap-2 text-xs font-black uppercase text-[#6F6A76]">
+                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#6F6A76]" />
                 Substitutes Bench (1 GK + 3 Outfield)
               </h2>
-              <span className="numeral text-xs font-black text-[#475569]">
+              <span className="numeral text-xs font-black text-[#19171D]">
                 {sq.bench.length}/4 Subs
               </span>
             </div>
@@ -782,19 +782,19 @@ export default function Squad() {
         {/* SIDEBAR: Squad Status & Player Quick-Actions */}
         <div className="flex flex-col gap-4">
           {/* SQUAD VALIDATION CARD */}
-          <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-card">
+          <div className="rounded-chunky-lg border border-[#E8E3ED] bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-xs font-black uppercase text-[#64748B]">
-                <Sparkles size={14} className="text-[#10B981]" />
+              <h2 className="flex items-center gap-2 text-xs font-black uppercase text-[#6F6A76]">
+                <Sparkles size={14} className="text-[#7041C5]" />
                 Squad Readiness
               </h2>
               {sq.isValidSquad ? (
-                <span className="flex items-center gap-1 text-[11px] font-black text-emerald-600">
+                <span className="flex items-center gap-1 text-[11px] font-black text-[#452477]">
                   <CheckCircle2 size={13} />
                   Ready
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-[11px] font-black text-amber-600">
+                <span className="flex items-center gap-1 text-[11px] font-black text-[#8C680E]">
                   <AlertTriangle size={13} />
                   In Progress
                 </span>
@@ -802,13 +802,13 @@ export default function Squad() {
             </div>
 
             {/* Validation items */}
-            <div className="flex flex-col gap-2 text-xs font-bold text-slate-700">
+            <div className="flex flex-col gap-2 text-xs font-bold text-[#19171D]">
               <div className="flex items-center justify-between">
                 <span>Total Players:</span>
                 <span
                   className={cn(
                     "numeral font-black",
-                    sq.squad.length === 15 ? "text-emerald-600" : "text-amber-600",
+                    sq.squad.length === 15 ? "text-[#452477]" : "text-[#8C680E]",
                   )}
                 >
                   {sq.squad.length}/15
@@ -819,7 +819,7 @@ export default function Squad() {
                 <span
                   className={cn(
                     "numeral font-black",
-                    sq.startingXI.length === 11 ? "text-emerald-600" : "text-amber-600",
+                    sq.startingXI.length === 11 ? "text-[#452477]" : "text-[#8C680E]",
                   )}
                 >
                   {sq.startingXI.length}/11
@@ -830,7 +830,7 @@ export default function Squad() {
                 <span
                   className={cn(
                     "font-black",
-                    sq.effectiveCaptain ? "text-emerald-600" : "text-amber-600",
+                    sq.effectiveCaptain ? "text-[#452477]" : "text-[#8C680E]",
                   )}
                 >
                   {sq.effectiveCaptain ? "Yes (C)" : "Missing"}
@@ -841,7 +841,7 @@ export default function Squad() {
                 <span
                   className={cn(
                     "font-black",
-                    sq.effectiveViceCaptain ? "text-emerald-600" : "text-amber-600",
+                    sq.effectiveViceCaptain ? "text-[#452477]" : "text-[#8C680E]",
                   )}
                 >
                   {sq.effectiveViceCaptain ? "Yes (VC)" : "Missing"}
@@ -852,7 +852,7 @@ export default function Squad() {
                 <span
                   className={cn(
                     "numeral font-black",
-                    sq.remainingBudget >= 0 ? "text-emerald-600" : "text-red-600",
+                    sq.remainingBudget >= 0 ? "text-[#452477]" : "text-red-600",
                   )}
                 >
                   £{sq.remainingBudget.toFixed(1)}m remaining
@@ -878,14 +878,14 @@ export default function Squad() {
 
           {/* SQUAD LIST BREAKDOWN */}
           {sq.squad.length > 0 && (
-            <div className="rounded-chunky-lg border border-[#E2E8F0] bg-white p-4 shadow-card">
-              <h2 className="mb-2.5 text-xs font-black uppercase text-[#64748B]">
+            <div className="rounded-chunky-lg border border-[#E8E3ED] bg-white p-4 shadow-sm">
+              <h2 className="mb-2.5 text-xs font-black uppercase text-[#6F6A76]">
                 Selected Players ({sq.squad.length})
               </h2>
 
               {/* Starters list */}
               <div className="mb-3">
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block mb-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#452477] block mb-1">
                   Starting XI ({sq.startingXI.length})
                 </span>
                 <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
@@ -901,19 +901,19 @@ export default function Squad() {
                       <div
                         key={getPlayerId(p)}
                         onClick={() => handlePlayerClick(p)}
-                        className="flex items-center justify-between rounded-lg p-1.5 hover:bg-slate-50 transition-colors cursor-pointer border border-transparent hover:border-slate-200"
+                        className="flex items-center justify-between rounded-lg p-1.5 hover:bg-[#F8F7FA] transition-colors cursor-pointer border border-transparent hover:border-[#E8E3ED]"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-xs font-black text-slate-900 truncate">
+                          <span className="text-xs font-black text-[#19171D] truncate">
                             {p.name}
                           </span>
                           {isCap && (
-                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-black text-slate-950">
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#B58A18] text-[9px] font-black text-white">
                               C
                             </span>
                           )}
                           {isVC && (
-                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[9px] font-black text-white">
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#B9DDF5] text-[9px] font-black text-[#19171D]">
                               VC
                             </span>
                           )}
@@ -922,10 +922,10 @@ export default function Squad() {
                               className={cn(
                                 "rounded px-1.5 py-0.2 text-[8px] font-black uppercase border",
                                 p.selection_type === "core"
-                                  ? "bg-amber-50 text-amber-800 border-amber-200"
+                                  ? "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E]"
                                   : p.selection_type === "value"
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-slate-100 text-slate-700 border-slate-200"
+                                  ? "bg-[#EEE7FA] text-[#452477] border-[#D4C3ED]"
+                                  : "bg-[#F4F3F6] text-[#19171D] border-[#E8E3ED]"
                               )}
                               title={String(p.selection_reason || "")}
                             >
@@ -934,10 +934,10 @@ export default function Squad() {
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[10px] font-bold text-slate-500">
+                          <span className="text-[10px] font-bold text-[#6F6A76]">
                             {formatPrice(p.value)}
                           </span>
-                          <span className="numeral text-xs font-black text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded">
+                          <span className="numeral text-xs font-black text-[#452477] bg-[#EEE7FA] px-1.5 py-0.5 rounded">
                             {formatInt(p.predicted_total_points)} xP
                           </span>
                         </div>
@@ -972,10 +972,10 @@ export default function Squad() {
                               className={cn(
                                 "rounded px-1.5 py-0.2 text-[8px] font-black uppercase border",
                                 p.selection_type === "core"
-                                  ? "bg-amber-50 text-amber-800 border-amber-200"
+                                  ? "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E]"
                                   : p.selection_type === "value"
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : "bg-slate-100 text-slate-700 border-slate-200"
+                                  ? "bg-[#EDF6FC] text-[#246B9C] border-[#B9DDF5]"
+                                  : "bg-[#F8F7FA] text-[#6F6A76] border-[#E8E3ED]"
                               )}
                               title={String(p.selection_reason || "")}
                             >

@@ -97,8 +97,8 @@ export function PlayerToken({
           className={cn(
             "mb-0.5 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm z-10",
             isFirstSub
-              ? "bg-emerald-600 text-white border border-emerald-500"
-              : "bg-slate-900 text-white border border-slate-700",
+              ? "bg-[#7041C5] text-white border border-[#8C60DF]"
+              : "bg-[#19171D] text-white border border-[#2D2A32]",
           )}
         >
           {benchLabel}
@@ -112,7 +112,7 @@ export function PlayerToken({
       >
         {/* Selected Badge */}
         {isSelected && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 rounded-full bg-emerald-500 px-2 py-0.5 text-[8px] font-black uppercase text-white shadow-md border border-white tracking-wider animate-pulse whitespace-nowrap">
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 rounded-full bg-[#7041C5] px-2 py-0.5 text-[8px] font-black uppercase text-white shadow-md border border-white tracking-wider animate-pulse whitespace-nowrap">
             SELECTED
           </div>
         )}
@@ -123,19 +123,19 @@ export function PlayerToken({
           size="md"
           className={cn(
             "ring-2 ring-white shadow-md transition-all",
-            isSelected && "ring-emerald-400 ring-4 shadow-xl scale-105",
-            isValidSwapTarget && "ring-amber-400 ring-3 shadow-glow-gold animate-pulse",
-            isCaptain && !isSelected && "ring-amber-400 ring-4 shadow-glow-gold",
-            isViceCaptain && !isSelected && "ring-sky-400 ring-4 shadow-glow",
-            isFirstSub && !isSelected && "ring-emerald-500 ring-3",
-            onClick && "group-hover/avatar:ring-emerald-400",
+            isSelected && "ring-[#7041C5] ring-4 shadow-xl scale-105",
+            isValidSwapTarget && "ring-[#B58A18] ring-3 shadow-glow-gold animate-pulse",
+            isCaptain && !isSelected && "ring-[#B58A18] ring-4 shadow-glow-gold",
+            isViceCaptain && !isSelected && "ring-[#B9DDF5] ring-4 shadow-glow",
+            isFirstSub && !isSelected && "ring-[#7041C5] ring-3",
+            onClick && "group-hover/avatar:ring-[#7041C5]",
           )}
         />
 
         {/* Captain Badge (Top-Left) */}
         {isCaptain && !isSelected && (
           <div
-            className="absolute -left-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 text-[11px] font-black text-slate-950 shadow-md border-2 border-white animate-bounce-sm"
+            className="absolute -left-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-[#B58A18] text-[11px] font-black text-white shadow-md border-2 border-white animate-bounce-sm"
             title="Captain (2× Points)"
           >
             C
@@ -145,7 +145,7 @@ export function PlayerToken({
         {/* Vice Captain Badge (Top-Left if not captain) */}
         {!isCaptain && isViceCaptain && !isSelected && (
           <div
-            className="absolute -left-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-sky-500 text-[10px] font-black text-white shadow-md border-2 border-white"
+            className="absolute -left-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-[#B9DDF5] text-[10px] font-black text-[#19171D] shadow-md border-2 border-white"
             title="Vice Captain"
           >
             VC
@@ -162,7 +162,7 @@ export function PlayerToken({
             }}
             title={`Remove ${player.name ?? "player"} from squad`}
             className={cn(
-              "absolute -right-2 -top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-md border-2 border-white hover:bg-red-700 hover:scale-110 active:scale-90 transition-all cursor-pointer",
+              "absolute -right-2 -top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-[#EF4444] text-white shadow-md border-2 border-white hover:bg-red-700 hover:scale-110 active:scale-90 transition-all cursor-pointer",
               isHovered ? "opacity-100" : "opacity-0 sm:opacity-0",
             )}
           >
@@ -179,7 +179,7 @@ export function PlayerToken({
               if (onQuickSwap) onQuickSwap();
               else if (onClick) onClick();
             }}
-            className="absolute -bottom-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black uppercase text-white shadow-lg border border-white hover:bg-emerald-500 hover:scale-110 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+            className="absolute -bottom-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 rounded-full bg-[#7041C5] px-2 py-0.5 text-[9px] font-black uppercase text-white shadow-lg border border-white hover:bg-[#5D32A8] hover:scale-110 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
             title="Click to swap with selected player"
           >
             <ArrowUpDown size={10} strokeWidth={3} />
@@ -200,25 +200,25 @@ export function PlayerToken({
         type="button"
         onClick={onClick}
         className={cn(
-          "mt-0.5 max-w-[100px] truncate rounded bg-white px-2 py-0.5 text-center font-display text-[11px] font-black text-slate-900 shadow-sm border border-slate-200 transition-colors hover:bg-slate-50 cursor-pointer flex items-center justify-center gap-1",
-          isSelected && "bg-emerald-100 text-emerald-950 border-emerald-400 font-extrabold",
-          isValidSwapTarget && "bg-amber-100 text-amber-950 border-amber-400 font-extrabold",
+          "mt-0.5 max-w-[100px] truncate rounded bg-white px-2 py-0.5 text-center font-display text-[11px] font-black text-[#19171D] shadow-sm border border-[#E8E3ED] transition-colors hover:bg-[#F8F7FA] cursor-pointer flex items-center justify-center gap-1",
+          isSelected && "bg-[#EEE7FA] text-[#452477] border-[#D4C3ED] font-extrabold",
+          isValidSwapTarget && "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E] font-extrabold",
         )}
       >
         <span className="truncate">{displayName}</span>
-        <span className="text-[8px] font-bold text-slate-500 shrink-0">({posLabel})</span>
+        <span className="text-[8px] font-bold text-[#6F6A76] shrink-0">({posLabel})</span>
       </button>
 
       {/* Stats Bar (Price + AI Points as whole integer) */}
       <div
         onClick={onClick}
-        className="flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-950/95 px-2.5 py-0.5 shadow-md hover:bg-slate-900 transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 rounded-full border border-black/30 bg-[#19171D]/90 px-2.5 py-0.5 shadow-md hover:bg-[#19171D] transition-colors cursor-pointer"
       >
-        <span className="numeral text-[9px] font-extrabold text-slate-300">
+        <span className="numeral text-[9px] font-extrabold text-[#EEE7FA]">
           {formatPrice(price)}
         </span>
-        <span className="text-[9px] text-slate-600">•</span>
-        <span className="numeral text-[10px] font-black text-amber-400">
+        <span className="text-[9px] text-white/40">•</span>
+        <span className="numeral text-[10px] font-black text-[#B58A18]">
           {formatInt(player.predicted_total_points)} xP
         </span>
       </div>
@@ -278,9 +278,9 @@ export function EmptySlot({
       {/* FPL Empty Shirt Silhouette Container */}
       <div
         className={cn(
-          "relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-2 border-dashed border-white/70 bg-white/20 backdrop-blur-xs shadow-md transition-all group-hover:border-emerald-400 group-hover:bg-emerald-500/30 group-hover:shadow-lg",
+          "relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-2 border-dashed border-white/70 bg-white/20 backdrop-blur-xs shadow-md transition-all group-hover:border-[#EEE7FA] group-hover:bg-[#7041C5]/30 group-hover:shadow-lg",
           isHighlightTarget &&
-            "border-emerald-400 bg-emerald-500/40 shadow-glow ring-2 ring-emerald-400 animate-pulse",
+            "border-[#EEE7FA] bg-[#7041C5]/40 shadow-glow ring-2 ring-[#7041C5] animate-pulse",
         )}
       >
         {/* FPL Jersey Silhouette Icon */}
@@ -303,7 +303,7 @@ export function EmptySlot({
 
         {/* Embedded + Button */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm border border-emerald-300 transition-transform group-hover:scale-110 group-hover:bg-emerald-400">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7041C5] text-white shadow-sm border border-[#8C60DF] transition-transform group-hover:scale-110 group-hover:bg-[#5D32A8]">
             <Plus size={14} strokeWidth={3} />
           </div>
         </div>
@@ -312,8 +312,8 @@ export function EmptySlot({
       {/* Position Label Pill */}
       <span
         className={cn(
-          "rounded-md bg-slate-900/90 px-2 py-0.5 font-display text-[10px] font-black uppercase text-white shadow-sm border border-slate-700/80 group-hover:bg-emerald-600 group-hover:border-emerald-500 transition-colors",
-          isHighlightTarget && "bg-emerald-600 border-emerald-400 font-black animate-bounce",
+          "rounded-md bg-[#19171D]/90 px-2 py-0.5 font-display text-[10px] font-black uppercase text-white shadow-sm border border-[#2D2A32] group-hover:bg-[#7041C5] group-hover:border-[#8C60DF] transition-colors",
+          isHighlightTarget && "bg-[#7041C5] border-[#8C60DF] font-black animate-bounce",
         )}
       >
         {isHighlightTarget ? targetBadgeLabel : label}

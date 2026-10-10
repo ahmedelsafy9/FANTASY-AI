@@ -340,7 +340,7 @@ def get_all_chunks(chunk_size: int = 500, overlap: int = 50) -> list[KnowledgeCh
         all_chunks.extend(chunk_document(doc, chunk_size, overlap))
 
     logger.info(
-        "Knowledge base: %d documents → %d chunks",
+        "Knowledge base: %d documents -> %d chunks",
         len(KNOWLEDGE_DOCUMENTS),
         len(all_chunks),
     )

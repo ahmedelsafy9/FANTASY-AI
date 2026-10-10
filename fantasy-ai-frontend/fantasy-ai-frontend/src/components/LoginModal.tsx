@@ -146,13 +146,13 @@ export function LoginModal() {
 
           {/* Header */}
           <div className="px-8 pb-2 pt-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ECFDF5] text-[#059669] shadow-sm">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EEE7FA] text-[#7041C5] shadow-sm">
               <Mail size={24} />
             </div>
-            <h2 className="font-display text-2xl font-black text-[#0F172A]">
-              Sign in to Fantasy<span className="text-[#10B981]">.AI</span>
+            <h2 className="font-display text-2xl font-black text-[#19171D]">
+              Sign in to Fantasy<span className="text-[#7041C5]">.AI</span>
             </h2>
-            <p className="mt-1 text-sm font-semibold text-[#64748B]">
+            <p className="mt-1 text-sm font-semibold text-[#6F6A76]">
               Strict Gmail-Only Account Verification
             </p>
           </div>
@@ -161,7 +161,7 @@ export function LoginModal() {
           <div className="mx-8 mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
             <ShieldAlert size={18} className="mt-0.5 shrink-0 text-red-600" />
             <p className="text-xs font-semibold leading-relaxed text-[#475569]">
-              <span className="font-black text-[#0F172A]">Strict Gmail Policy:</span> Only accounts ending with <strong className="text-red-600 font-mono">@gmail.com</strong> are allowed.
+              <span className="font-black text-[#19171D]">Strict Gmail Policy:</span> Only accounts ending with <strong className="text-red-600 font-mono">@gmail.com</strong> are allowed.
             </p>
           </div>
 
@@ -172,7 +172,7 @@ export function LoginModal() {
                 <button
                   type="button"
                   onClick={() => window.google?.accounts?.id?.prompt()}
-                  className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-[#E2E8F0] bg-white px-5 py-3 text-sm font-extrabold text-[#0F172A] shadow-btn-raised transition-all hover:bg-[#F8FAFC] cursor-pointer"
+                  className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-[#E8E3ED] bg-white px-5 py-3 text-sm font-extrabold text-[#19171D] shadow-btn-raised transition-all hover:bg-[#F8F7FA] cursor-pointer"
                 >
                   <GoogleIcon className="h-5 w-5" />
                   Sign in with Google
@@ -182,7 +182,7 @@ export function LoginModal() {
               <div className="flex flex-col gap-4">
                 <form onSubmit={handleTestSubmit} className="flex flex-col gap-3">
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-[#475569]">
+                    <label className="mb-1 block text-xs font-bold text-[#6F6A76]">
                       Enter your Gmail address (@gmail.com required)
                     </label>
                     <input
@@ -191,12 +191,12 @@ export function LoginModal() {
                       onChange={(e) => setTestEmail(e.target.value)}
                       placeholder="yourname@gmail.com"
                       required
-                      className="w-full rounded-xl border-2 border-[#CBD5E1] bg-white px-4 py-2.5 text-sm font-semibold text-[#0F172A] placeholder:text-[#94A3B8] outline-none transition-colors focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/20"
+                      className="w-full rounded-xl border-2 border-[#CBD5E1] bg-white px-4 py-2.5 text-sm font-semibold text-[#19171D] placeholder:text-[#94A3B8] outline-none transition-colors focus:border-[#7041C5] focus:ring-2 focus:ring-[#7041C5]/20"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-[#475569]">
+                    <label className="mb-1 block text-xs font-bold text-[#6F6A76]">
                       Display Name (Optional)
                     </label>
                     <input
@@ -204,32 +204,32 @@ export function LoginModal() {
                       value={testName}
                       onChange={(e) => setTestName(e.target.value)}
                       placeholder="e.g. Alex Smith"
-                      className="w-full rounded-xl border-2 border-[#CBD5E1] bg-white px-4 py-2.5 text-sm font-semibold text-[#0F172A] placeholder:text-[#94A3B8] outline-none transition-colors focus:border-[#10B981] focus:ring-2 focus:ring-[#10B981]/20"
+                      className="w-full rounded-xl border-2 border-[#CBD5E1] bg-white px-4 py-2.5 text-sm font-semibold text-[#19171D] placeholder:text-[#94A3B8] outline-none transition-colors focus:border-[#7041C5] focus:ring-2 focus:ring-[#7041C5]/20"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-[#10B981] text-white font-black py-3 text-sm shadow-btn-raised transition-all hover:bg-[#059669] cursor-pointer"
+                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-[#7041C5] text-white font-black py-3 text-sm shadow-btn-raised transition-all hover:bg-[#5C32A8] cursor-pointer"
                   >
                     <GoogleIcon className="h-4 w-4" />
                     Sign In with Gmail
                   </button>
                 </form>
 
-                <div className="border-t border-[#E2E8F0] pt-3 text-center">
+                <div className="border-t border-[#E8E3ED] pt-3 text-center">
                   <button
                     type="button"
                     onClick={() => setShowGuide(!showGuide)}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#64748B] hover:text-[#059669] transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6F6A76] hover:text-[#7041C5] transition-colors cursor-pointer"
                   >
                     <Info size={14} />
                     {showGuide ? "Hide Setup Guide" : "Want real Google popup? Setup is 100% Free"}
                   </button>
 
                   {showGuide && (
-                    <div className="mt-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 text-left text-xs font-semibold leading-relaxed text-[#475569]">
-                      <p className="font-black text-[#059669] flex items-center gap-1 mb-1">
+                    <div className="mt-3 rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] p-4 text-left text-xs font-semibold leading-relaxed text-[#475569]">
+                      <p className="font-black text-[#7041C5] flex items-center gap-1 mb-1">
                         <CheckCircle size={14} /> Google Cloud OAuth is 100% Free!
                       </p>
                       <p className="mb-2">No credit card required:</p>

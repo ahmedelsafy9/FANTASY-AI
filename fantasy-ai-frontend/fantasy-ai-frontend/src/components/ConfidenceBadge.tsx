@@ -16,24 +16,24 @@ const CONFIDENCE_CONFIG: Record<
 > = {
   HIGH: {
     label: "High",
-    dot: "bg-emerald-500",
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
-    border: "border-emerald-200",
+    dot: "bg-[#7041C5]",
+    bg: "bg-[#EEE7FA]",
+    text: "text-[#452477]",
+    border: "border-[#D4C3ED]",
   },
   MEDIUM: {
     label: "Medium",
-    dot: "bg-amber-500",
-    bg: "bg-amber-50",
-    text: "text-amber-700",
-    border: "border-amber-200",
+    dot: "bg-[#B58A18]",
+    bg: "bg-[#FDF8EC]",
+    text: "text-[#8C680E]",
+    border: "border-[#E5D08E]",
   },
   LOW: {
     label: "Low",
-    dot: "bg-slate-400",
-    bg: "bg-slate-50",
-    text: "text-slate-600",
-    border: "border-slate-200",
+    dot: "bg-[#9B95A3]",
+    bg: "bg-[#F4F3F6]",
+    text: "text-[#6F6A76]",
+    border: "border-[#E8E3ED]",
   },
 };
 

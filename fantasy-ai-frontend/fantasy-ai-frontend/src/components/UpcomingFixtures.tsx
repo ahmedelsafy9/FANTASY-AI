@@ -72,10 +72,10 @@ export function UpcomingFixtures({
           return (
             <span
               key={fix.fixture_id ?? `${fix.opponent_name}-${idx}`}
-              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-2 py-0.5 font-mono text-[11px] shadow-sm"
+              className="inline-flex items-center gap-1 rounded-md border border-[#E8E3ED] bg-[#F8F7FA] px-2 py-0.5 font-mono text-[11px] shadow-xs"
             >
-              <span className="font-black text-slate-900">{code}</span>
-              <span className={isHome ? "text-emerald-700 font-black" : "text-slate-600 font-bold"}>
+              <span className="font-black text-[#19171D]">{code}</span>
+              <span className={isHome ? "text-[#7041C5] font-black" : "text-[#6F6A76] font-bold"}>
                 {isHome ? "H" : "A"}
               </span>
               <FDRBadge difficulty={fix.difficulty} size="sm" />
@@ -95,7 +95,7 @@ export function UpcomingFixtures({
           return (
             <div
               key={fix.fixture_id ?? `${fix.opponent_name}-${idx}`}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1 shadow-sm"
+              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#E8E3ED] bg-white px-2.5 py-1 shadow-xs"
             >
               <TeamBadge
                 team={fix.opponent_name}
@@ -103,13 +103,13 @@ export function UpcomingFixtures({
                 size="sm"
               />
               <div className="flex flex-col">
-                <span className="font-display text-[11px] font-black leading-none text-slate-900">
+                <span className="font-display text-[11px] font-black leading-none text-[#19171D]">
                   {code}
                 </span>
                 <span
                   className={cn(
                     "font-mono text-[9px] leading-none uppercase mt-0.5 font-black",
-                    fix.is_home ? "text-emerald-700" : "text-slate-600",
+                    fix.is_home ? "text-[#7041C5]" : "text-[#6F6A76]",
                   )}
                 >
                   {fix.is_home ? "HOME" : "AWAY"}
@@ -133,14 +133,14 @@ export function UpcomingFixtures({
         return (
           <div
             key={fix.fixture_id ?? `${fix.opponent_name}-${idx}`}
-            className="flex shrink-0 min-w-[130px] flex-col gap-2 rounded-chunky-lg border border-slate-200 bg-white p-3.5 shadow-card transition-all hover:border-emerald-400"
+            className="flex shrink-0 min-w-[130px] flex-col gap-2 rounded-chunky-lg border border-[#E8E3ED] bg-white p-3.5 shadow-card transition-all hover:border-[#7041C5]"
           >
-            <div className="flex items-center justify-between text-[10px] font-black text-slate-500">
+            <div className="flex items-center justify-between text-[10px] font-black text-[#6F6A76]">
               <span>{typeof fix.event === "number" ? `GW ${fix.event}` : "GW -"}</span>
               <span
                 className={cn(
                   "font-mono font-black uppercase text-[9px]",
-                  fix.is_home ? "text-emerald-700" : "text-slate-600",
+                  fix.is_home ? "text-[#7041C5]" : "text-[#6F6A76]",
                 )}
               >
                 {fix.is_home ? "HOME" : "AWAY"}

@@ -8,11 +8,11 @@ interface FDRBadgeProps {
 }
 
 const FDR_COLORS: Record<number, { bg: string; text: string; border: string; label: string }> = {
-  1: { bg: "bg-emerald-100", text: "text-emerald-950", border: "border-emerald-300", label: "Very Easy" },
-  2: { bg: "bg-emerald-100", text: "text-emerald-950", border: "border-emerald-300", label: "Easy" },
-  3: { bg: "bg-amber-100", text: "text-amber-950", border: "border-amber-300", label: "Medium" },
-  4: { bg: "bg-orange-100", text: "text-orange-950", border: "border-orange-300", label: "Hard" },
-  5: { bg: "bg-red-100", text: "text-red-950", border: "border-red-300", label: "Very Hard" },
+  1: { bg: "bg-[#EDF6FC]", text: "text-[#1E4D6B]", border: "border-[#B9DDF5]", label: "Very Easy" },
+  2: { bg: "bg-[#EEE7FA]", text: "text-[#452477]", border: "border-[#D5C6F0]", label: "Easy" },
+  3: { bg: "bg-[#FDF8EC]", text: "text-[#8C680E]", border: "border-[#E5D08E]", label: "Medium" },
+  4: { bg: "bg-[#FFF1ED]", text: "text-[#C2410C]", border: "border-[#FFDDD2]", label: "Hard" },
+  5: { bg: "bg-[#FEF2F2]", text: "text-[#991B1B]", border: "border-[#FECACA]", label: "Very Hard" },
 };
 
 export function FDRBadge({ difficulty, size = "sm", showLabel = false, className }: FDRBadgeProps) {

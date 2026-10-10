@@ -13,11 +13,10 @@ import PlayerDetails from "@/pages/PlayerDetails";
 import Squad from "@/pages/Squad";
 import Captain from "@/pages/Captain";
 import MatchPredictions from "@/pages/MatchPredictions";
-import Differentials from "@/pages/Differentials";
 
 function Layout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-[#e5e7eb]">
+    <div className="flex min-h-screen flex-col bg-[#F8F7FA] text-[#19171D]">
       <MockBanner />
       <Navigation />
       <main className="flex-1 pb-safe-bottom md:pb-0">{children}</main>
@@ -39,7 +38,7 @@ export default function App() {
           <Route path="/players" element={<Layout><Players /></Layout>} />
           <Route path="/players/:id" element={<Layout><PlayerDetails /></Layout>} />
           <Route path="/captain" element={<Layout><Captain /></Layout>} />
-          <Route path="/differentials" element={<Layout><Differentials /></Layout>} />
+          <Route path="/differentials" element={<Navigate to="/players" replace />} />
           <Route path="/match-predictions" element={<Layout><MatchPredictions /></Layout>} />
           <Route path="/squad" element={<Layout><Squad /></Layout>} />
 

@@ -227,7 +227,199 @@ def test_chatbot_service_fallback(mock_app_state: AppState):
     res = service._fallback_response("Who should I captain?")
     assert "response" in res
     assert "captain" in res["response"].lower() or "candidate" in res["response"].lower()
+    assert res.get("fallback") is True
+    assert res.get("provider") == "fallback"
 
     res_inj = service._fallback_response("Are there injured players?")
     assert "response" in res_inj
     assert "players" in res_inj["response"].lower()
+    assert res_inj.get("fallback") is True
+    assert res_inj.get("provider") == "fallback"
+
+
+def test_gemini_model_configuration_and_normalization(mock_app_state: AppState):
+    from src.config.settings import ChatbotSettings
+
+    # 1. Default model is gemini-3.8-flash
+    svc = ChatbotService(mock_app_state, api_key="")
+    assert svc._model == "gemini-3.8-flash"
+
+    # 2. Strips 'models/' prefix
+    svc_prefix = ChatbotService(mock_app_state, api_key="", model="models/gemini-3.8-flash")
+    assert svc_prefix._model == "gemini-3.8-flash"
+
+    # 3. Strips whitespace
+    svc_ws = ChatbotService(mock_app_state, api_key="", model="  gemini-3.8-flash  ")
+    assert svc_ws._model == "gemini-3.8-flash"
+
+    # 4. Settings default and normalization
+    cfg = ChatbotSettings()
+    assert "models/" not in cfg.llm_model
+
+
+def test_gemini_env_variable_overrides(monkeypatch):
+    from src.config.settings import ChatbotSettings
+
+    # FANTASY_AI_LLM_MODEL override
+    monkeypatch.setenv("FANTASY_AI_LLM_MODEL", "models/custom-test-flash")
+    cfg = ChatbotSettings()
+    assert cfg.llm_model == "custom-test-flash"
+
+    # Fallback to GEMINI_MODEL when FANTASY_AI_LLM_MODEL is not set
+    monkeypatch.delenv("FANTASY_AI_LLM_MODEL", raising=False)
+    monkeypatch.setenv("GEMINI_MODEL", "models/gemini-3.8-pro")
+    cfg2 = ChatbotSettings()
+    assert cfg2.llm_model == "gemini-3.8-pro"
+
+
+def test_gemini_error_classification():
+    from src.chatbot.service import _classify_gemini_error
+
+    # Model not found / deprecated
+    e404 = Exception("404 NOT_FOUND: models/gemini-2.5-flash is no longer available to new users.")
+    cat, summary, is_perm = _classify_gemini_error(e404)
+    assert cat == "MODEL_NOT_FOUND"
+    assert is_perm is True
+
+    # Authentication failure
+    e401 = Exception("401 UNAUTHENTICATED: API_KEY_INVALID")
+    cat, summary, is_perm = _classify_gemini_error(e401)
+    assert cat == "AUTH_ERROR"
+    assert is_perm is True
+
+    # Quota / Rate limit
+    e429 = Exception("429 RESOURCE_EXHAUSTED: Quota exceeded for quota metric")
+    cat, summary, is_perm = _classify_gemini_error(e429)
+    assert cat == "QUOTA_EXHAUSTED"
+    assert is_perm is False
+
+    # Network / Timeout
+    etimeout = TimeoutError("Connection timed out after 30s")
+    cat, summary, is_perm = _classify_gemini_error(etimeout)
+    assert cat == "NETWORK_ERROR"
+    assert is_perm is False
+
+    # Secrets sanitization test
+    e_leak = Exception("Request failed for key=AIzaSyDfakeSecretKey1234567890123456789 in query")
+    cat, summary, is_perm = _classify_gemini_error(e_leak)
+    assert "AIzaSyDfake" not in summary
+    assert "[REDACTED" in summary
+
+
+def test_gemini_fallback_on_model_not_found(mock_app_state: AppState, monkeypatch):
+    """Verify that a 404 model-not-found error immediately falls back without retrying."""
+    import asyncio
+    from unittest.mock import MagicMock
+
+    call_count = 0
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            self.models = MagicMock()
+            def mock_generate(*args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                raise Exception("404 NOT_FOUND: models/gemini-2.5-flash is no longer available.")
+            self.models.generate_content.side_effect = mock_generate
+
+    import google.genai as genai_module
+    monkeypatch.setattr(genai_module, "Client", FakeClient)
+
+    svc = ChatbotService(mock_app_state, api_key="fake-test-key", model="gemini-2.5-flash")
+    result = asyncio.run(svc.chat("Who should I captain?"))
+
+    # Ensure it did not repeatedly loop or retry
+    assert call_count == 1
+    assert result.get("fallback") is True
+    assert result.get("provider") == "fallback"
+    assert "gemini_model_not_found" in result.get("fallback_reason", "")
+    assert len(result.get("response", "")) > 0
+
+
+def test_gemini_successful_generation_mock(mock_app_state: AppState, monkeypatch):
+    """Verify successful Gemini generation passes through without fallback."""
+    import asyncio
+    from unittest.mock import MagicMock
+
+    class FakeCandidate:
+        content = MagicMock(parts=[MagicMock(text="Captain Haaland for GW5.", function_call=None)])
+
+    class FakeResponse:
+        text = "Captain Haaland for GW5."
+        candidates = [FakeCandidate()]
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            self.models = MagicMock()
+            self.models.generate_content.return_value = FakeResponse()
+
+    import google.genai as genai_module
+    monkeypatch.setattr(genai_module, "Client", FakeClient)
+
+    svc = ChatbotService(mock_app_state, api_key="fake-test-key", model="gemini-3.8-flash")
+    result = asyncio.run(svc.chat("Who should I captain?"))
+
+    assert result.get("fallback") is False
+    assert result.get("provider") == "gemini"
+    assert result.get("model") == "gemini-3.8-flash"
+    assert result.get("response") == "Captain Haaland for GW5."
+
+
+def test_gemini_tool_calling_execution_mock(mock_app_state: AppState, monkeypatch):
+    """Verify Gemini function calling iteration: model requests tool, tool executes, result returns to model."""
+    import asyncio
+    from unittest.mock import MagicMock
+
+    call_index = 0
+
+    class FakeFC:
+        name = "get_captain_recommendation"
+        args = {}
+
+    class FakePart1:
+        text = None
+        function_call = FakeFC()
+
+    class FakeCandidate1:
+        content = MagicMock(parts=[FakePart1()])
+
+    class FakeResponse1:
+        text = ""
+        candidates = [FakeCandidate1()]
+
+    class FakePart2:
+        text = "Based on tool results, Haaland is top captain."
+        function_call = None
+
+    class FakeCandidate2:
+        content = MagicMock(parts=[FakePart2()])
+
+    class FakeResponse2:
+        text = "Based on tool results, Haaland is top captain."
+        candidates = [FakeCandidate2()]
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            self.models = MagicMock()
+            def mock_generate(*args, **kwargs):
+                nonlocal call_index
+                call_index += 1
+                if call_index == 1:
+                    return FakeResponse1()
+                return FakeResponse2()
+            self.models.generate_content.side_effect = mock_generate
+
+    import google.genai as genai_module
+    monkeypatch.setattr(genai_module, "Client", FakeClient)
+
+    svc = ChatbotService(mock_app_state, api_key="fake-test-key", model="gemini-3.8-flash")
+    result = asyncio.run(svc.chat("Who should I captain?"))
+
+    assert call_index == 2
+    assert result.get("fallback") is False
+    assert result.get("provider") == "gemini"
+    assert len(result.get("tool_calls", [])) == 1
+    assert result["tool_calls"][0]["tool"] == "get_captain_recommendation"
+    assert "Haaland is top captain" in result["response"]
+
+

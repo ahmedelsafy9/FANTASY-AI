@@ -45,6 +45,17 @@ class MatchPredictionService:
 
         self._initialize()
 
+    @property
+    def predicted_gameweek(self) -> int:
+        """The authoritative target gameweek for upcoming match predictions."""
+        gw_ctx = getattr(self._state, "gameweek_context", None)
+        if gw_ctx is not None:
+            return gw_ctx.target_gameweek
+        if self._state.predicted_gameweek is not None:
+            return self._state.predicted_gameweek
+        latest = self._state.latest_completed_gameweek or 1
+        return min(int(latest) + 1, 38)
+
     def _initialize(self) -> None:
         """Load model and build team stat lookups once."""
         settings = self._state.settings
@@ -113,9 +124,9 @@ class MatchPredictionService:
         except Exception as exc:
             logger.warning("MatchPredictionService: team stats calculation failed: %s", exc)
 
-    def _get_fixtures(self) -> list[dict[str, Any]]:
-        """Load all fixtures (live or cached)."""
-        if self._fixtures_cache is not None:
+    def _get_fixtures(self, force_refresh: bool = False) -> list[dict[str, Any]]:
+        """Load all fixtures (live or cached), supporting cache invalidation."""
+        if not force_refresh and self._fixtures_cache is not None:
             return self._fixtures_cache
 
         # Try live FPL API
@@ -152,9 +163,13 @@ class MatchPredictionService:
         return []
 
     def predict_next_gameweek(self) -> MatchPredictionResponse:
-        """Predict match outcomes for all fixtures in the next Gameweek."""
-        season = self._state.season or "2026-27"
-        latest_completed_gw = self._state.latest_completed_gameweek
+        """Predict match outcomes for all fixtures in the authoritative next Gameweek."""
+        gw_ctx = getattr(self._state, "gameweek_context", None)
+        season = (gw_ctx.season if gw_ctx else None) or self._state.season or "2026-27"
+        latest_completed_gw = (
+            (gw_ctx.latest_completed_gameweek if gw_ctx else None)
+            or self._state.latest_completed_gameweek
+        )
 
         if latest_completed_gw is None:
             if hasattr(self._state, "engineered_data") and not self._state.engineered_data.empty:
@@ -169,7 +184,10 @@ class MatchPredictionService:
             else:
                 latest_completed_gw = 1
 
-        predicted_gw = self._state.predicted_gameweek
+        predicted_gw = (
+            (gw_ctx.target_gameweek if gw_ctx else None)
+            or self._state.predicted_gameweek
+        )
         if predicted_gw is None:
             max_gw = getattr(self._state.settings.prediction, "max_valid_gameweek", 38)
             predicted_gw = min(int(latest_completed_gw) + 1, max_gw)
@@ -181,14 +199,28 @@ class MatchPredictionService:
             if f.get("event") == predicted_gw
         ]
 
+        # If cache produced no fixtures for the target gameweek, force refresh fixtures
+        if not target_fixtures and self._fixtures_cache is not None:
+            logger.info("No fixtures found for target GW %d in cache; refreshing fixtures...", predicted_gw)
+            all_fixtures = self._get_fixtures(force_refresh=True)
+            target_fixtures = [
+                f
+                for f in all_fixtures
+                if f.get("event") == predicted_gw
+            ]
+
+        # Check synchronization status
+        is_synced = True
+        sync_status = "synchronized"
+
         if not target_fixtures:
-            # Check for unplayed fixtures if event filter returned none
-            unplayed = [f for f in all_fixtures if not f.get("finished", False)]
-            if unplayed:
-                next_ev = unplayed[0].get("event")
-                if next_ev is not None:
-                    predicted_gw = int(next_ev)
-                    target_fixtures = [f for f in all_fixtures if f.get("event") == predicted_gw]
+            is_synced = False
+            sync_status = f"no_fixtures_found_for_gw_{predicted_gw}"
+            logger.warning(
+                "MatchPredictionService: No fixtures available for authoritative target GW %d. Sync status: %s",
+                predicted_gw,
+                sync_status,
+            )
 
         # Sort fixtures by kickoff time
         target_fixtures.sort(key=lambda f: f.get("kickoff_time") or "")
@@ -201,10 +233,20 @@ class MatchPredictionService:
 
         generated_at = self._state.generated_at or datetime.now(timezone.utc).isoformat()
 
+        logger.info(
+            "Match predictions generated for authoritative target GW %d: %d fixture(s), synced=%s (%s)",
+            predicted_gw,
+            len(match_predictions),
+            is_synced,
+            sync_status,
+        )
+
         return MatchPredictionResponse(
             season=season,
             latest_completed_gameweek=latest_completed_gw,
             predicted_gameweek=predicted_gw,
+            gameweek_synced=is_synced,
+            sync_status=sync_status,
             generated_at=generated_at,
             count=len(match_predictions),
             predictions=match_predictions,

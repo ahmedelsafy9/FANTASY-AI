@@ -45,9 +45,11 @@ export function RollingWindowChart({ player, metric, label, color }: MetricChart
             axisLine={false}
             tickLine={false}
             width={32}
+            tickFormatter={(v) => String(Math.round(Number(v)))}
           />
           <Tooltip
             cursor={{ fill: "rgba(15,23,42,0.04)" }}
+            formatter={(value: any) => [Math.round(Number(value)), label]}
             contentStyle={{
               background: "#FFFFFF",
               border: "1px solid #CBD5E1",

@@ -51,6 +51,22 @@ class ChatResponse(BaseModel):
         default_factory=list,
         description="Updated conversation history including this turn.",
     )
+    provider: str | None = Field(
+        default=None,
+        description="Provider that handled the response (gemini/openai/fallback).",
+    )
+    model: str | None = Field(
+        default=None,
+        description="Model name used for generating the response.",
+    )
+    fallback: bool = Field(
+        default=False,
+        description="Whether fallback mode was used.",
+    )
+    fallback_reason: str | None = Field(
+        default=None,
+        description="Reason fallback mode was invoked, if applicable.",
+    )
 
 
 class ChatStatusResponse(BaseModel):
@@ -147,7 +163,7 @@ async def chat_message(
         app_state,
         provider=getattr(chatbot_settings, "llm_provider", "gemini"),
         api_key=getattr(chatbot_settings, "llm_api_key", ""),
-        model=getattr(chatbot_settings, "llm_model", "gemini-2.5-flash"),
+        model=getattr(chatbot_settings, "llm_model", "gemini-3.8-flash"),
         max_tool_calls=getattr(chatbot_settings, "max_tool_calls_per_turn", 5),
     )
 
@@ -174,4 +190,8 @@ async def chat_message(
             ChatMessage(role=m["role"], content=m["content"])
             for m in result.get("conversation", [])
         ],
+        provider=result.get("provider", "fallback" if result.get("fallback") else getattr(chatbot_settings, "llm_provider", "gemini")),
+        model=result.get("model"),
+        fallback=result.get("fallback", False),
+        fallback_reason=result.get("fallback_reason"),
     )

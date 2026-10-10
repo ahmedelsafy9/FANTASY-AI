@@ -25,11 +25,11 @@ const INSIGHT_ICONS: Record<string, typeof TrendingUp> = {
 };
 
 const TONE_STYLES: Record<string, { bg: string; text: string; border: string }> = {
-  gold: { bg: "bg-amber-100", text: "text-amber-950", border: "border-amber-300" },
-  signal: { bg: "bg-indigo-100", text: "text-indigo-950", border: "border-indigo-300" },
-  teal: { bg: "bg-emerald-100", text: "text-emerald-950", border: "border-emerald-300" },
-  coral: { bg: "bg-red-100", text: "text-red-950", border: "border-red-300" },
-  neutral: { bg: "bg-slate-100", text: "text-slate-900", border: "border-slate-300" },
+  gold: { bg: "bg-[#FDF8EC]", text: "text-[#8C680E]", border: "border-[#E5D08E]" },
+  signal: { bg: "bg-[#EEE7FA]", text: "text-[#452477]", border: "border-[#D4C3ED]" },
+  teal: { bg: "bg-[#EEF7FC]", text: "text-[#1E4D6B]", border: "border-[#B9DDF5]" },
+  coral: { bg: "bg-[#FDECEC]", text: "text-[#991B1B]", border: "border-[#FCA5A5]" },
+  neutral: { bg: "bg-[#F4F3F6]", text: "text-[#19171D]", border: "border-[#E8E3ED]" },
 };
 
 interface InsightTagProps {

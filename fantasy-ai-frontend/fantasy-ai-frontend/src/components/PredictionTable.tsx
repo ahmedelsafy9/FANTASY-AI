@@ -4,6 +4,7 @@ import type { PlayerRecord } from "@/types/api";
 import { PlayerAvatar, TeamBadge } from "@/components/identity";
 import { UpcomingFixtures } from "@/components/UpcomingFixtures";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
+import { LowOwnershipBadge } from "@/components/LowOwnershipBadge";
 import { deriveConfidenceLevel, deriveReasons } from "@/lib/insights";
 import { formatStat } from "@/lib/format";
 import { getPlayerPrice } from "@/hooks/useSquad";
@@ -15,18 +16,18 @@ interface PredictionTableProps {
 
 export function PredictionTable({ players, onSelectPlayer }: PredictionTableProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-soft">
+    <div className="overflow-hidden rounded-2xl border border-[#E8E3ED] bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[11px] font-black uppercase tracking-wider text-[#64748B]">
+            <tr className="border-b border-[#E8E3ED] bg-[#F8F7FA] text-[11px] font-black uppercase tracking-wider text-[#6F6A76]">
               <th className="py-3.5 pl-4 pr-2 text-center w-12">#</th>
               <th className="py-3.5 px-3 min-w-[180px]">Player</th>
               <th className="py-3.5 px-3">Pos</th>
               <th className="py-3.5 px-3">Team</th>
               <th className="py-3.5 px-3 text-right">Price</th>
               <th className="py-3.5 px-3 text-right">
-                <span className="text-[#059669]">Expected Pts</span>
+                <span className="text-[#7041C5]">Expected Pts</span>
               </th>
               <th className="py-3.5 px-3 text-center">Confidence</th>
               <th className="py-3.5 px-3 text-right">Form (3 GW)</th>
@@ -35,7 +36,7 @@ export function PredictionTable({ players, onSelectPlayer }: PredictionTableProp
               <th className="py-3.5 pr-4 pl-2 text-right"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#E2E8F0]">
+          <tbody className="divide-y divide-[#E8E3ED]">
             {players.map((p, idx) => {
               const price = getPlayerPrice(p);
               const expectedPoints = p.predicted_expected_points ?? p.predicted_total_points;
@@ -47,12 +48,12 @@ export function PredictionTable({ players, onSelectPlayer }: PredictionTableProp
                 <motion.tr
                   key={p.element ?? p.name ?? idx}
                   onClick={() => onSelectPlayer(p)}
-                  whileHover={{ backgroundColor: "#F8FAFC" }}
+                  whileHover={{ backgroundColor: "#F8F7FA" }}
                   className="cursor-pointer transition-colors group"
                 >
                   {/* Rank */}
                   <td className="py-3 pl-4 pr-2 text-center">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#F1F5F9] text-xs font-mono font-black text-[#334155] group-hover:bg-[#10B981] group-hover:text-white transition-colors">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#F4F3F6] text-xs font-mono font-black text-[#19171D] group-hover:bg-[#7041C5] group-hover:text-white transition-colors">
                       {idx + 1}
                     </span>
                   </td>
@@ -64,11 +65,18 @@ export function PredictionTable({ players, onSelectPlayer }: PredictionTableProp
                         name={p.name}
                         photoUrl={p.photo_url}
                         size="sm"
-                        className="ring-1 ring-[#10B981]"
+                        className="ring-1 ring-[#7041C5]/30"
                       />
                       <div className="min-w-0">
-                        <div className="font-display font-black text-[#0F172A] truncate group-hover:text-[#059669] transition-colors">
-                          {p.name ?? "N/A"}
+                        <div className="flex items-center gap-2">
+                          <span className="font-display font-black text-[#19171D] truncate group-hover:text-[#7041C5] transition-colors">
+                            {p.name ?? "N/A"}
+                          </span>
+                          <LowOwnershipBadge
+                            ownership={p.selected_by_percent ?? (p as Record<string, unknown>).ownership_pct as number | undefined}
+                            predictedPoints={expectedPoints}
+                            showLabel={false}
+                          />
                         </div>
                       </div>
                     </div>
@@ -76,7 +84,7 @@ export function PredictionTable({ players, onSelectPlayer }: PredictionTableProp
 
                   {/* Position */}
                   <td className="py-3 px-3">
-                    <span className="rounded-full bg-[#F1F5F9] border border-[#CBD5E1] px-2 py-0.5 text-[10px] font-black uppercase text-[#334155]">
+                    <span className="rounded-full bg-[#EEE7FA] border border-[#D4C3ED] px-2 py-0.5 text-[10px] font-black uppercase text-[#452477]">
                       {p.position === "GKP" ? "GK" : p.position ?? "-"}
                     </span>
                   </td>
@@ -87,13 +95,13 @@ export function PredictionTable({ players, onSelectPlayer }: PredictionTableProp
                   </td>
 
                   {/* Price */}
-                  <td className="py-3 px-3 text-right font-mono font-bold text-[#0F172A]">
+                  <td className="py-3 px-3 text-right font-mono font-bold text-[#19171D]">
                     £{price.toFixed(1)}m
                   </td>
 
                   {/* Expected Points */}
                   <td className="py-3 px-3 text-right">
-                    <span className="inline-block rounded-lg bg-[#ECFDF5] px-2.5 py-1 font-mono font-black text-[#059669] border border-[#A7F3D0]">
+                    <span className="inline-block rounded-lg bg-[#EEE7FA] px-2.5 py-1 font-mono font-black text-[#452477] border border-[#D4C3ED]">
                       {formatStat(expectedPoints)} pts
                     </span>
                   </td>
@@ -104,7 +112,7 @@ export function PredictionTable({ players, onSelectPlayer }: PredictionTableProp
                   </td>
 
                   {/* Form */}
-                  <td className="py-3 px-3 text-right font-mono font-bold text-[#475569]">
+                  <td className="py-3 px-3 text-right font-mono font-bold text-[#6F6A76]">
                     {typeof p.total_points_avg_last_3 === "number"
                       ? formatStat(p.total_points_avg_last_3)
                       : "—"}
@@ -113,12 +121,12 @@ export function PredictionTable({ players, onSelectPlayer }: PredictionTableProp
                   {/* Top Reason */}
                   <td className="py-3 px-3">
                     {topReason ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#475569]">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6F6A76]">
                         <span>{topReason.icon}</span>
                         <span className="truncate max-w-[130px]">{topReason.text}</span>
                       </span>
                     ) : (
-                      <span className="text-[#94A3B8] text-xs">—</span>
+                      <span className="text-[#6F6A76] text-xs">—</span>
                     )}
                   </td>
 
@@ -129,7 +137,7 @@ export function PredictionTable({ players, onSelectPlayer }: PredictionTableProp
 
                   {/* Arrow */}
                   <td className="py-3 pr-4 pl-2 text-right">
-                    <ChevronRight size={16} className="text-[#94A3B8] group-hover:text-[#059669] transition-colors inline-block" />
+                    <ChevronRight size={16} className="text-[#6F6A76] group-hover:text-[#7041C5] transition-colors inline-block" />
                   </td>
                 </motion.tr>
               );
