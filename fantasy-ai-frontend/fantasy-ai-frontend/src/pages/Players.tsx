@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
 
 const SORT_OPTIONS = [
-  { value: "xPts_desc", label: "Expected Points (High to Low)" },
+  { value: "xPts_desc", label: "Predicted Points (High to Low)" },
   { value: "value_ratio", label: "Best Value (xPts / £m)" },
   { value: "form_desc", label: "Recent Form (3 GW)" },
   { value: "price_desc", label: "Price (High to Low)" },
@@ -147,17 +147,17 @@ export default function Players() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 pb-safe-bottom sm:px-6 lg:px-8 space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#EEE7FA] text-[#452477] border border-[#D4C3ED] shadow-sm">
-            <Users size={20} />
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-stadium-deep text-gold-bright shadow-sm">
+            <Users size={22} />
           </div>
           <div>
-            <h1 className="font-display text-2xl font-black text-[#19171D] sm:text-3xl">
-              Find Your Next Pick
+            <h1 className="font-display text-2xl font-black text-ink-primary sm:text-3xl tracking-tight">
+              Player Projections &amp; Intelligence
             </h1>
-            <p className="text-sm font-semibold text-[#6F6A76]">
-              Compare expected points, confidence signals, and fixtures to find the best transfer for Gameweek {targetGw}.
+            <p className="text-xs sm:text-sm font-semibold text-ink-secondary mt-0.5">
+              Decision-oriented expected points, official fitness status, and upcoming opposition for Gameweek {targetGw}.
             </p>
           </div>
         </div>
@@ -165,54 +165,54 @@ export default function Players() {
 
       {/* KPI Highlight Strip */}
       {!loading && !error && kpis && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-xl border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEE7FA] text-[#452477] border border-[#D4C3ED]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="rounded-2xl border border-gold-border bg-gold-light/60 p-4 shadow-card flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold-metallic text-stadium-dark shadow-xs">
               <Sparkles size={18} />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#6F6A76]">
-                #1 Expected Scorer
+              <span className="text-[10px] font-black uppercase tracking-wider text-gold-dark">
+                #1 Projected Scorer
               </span>
-              <div className="font-display font-black text-sm text-[#19171D] truncate">
+              <div className="font-display font-black text-base text-ink-primary truncate">
                 {kpis.topPick?.name}
               </div>
-              <div className="text-[11px] font-bold text-[#452477]">
+              <div className="text-[11px] font-black text-gold-dark">
                 {Math.round(kpis.topPick?.predicted_expected_points ?? kpis.topPick?.predicted_total_points ?? 0)} Expected Pts
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FDF8EC] text-[#8C680E] border border-[#E5D08E]">
+          <div className="rounded-2xl border border-border bg-ivory-surface p-4 shadow-card flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stadium-surface/10 text-stadium-deep shadow-xs border border-border">
               <DollarSign size={18} />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#8C680E]">
-                Top Budget Gem (≤£6.0m)
+              <span className="text-[10px] font-black uppercase tracking-wider text-ink-secondary">
+                Top Budget Pick (≤£6.0m)
               </span>
-              <div className="font-display font-black text-sm text-[#19171D] truncate">
+              <div className="font-display font-black text-base text-ink-primary truncate">
                 {kpis.topBudget?.name}
               </div>
-              <div className="text-[11px] font-bold text-[#8C680E]">
+              <div className="text-[11px] font-bold text-ink-secondary">
                 £{getPlayerPrice(kpis.topBudget).toFixed(1)}m • {Math.round(kpis.topBudget?.predicted_expected_points ?? 0)} xPts
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#E8E3ED] bg-white p-4 shadow-sm flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EEF7FC] text-[#1E4D6B] border border-[#B9DDF5]">
+          <div className="rounded-2xl border border-border bg-ivory-surface p-4 shadow-card flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stadium-deep text-ivory-surface shadow-xs">
               <TrendingUp size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#6F6A76]">
-                Players Tracked
+              <span className="text-[10px] font-black uppercase tracking-wider text-ink-secondary">
+                Premier League Assets
               </span>
-              <div className="font-display font-black text-base text-[#19171D]">
-                {kpis.total} Premier League Assets
+              <div className="font-display font-black text-base text-ink-primary">
+                {kpis.total} Tracked Players
               </div>
-              <div className="text-[11px] font-semibold text-[#6F6A76]">
-                Live fixture analysis
+              <div className="text-[11px] font-semibold text-ink-secondary">
+                Live FPL availability sync
               </div>
             </div>
           </div>
@@ -220,25 +220,25 @@ export default function Players() {
       )}
 
       {/* Control / Filter Bar */}
-      <div className="space-y-3 rounded-2xl border border-[#E8E3ED] bg-white p-4 shadow-sm">
+      <div className="space-y-3.5 rounded-2xl border border-border bg-ivory-surface p-4 shadow-card">
         <div className="flex flex-col md:flex-row gap-3">
           {/* Search */}
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#6F6A76]" />
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-secondary" />
             <input
               type="text"
-              placeholder="Search player or team..."
+              placeholder="Search player or club..."
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
                 setVisibleCount(INITIAL_PAGE_SIZE);
               }}
-              className="h-10 w-full rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] pl-10 pr-4 text-xs font-bold text-[#19171D] placeholder-[#6F6A76] transition-all focus:border-[#7041C5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7041C5]/20"
+              className="h-10 w-full rounded-xl border border-border bg-ivory-subtle pl-10 pr-4 text-xs font-bold text-ink-primary placeholder-ink-secondary transition-all focus:border-gold-metallic focus:bg-ivory-surface focus:outline-none focus:ring-2 focus:ring-gold-metallic/30"
             />
           </div>
 
           {/* Position Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
             {["all", "FWD", "MID", "DEF", "GKP"].map((pos) => {
               const label = pos === "all" ? "All" : pos === "GKP" ? "GK" : pos;
               const isSelected = position === pos;
@@ -250,10 +250,10 @@ export default function Players() {
                     setVisibleCount(INITIAL_PAGE_SIZE);
                   }}
                   className={cn(
-                    "px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer",
+                    "px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer select-none",
                     isSelected
-                      ? "bg-[#7041C5] text-white shadow-sm"
-                      : "bg-[#F8F7FA] text-[#6F6A76] border border-[#E8E3ED] hover:bg-[#EEE7FA] hover:text-[#452477]"
+                      ? "bg-stadium-deep text-ivory-surface shadow-xs border border-stadium-surface"
+                      : "bg-ivory-subtle text-ink-secondary border border-border hover:bg-ivory-surface hover:text-ink-primary",
                   )}
                 >
                   {label}
@@ -263,12 +263,12 @@ export default function Players() {
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-[#F4F3F6] border border-[#E8E3ED] rounded-xl p-1 self-start md:self-auto">
+          <div className="flex items-center bg-ivory-subtle border border-border rounded-xl p-1 self-start md:self-auto">
             <button
               onClick={() => setViewMode("grid")}
               className={cn(
                 "p-1.5 rounded-lg text-xs transition-all cursor-pointer",
-                viewMode === "grid" ? "bg-white text-[#19171D] shadow-sm font-black" : "text-[#6F6A76] hover:text-[#19171D]"
+                viewMode === "grid" ? "bg-ivory-surface text-ink-primary shadow-xs font-black" : "text-ink-secondary hover:text-ink-primary",
               )}
               title="Cards Grid View"
             >
@@ -278,7 +278,7 @@ export default function Players() {
               onClick={() => setViewMode("table")}
               className={cn(
                 "p-1.5 rounded-lg text-xs transition-all cursor-pointer",
-                viewMode === "table" ? "bg-white text-[#19171D] shadow-sm font-black" : "text-[#6F6A76] hover:text-[#19171D]"
+                viewMode === "table" ? "bg-ivory-surface text-ink-primary shadow-xs font-black" : "text-ink-secondary hover:text-ink-primary",
               )}
               title="Detailed Table View"
             >
@@ -288,7 +288,7 @@ export default function Players() {
         </div>
 
         {/* Secondary Filter Row: Team, Max Price, Sort */}
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[#E8E3ED] text-xs">
+        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-border text-xs">
           <div className="w-44">
             <Dropdown
               label="Team"
@@ -325,15 +325,15 @@ export default function Players() {
             />
           </div>
 
-          <span className="ml-auto text-xs font-bold text-[#6F6A76]">
+          <span className="ml-auto text-xs font-bold text-ink-secondary">
             Showing {Math.min(visibleCount, filtered.length)} of {filtered.length} players
           </span>
         </div>
       </div>
 
-      {/* Main Player List */}
+      {/* Main Player Display */}
       {loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {Array.from({ length: 6 }).map((_, i) => (
             <PlayerCardSkeleton key={i} />
           ))}
@@ -346,14 +346,14 @@ export default function Players() {
 
       {!loading && !error && filtered.length === 0 && (
         <EmptyState
-          title="No players found"
-          description="Try clearing your search query or adjusting your position and price filters."
+          title="No players match the current filters"
+          description="Try adjusting your position, team, price threshold, or search keyword."
         />
       )}
 
       {!loading && !error && filtered.length > 0 && viewMode === "grid" && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {visiblePlayers.map((player, idx) => (
               <PlayerCard
                 key={player.element ?? player.name ?? idx}
@@ -370,7 +370,7 @@ export default function Players() {
                 variant="secondary"
                 size="md"
                 onClick={() => setVisibleCount((c) => c + INITIAL_PAGE_SIZE)}
-                className="font-black px-6"
+                className="font-black px-8"
               >
                 Load More Players ({filtered.length - visibleCount} remaining)
               </Button>
@@ -392,7 +392,7 @@ export default function Players() {
                 variant="secondary"
                 size="md"
                 onClick={() => setVisibleCount((c) => c + INITIAL_PAGE_SIZE)}
-                className="font-black px-6"
+                className="font-black px-8"
               >
                 Load More Players ({filtered.length - visibleCount} remaining)
               </Button>

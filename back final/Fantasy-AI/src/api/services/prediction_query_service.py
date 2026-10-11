@@ -81,8 +81,45 @@ class PredictionQueryService:
         Raises:
             PlayerNotFoundError: If no player matches ``player_id``.
         """
-        id_as_string = self._predictions[self._player_id_column].astype(str)
-        matches = self._predictions[id_as_string == str(player_id)]
+        pid_str = str(player_id).strip()
+        matches = pd.DataFrame()
+
+        # 1. Primary player_id_column exact match
+        if self._player_id_column in self._predictions.columns:
+            matches = self._predictions[
+                self._predictions[self._player_id_column].astype(str) == pid_str
+            ]
+
+        # 2. Match by FPL element ID if numeric
+        if matches.empty and "element" in self._predictions.columns:
+            matches = self._predictions[
+                self._predictions["element"].astype(str) == pid_str
+            ]
+
+        # 3. Match by internal id
+        if matches.empty and "id" in self._predictions.columns:
+            matches = self._predictions[
+                self._predictions["id"].astype(str) == pid_str
+            ]
+
+        # 4. Match by name case-insensitively
+        if matches.empty and "name" in self._predictions.columns:
+            matches = self._predictions[
+                self._predictions["name"].astype(str).str.lower() == pid_str.lower()
+            ]
+
+        # 5. Match with underscore-to-space normalization
+        if matches.empty:
+            alt_name = pid_str.replace("_", " ").lower()
+            if "name" in self._predictions.columns:
+                matches = self._predictions[
+                    self._predictions["name"].astype(str).str.lower() == alt_name
+                ]
+            if matches.empty and "name_normalized" in self._predictions.columns:
+                matches = self._predictions[
+                    self._predictions["name_normalized"].astype(str).str.lower() == alt_name
+                ]
+
         if matches.empty:
             raise PlayerNotFoundError(f"No prediction found for player '{player_id}'.")
         return _row_to_dict(matches.iloc[0])

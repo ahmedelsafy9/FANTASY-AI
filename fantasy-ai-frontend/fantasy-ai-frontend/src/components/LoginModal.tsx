@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, ShieldAlert, Mail, Info, CheckCircle } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
-import { AUTH_ERROR_EVENT } from "@/context/AuthContext";
+import { useAuth, AUTH_ERROR_EVENT } from "@/context/AuthContext";
+import { WizardBrandMark } from "@/components/brand/WizardBrandMark";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -98,15 +98,14 @@ export function LoginModal() {
 
     const name = testName.trim() || email.split("@")[0];
     const userProfile = {
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      email: email,
-      picture: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
-      loginTime: new Date().toISOString(),
+      email,
+      name,
+      picture: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
+      email_verified: true,
     };
 
-    localStorage.setItem("fantasy_ai_gmail_user", JSON.stringify(userProfile));
-    window.dispatchEvent(new CustomEvent("fantasy-ai:auth-change", { detail: userProfile }));
-    closeLoginModal();
+    localStorage.setItem("fantasy_ai_auth_user", JSON.stringify(userProfile));
+    window.location.reload();
   };
 
   if (!isLoginModalOpen) return null;
@@ -119,7 +118,7 @@ export function LoginModal() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-[#0F172A]/40 backdrop-blur-sm"
+          className="absolute inset-0 bg-stadium-dark/60 backdrop-blur-sm"
           onClick={closeLoginModal}
           aria-hidden="true"
         />
@@ -128,40 +127,40 @@ export function LoginModal() {
         <motion.div
           role="dialog"
           aria-modal="true"
-          aria-label="Sign in to Fantasy-AI"
+          aria-label="Sign in to Fantasy Wizard"
           initial={{ opacity: 0, scale: 0.96, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 w-full max-w-md overflow-hidden rounded-chunky-xl border border-[#E2E8F0] bg-white shadow-card-hover"
+          className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-border bg-ivory-surface shadow-card-hover"
         >
           {/* Close button */}
           <button
             onClick={closeLoginModal}
             aria-label="Close"
-            className="absolute right-4 top-4 z-10 rounded-xl p-1.5 text-[#94A3B8] hover:bg-[#F1F5F9] hover:text-[#0F172A] transition-colors cursor-pointer"
+            className="absolute right-4 top-4 z-10 rounded-xl p-1.5 text-ink-secondary hover:bg-ivory-subtle hover:text-ink-primary transition-colors cursor-pointer"
           >
             <X size={18} />
           </button>
 
           {/* Header */}
-          <div className="px-8 pb-2 pt-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EEE7FA] text-[#7041C5] shadow-sm">
-              <Mail size={24} />
+          <div className="px-8 pb-2 pt-8 text-center flex flex-col items-center">
+            <div className="mb-4">
+              <WizardBrandMark size="lg" showWordmark={false} />
             </div>
-            <h2 className="font-display text-2xl font-black text-[#19171D]">
-              Sign in to Fantasy<span className="text-[#7041C5]">.AI</span>
+            <h2 className="font-display text-2xl font-black text-ink-primary">
+              Sign in to Fantasy <span className="text-gradient-gold">Wizard</span>
             </h2>
-            <p className="mt-1 text-sm font-semibold text-[#6F6A76]">
+            <p className="mt-1 text-sm font-semibold text-ink-secondary">
               Strict Gmail-Only Account Verification
             </p>
           </div>
 
           {/* Notice */}
-          <div className="mx-8 mt-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-            <ShieldAlert size={18} className="mt-0.5 shrink-0 text-red-600" />
-            <p className="text-xs font-semibold leading-relaxed text-[#475569]">
-              <span className="font-black text-[#19171D]">Strict Gmail Policy:</span> Only accounts ending with <strong className="text-red-600 font-mono">@gmail.com</strong> are allowed.
+          <div className="mx-8 mt-4 flex items-start gap-3 rounded-xl border border-gold-border bg-gold-light/60 px-4 py-3">
+            <ShieldAlert size={18} className="mt-0.5 shrink-0 text-gold-dark" />
+            <p className="text-xs font-semibold leading-relaxed text-ink-secondary">
+              <span className="font-black text-ink-primary">Strict Gmail Policy:</span> Only accounts ending with <strong className="text-gold-dark font-mono font-black">@gmail.com</strong> are allowed.
             </p>
           </div>
 
@@ -172,7 +171,7 @@ export function LoginModal() {
                 <button
                   type="button"
                   onClick={() => window.google?.accounts?.id?.prompt()}
-                  className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-[#E8E3ED] bg-white px-5 py-3 text-sm font-extrabold text-[#19171D] shadow-btn-raised transition-all hover:bg-[#F8F7FA] cursor-pointer"
+                  className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-ivory-surface px-5 py-3 text-sm font-extrabold text-ink-primary shadow-btn-raised transition-all hover:bg-ivory-subtle cursor-pointer"
                 >
                   <GoogleIcon className="h-5 w-5" />
                   Sign in with Google
@@ -182,7 +181,7 @@ export function LoginModal() {
               <div className="flex flex-col gap-4">
                 <form onSubmit={handleTestSubmit} className="flex flex-col gap-3">
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-[#6F6A76]">
+                    <label className="mb-1 block text-xs font-bold text-ink-secondary">
                       Enter your Gmail address (@gmail.com required)
                     </label>
                     <input
@@ -191,12 +190,12 @@ export function LoginModal() {
                       onChange={(e) => setTestEmail(e.target.value)}
                       placeholder="yourname@gmail.com"
                       required
-                      className="w-full rounded-xl border-2 border-[#CBD5E1] bg-white px-4 py-2.5 text-sm font-semibold text-[#19171D] placeholder:text-[#94A3B8] outline-none transition-colors focus:border-[#7041C5] focus:ring-2 focus:ring-[#7041C5]/20"
+                      className="w-full rounded-xl border border-border bg-ivory-subtle px-4 py-2.5 text-sm font-semibold text-ink-primary placeholder:text-ink-muted outline-none transition-colors focus:border-gold-metallic focus:bg-ivory-surface focus:ring-2 focus:ring-gold-metallic/30"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs font-bold text-[#6F6A76]">
+                    <label className="mb-1 block text-xs font-bold text-ink-secondary">
                       Display Name (Optional)
                     </label>
                     <input
@@ -204,38 +203,38 @@ export function LoginModal() {
                       value={testName}
                       onChange={(e) => setTestName(e.target.value)}
                       placeholder="e.g. Alex Smith"
-                      className="w-full rounded-xl border-2 border-[#CBD5E1] bg-white px-4 py-2.5 text-sm font-semibold text-[#19171D] placeholder:text-[#94A3B8] outline-none transition-colors focus:border-[#7041C5] focus:ring-2 focus:ring-[#7041C5]/20"
+                      className="w-full rounded-xl border border-border bg-ivory-subtle px-4 py-2.5 text-sm font-semibold text-ink-primary placeholder:text-ink-muted outline-none transition-colors focus:border-gold-metallic focus:bg-ivory-surface focus:ring-2 focus:ring-gold-metallic/30"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-[#7041C5] text-white font-black py-3 text-sm shadow-btn-raised transition-all hover:bg-[#5C32A8] cursor-pointer"
+                    className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-stadium-deep text-ivory-surface font-black py-3 text-sm shadow-btn-raised transition-all hover:bg-stadium-forest cursor-pointer"
                   >
-                    <GoogleIcon className="h-4 w-4" />
+                    <Mail className="h-4 w-4 text-gold-bright" />
                     Sign In with Gmail
                   </button>
                 </form>
 
-                <div className="border-t border-[#E8E3ED] pt-3 text-center">
+                <div className="border-t border-border pt-3 text-center">
                   <button
                     type="button"
                     onClick={() => setShowGuide(!showGuide)}
-                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#6F6A76] hover:text-[#7041C5] transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-ink-secondary hover:text-gold-dark transition-colors cursor-pointer"
                   >
                     <Info size={14} />
                     {showGuide ? "Hide Setup Guide" : "Want real Google popup? Setup is 100% Free"}
                   </button>
 
                   {showGuide && (
-                    <div className="mt-3 rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] p-4 text-left text-xs font-semibold leading-relaxed text-[#475569]">
-                      <p className="font-black text-[#7041C5] flex items-center gap-1 mb-1">
-                        <CheckCircle size={14} /> Google Cloud OAuth is 100% Free!
+                    <div className="mt-3 rounded-xl border border-border bg-ivory-subtle p-4 text-left text-xs font-semibold leading-relaxed text-ink-secondary">
+                      <p className="font-black text-stadium-deep flex items-center gap-1 mb-1">
+                        <CheckCircle size={14} className="text-emerald-700" /> Google Cloud OAuth is 100% Free!
                       </p>
                       <p className="mb-2">No credit card required:</p>
-                      <ol className="list-decimal list-inside space-y-1 text-[#64748B]">
+                      <ol className="list-decimal list-inside space-y-1 text-ink-secondary">
                         <li>Go to console.cloud.google.com</li>
-                        <li>Create a OAuth client ID for Web application</li>
+                        <li>Create an OAuth client ID for Web application</li>
                         <li>Add origin http://localhost:5173</li>
                         <li>Set VITE_GOOGLE_CLIENT_ID in .env</li>
                       </ol>

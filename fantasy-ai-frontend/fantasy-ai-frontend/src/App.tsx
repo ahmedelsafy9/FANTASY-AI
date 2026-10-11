@@ -6,24 +6,25 @@ import { Footer } from "@/components/Footer";
 import { MockBanner } from "@/components/MockBanner";
 import { LoginModal } from "@/components/LoginModal";
 import { AuthToast } from "@/components/Toast";
-import ChatWidget from "@/components/ChatWidget";
+import { AssistantQuickLauncher } from "@/components/AssistantQuickLauncher";
 import Home from "@/pages/Home";
 import Players from "@/pages/Players";
 import PlayerDetails from "@/pages/PlayerDetails";
 import Squad from "@/pages/Squad";
 import Captain from "@/pages/Captain";
 import MatchPredictions from "@/pages/MatchPredictions";
+import Assistant from "@/pages/Assistant";
 
 function Layout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F7FA] text-[#19171D]">
+    <div className="flex min-h-screen flex-col bg-page text-ink-primary">
       <MockBanner />
       <Navigation />
       <main className="flex-1 pb-safe-bottom md:pb-0">{children}</main>
       <Footer />
       <LoginModal />
       <AuthToast />
-      <ChatWidget />
+      <AssistantQuickLauncher />
     </div>
   );
 }
@@ -33,7 +34,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Primary Redesigned Routes */}
+          {/* Primary Fantasy Wizard Routes */}
           <Route path="/" element={<Layout><Home /></Layout>} />
           <Route path="/players" element={<Layout><Players /></Layout>} />
           <Route path="/players/:id" element={<Layout><PlayerDetails /></Layout>} />
@@ -41,8 +42,11 @@ export default function App() {
           <Route path="/differentials" element={<Navigate to="/players" replace />} />
           <Route path="/match-predictions" element={<Layout><MatchPredictions /></Layout>} />
           <Route path="/squad" element={<Layout><Squad /></Layout>} />
+          <Route path="/assistant" element={<Layout><Assistant /></Layout>} />
 
-          {/* Compatibility Redirects (Preserve bookmarks and old links) */}
+          {/* Compatibility Redirects */}
+          <Route path="/ai-assistant" element={<Navigate to="/assistant" replace />} />
+          <Route path="/chat" element={<Navigate to="/assistant" replace />} />
           <Route path="/dashboard" element={<Navigate to="/" replace />} />
           <Route path="/predictions" element={<Navigate to="/players" replace />} />
           <Route path="/fixtures" element={<Navigate to="/match-predictions" replace />} />

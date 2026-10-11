@@ -6,24 +6,25 @@ import { cn } from "@/lib/utils";
 /* -------------------------------------------------------------------------- */
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "gold" | "ghost";
+  variant?: "primary" | "secondary" | "gold" | "ghost" | "mustard";
   size?: "sm" | "md" | "lg";
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", children, ...props }, ref) => {
     const base =
-      "inline-flex items-center justify-center gap-2 rounded-xl font-black transition-all duration-150 disabled:bg-[#F8F7FA] disabled:text-[#B5B0BC] disabled:border-transparent disabled:shadow-none disabled:pointer-events-none active:translate-y-0.5 active:shadow-btn-pressed cursor-pointer";
+      "inline-flex items-center justify-center gap-2 rounded-xl font-black transition-all duration-150 disabled:bg-ivory-subtle disabled:text-ink-disabled disabled:border-transparent disabled:shadow-none disabled:pointer-events-none active:translate-y-0.5 active:shadow-btn-pressed cursor-pointer select-none";
     const variants: Record<string, string> = {
       primary:
-        "bg-[#7041C5] text-white border border-[#5B32A8] shadow-btn-raised hover:bg-[#5B32A8] hover:shadow-glow-purple",
+        "bg-stadium-deep text-ivory-surface border border-stadium-forest shadow-btn-raised hover:bg-stadium-forest hover:border-gold-metallic/60",
       secondary:
-        "bg-white text-[#19171D] border-2 border-[#D8C7F4] shadow-btn-raised hover:bg-[#EEE7FA] hover:border-[#7041C5]",
+        "bg-ivory-surface text-ink-primary border border-border shadow-btn-raised hover:bg-ivory-subtle hover:border-gold-metallic/50",
       gold:
-        "bg-[#B58A18] text-white border border-[#8C680E] shadow-btn-raised hover:bg-[#8C680E] hover:shadow-glow-mustard",
+        "bg-gold-metallic text-stadium-dark border border-gold-border shadow-glow-gold hover:bg-gold-bright hover:shadow-glow-gold",
       mustard:
-        "bg-[#B58A18] text-white border border-[#8C680E] shadow-btn-raised hover:bg-[#8C680E] hover:shadow-glow-mustard",
-      ghost: "bg-transparent text-[#6F6A76] hover:text-[#19171D] hover:bg-[#F2EEF8] rounded-xl",
+        "bg-gold-metallic text-stadium-dark border border-gold-border shadow-glow-gold hover:bg-gold-bright hover:shadow-glow-gold",
+      ghost:
+        "bg-transparent text-ink-secondary hover:text-ink-primary hover:bg-ivory-subtle rounded-xl",
     };
     const sizes: Record<string, string> = {
       sm: "text-xs px-3.5 py-2",
@@ -49,25 +50,27 @@ Button.displayName = "Button";
 
 interface BadgeProps {
   children: ReactNode;
-  tone?: "purple" | "mustard" | "baby" | "gold" | "signal" | "teal" | "coral" | "neutral";
+  tone?: "gold" | "stadium" | "pitch" | "purple" | "mustard" | "baby" | "signal" | "teal" | "coral" | "neutral";
   className?: string;
 }
 
 export function Badge({ children, tone = "neutral", className }: BadgeProps) {
   const tones: Record<string, string> = {
-    purple: "bg-[#EEE7FA] text-[#452477] border-[#D8C7F4]",
-    mustard: "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E]",
-    baby: "bg-[#EDF6FC] text-[#246B9C] border-[#B9DDF5]",
-    gold: "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E]",
-    signal: "bg-[#EEE7FA] text-[#452477] border-[#D8C7F4]",
-    teal: "bg-[#EDF6FC] text-[#246B9C] border-[#B9DDF5]",
-    coral: "bg-[#FEF2F2] text-[#991B1B] border-red-200",
-    neutral: "bg-[#F8F7FA] text-[#19171D] border-[#E8E3ED]",
+    gold: "bg-gold-light text-gold-dark border-gold-border",
+    mustard: "bg-gold-light text-gold-dark border-gold-border",
+    stadium: "bg-stadium-deep text-ivory-surface border-stadium-forest",
+    pitch: "bg-stadium-deep text-ivory-surface border-stadium-forest",
+    purple: "bg-stadium-surface/10 text-stadium-deep border-stadium-forest/30",
+    baby: "bg-[#EEF5F9] text-[#1E5A84] border-[#BDD7E7]",
+    signal: "bg-stadium-deep text-gold-bright border-gold-border",
+    teal: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    coral: "bg-rose-50 text-rose-800 border-rose-200",
+    neutral: "bg-ivory-subtle text-ink-primary border-border",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black leading-none shadow-sm",
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black leading-none shadow-xs select-none",
         tones[tone] || tones.neutral,
         className,
       )}
@@ -95,9 +98,9 @@ export function Card({ children, className, interactive, as = "div", onClick }: 
     <Comp
       onClick={onClick}
       className={cn(
-        "rounded-chunky-lg border border-[#E8E3ED] bg-white text-[#19171D] shadow-card",
+        "rounded-chunky-lg border border-border bg-ivory-surface text-ink-primary shadow-card",
         interactive &&
-          "transition-all duration-200 hover:border-[#7041C5] hover:shadow-card-hover cursor-pointer hover:-translate-y-0.5",
+          "transition-all duration-200 hover:border-gold-border hover:shadow-card-hover cursor-pointer hover:-translate-y-0.5",
         className,
       )}
     >
@@ -113,7 +116,7 @@ export function Card({ children, className, interactive, as = "div", onClick }: 
 export function Skeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn("animate-pulse-soft rounded-xl bg-[#E2E8F0]", className)}
+      className={cn("animate-pulse-soft rounded-xl bg-[#E6E0D4]", className)}
       aria-hidden="true"
     />
   );
@@ -137,7 +140,7 @@ export function Tooltip({ label, children }: { label: string; children: ReactNod
       {open && (
         <span
           role="tooltip"
-          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-[#CBD5E1] bg-[#0F172A] px-3 py-1.5 text-xs font-extrabold text-white shadow-card"
+          className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-xl border border-gold-border/60 bg-stadium-dark px-3 py-1.5 text-xs font-extrabold text-ivory-surface shadow-card pointer-events-none"
         >
           {label}
         </span>

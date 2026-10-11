@@ -23,23 +23,23 @@ export default function Captain() {
   const captainPoints = basePoints * 2;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 pb-safe-bottom lg:px-8">
-      {/* Broadcast Header */}
-      <div className="mb-8 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FDF8EC] text-[#8C680E] border border-[#E5D08E] shadow-sm">
-          <Crown size={22} />
+    <div className="mx-auto max-w-3xl px-4 py-8 pb-safe-bottom lg:px-8 space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3.5">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gold-metallic text-stadium-dark shadow-glow-gold">
+          <Crown size={24} />
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl font-black text-[#19171D] sm:text-3xl tracking-tight">
-              Captaincy Hub
+            <h1 className="font-display text-2xl font-black text-ink-primary sm:text-3xl tracking-tight">
+              Captaincy Intelligence
             </h1>
-            <span className="rounded-full bg-[#EEE7FA] px-2.5 py-0.5 text-[10px] font-black uppercase text-[#452477] border border-[#D5C6F0]">
+            <span className="rounded-full bg-gold-light border border-gold-border px-2.5 py-0.5 text-[10px] font-black uppercase text-gold-dark">
               2× Points Multiplier
             </span>
           </div>
-          <p className="text-xs sm:text-sm font-semibold text-[#6F6A76] mt-0.5">
-            The top projected captain pick for maximum gameweek points boost.
+          <p className="text-xs sm:text-sm font-semibold text-ink-secondary mt-0.5">
+            The mathematically optimal armband pick for maximum Gameweek upside.
           </p>
         </div>
       </div>
@@ -67,25 +67,25 @@ export default function Captain() {
           className="flex flex-col gap-6"
         >
           {/* Captain Hero Card */}
-          <div className="relative overflow-hidden rounded-2xl border border-[#E8E3ED] bg-white shadow-card">
-            {/* Top EPL purple broadcast stripe */}
-            <div className="h-2 w-full bg-gradient-to-r from-[#452477] via-[#7041C5] to-[#B58A18]" />
+          <div className="relative overflow-hidden rounded-3xl border border-gold-border bg-ivory-surface shadow-card">
+            {/* Top Metallic Gold Rim */}
+            <div className="h-2 w-full bg-gradient-to-r from-gold-muted via-gold-bright to-gold-metallic" />
 
             <div className="flex flex-col items-center gap-5 p-8 text-center sm:p-10">
-              {/* Captain Armband Emblem */}
+              {/* Armband Emblem */}
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ duration: 0.4, delay: 0.1 }}
-                className="flex items-center gap-2 rounded-full bg-[#FDF8EC] px-4 py-1.5 border border-[#E5D08E] shadow-xs"
+                className="flex items-center gap-2 rounded-full bg-gold-light px-4 py-1.5 border border-gold-border shadow-xs"
               >
-                <Crown size={16} className="text-[#8C680E]" />
-                <span className="text-xs font-black uppercase tracking-wider text-[#8C680E]">
+                <Crown size={15} className="text-gold-dark" />
+                <span className="text-xs font-black uppercase tracking-wider text-gold-dark">
                   Official Armband Pick
                 </span>
               </motion.div>
 
-              {/* Player photo */}
+              {/* Player Portrait with C Armband */}
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -96,21 +96,21 @@ export default function Captain() {
                   name={player.name}
                   photoUrl={player.photo_url}
                   size="xl"
-                  className="ring-4 ring-[#7041C5]/30 shadow-card"
+                  className="ring-4 ring-gold-metallic/40 shadow-card"
                 />
-                <div className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-[#B58A18] text-white font-black text-xs shadow-md border-2 border-white">
+                <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-gold-metallic text-stadium-dark font-black text-sm shadow-md border-2 border-ivory-surface">
                   C
                 </div>
               </motion.div>
 
-              {/* Name + team */}
+              {/* Name & Club */}
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.2 }}
                 className="space-y-2"
               >
-                <h2 className="font-display text-3xl font-black text-[#19171D] sm:text-4xl">
+                <h2 className="font-display text-3xl font-black text-ink-primary sm:text-4xl tracking-tight">
                   {player.name ?? "N/A"}
                 </h2>
                 <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -121,7 +121,7 @@ export default function Captain() {
                     showName
                   />
                   {player.position && (
-                    <span className="rounded-full bg-[#452477] px-3 py-0.5 text-xs font-black uppercase text-white shadow-xs">
+                    <span className="rounded-md bg-stadium-deep px-3 py-0.5 text-xs font-black uppercase text-ivory-surface shadow-xs">
                       {player.position}
                     </span>
                   )}
@@ -129,15 +129,15 @@ export default function Captain() {
                 </div>
               </motion.div>
 
-              {/* Expected points (2x Captain) comparison tiles */}
+              {/* Projected Points Tiles */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.25 }}
-                className="flex items-center gap-6 sm:gap-10 rounded-2xl bg-[#F8F7FA] border border-[#E8E3ED] p-5 shadow-xs"
+                className="flex items-center gap-6 sm:gap-10 rounded-2xl bg-ivory-subtle border border-border p-5 shadow-xs"
               >
                 <div className="text-center">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#6F6A76] block">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-ink-secondary block">
                     Base Projection
                   </span>
                   <ExpectedPoints
@@ -146,18 +146,18 @@ export default function Captain() {
                     showLabel={false}
                   />
                 </div>
-                <div className="h-10 w-px bg-[#E8E3ED]" />
+                <div className="h-10 w-px bg-border" />
                 <div className="text-center">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#8C680E] block">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gold-dark block">
                     As Captain (2×)
                   </span>
-                  <span className="font-mono text-3xl sm:text-4xl font-black text-[#8C680E]">
+                  <span className="numeral text-3xl sm:text-4xl font-black text-gradient-gold">
                     {captainPoints} <span className="text-base sm:text-lg font-bold">pts</span>
                   </span>
                 </div>
               </motion.div>
 
-              {/* Fixture */}
+              {/* Next Fixture */}
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -167,37 +167,37 @@ export default function Captain() {
               </motion.div>
 
               <Link to={`/players/${encodeURIComponent(playerId)}`}>
-                <Button variant="secondary" size="sm" className="gap-1.5 font-bold mt-1">
-                  <span>View Full Player Profile</span>
+                <Button variant="secondary" size="sm" className="gap-1.5 font-black mt-2">
+                  <span>View Full Profile</span>
                   <ArrowRight size={14} />
                 </Button>
               </Link>
             </div>
           </div>
 
-          {/* AI Reasoning */}
+          {/* AI Tactical Reasoning */}
           {data.reasoning && (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.35 }}
-              className="rounded-2xl border border-[#D5C6F0] bg-[#EEE7FA] p-5 sm:p-6 shadow-sm"
+              className="rounded-2xl border border-gold-border/60 bg-gold-light/40 p-5 sm:p-6 shadow-card"
             >
-              <h3 className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-[#452477] tracking-wider">
-                <Sparkles size={15} />
-                AI Captaincy Assessment
+              <h3 className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-gold-dark tracking-wider">
+                <Sparkles size={15} className="text-gold-metallic" />
+                Wizard Armband Verdict
               </h3>
-              <p className="text-sm font-semibold leading-relaxed text-[#19171D]">
+              <p className="text-sm font-semibold leading-relaxed text-ink-primary">
                 {data.reasoning}
               </p>
-              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-[#6F6A76]">
+              <div className="mt-3 flex items-center gap-2 text-xs font-bold text-ink-secondary">
                 <Users size={14} />
                 <span>Selected from {data.pool_size} evaluated Premier League starters</span>
               </div>
             </motion.div>
           )}
 
-          {/* Why this pick? (Deterministic reasons) */}
+          {/* Deterministic Drivers */}
           {reasons.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
@@ -214,9 +214,9 @@ export default function Captain() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.45 }}
-              className="rounded-2xl border border-[#E8E3ED] bg-white p-5 shadow-xs"
+              className="rounded-2xl border border-border bg-ivory-surface p-5 shadow-card"
             >
-              <h3 className="mb-3 text-xs font-black uppercase text-[#6F6A76] tracking-wider flex items-center gap-1.5">
+              <h3 className="mb-3 text-xs font-black uppercase text-ink-secondary tracking-wider flex items-center gap-1.5">
                 <ShieldCheck size={14} />
                 Signal Tags
               </h3>

@@ -175,7 +175,7 @@ export default function ChatWidget() {
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
             className="fixed bottom-5 right-5 z-50 flex h-14 items-center gap-2.5 rounded-full bg-[#452477] px-4 py-3 text-white shadow-xl shadow-[#452477]/30 ring-1 ring-[#7041C5]/40 transition-all hover:bg-[#381B62] hover:shadow-2xl"
-            aria-label="Open Fantasy AI Assistant"
+            aria-label="Open Fantasy Wizard Assistant"
             id="chat-toggle-btn"
           >
             <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-[#B9DDF5]">
@@ -186,7 +186,7 @@ export default function ChatWidget() {
               </span>
             </div>
             <div className="hidden flex-col items-start pr-1 sm:flex">
-              <span className="text-xs font-bold tracking-wide text-white">Fantasy AI</span>
+              <span className="text-xs font-bold tracking-wide text-white">Fantasy Wizard</span>
               <span className="text-[10px] font-medium text-[#EEE7FA]/80">FPL Assistant</span>
             </div>
           </motion.button>
@@ -212,13 +212,13 @@ export default function ChatWidget() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-black tracking-tight text-white">Fantasy AI</h3>
+                    <h3 className="text-sm font-black tracking-tight text-white">Fantasy Wizard</h3>
                     <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-bold text-[#EEE7FA]">
                       <span className="h-1.5 w-1.5 rounded-full bg-[#B9DDF5] animate-pulse" />
                       Live
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#EEE7FA]/75 font-medium">Your FPL Co-pilot</p>
+                  <p className="text-[11px] text-[#EEE7FA]/75 font-medium">Your Tactical FPL Strategist</p>
                 </div>
               </div>
 

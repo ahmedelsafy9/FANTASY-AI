@@ -61,8 +61,39 @@ class PlayerService:
         Raises:
             PlayerNotFoundError: If no player matches ``player_id``.
         """
-        id_as_string = self._latest_rows[self._player_id_column].astype(str)
-        matches = self._latest_rows[id_as_string == str(player_id)]
+        pid_str = str(player_id).strip()
+        matches = pd.DataFrame()
+
+        if self._player_id_column in self._latest_rows.columns:
+            matches = self._latest_rows[
+                self._latest_rows[self._player_id_column].astype(str) == pid_str
+            ]
+
+        if matches.empty and "element" in self._latest_rows.columns:
+            matches = self._latest_rows[
+                self._latest_rows["element"].astype(str) == pid_str
+            ]
+
+        if matches.empty and "id" in self._latest_rows.columns:
+            matches = self._latest_rows[
+                self._latest_rows["id"].astype(str) == pid_str
+            ]
+
+        if matches.empty and "name" in self._latest_rows.columns:
+            matches = self._latest_rows[
+                self._latest_rows["name"].astype(str).str.lower() == pid_str.lower()
+            ]
+
+        if matches.empty:
+            alt_name = pid_str.replace("_", " ").lower()
+            if "name" in self._latest_rows.columns:
+                matches = self._latest_rows[
+                    self._latest_rows["name"].astype(str).str.lower() == alt_name
+                ]
+            if matches.empty and "name_normalized" in self._latest_rows.columns:
+                matches = self._latest_rows[
+                    self._latest_rows["name_normalized"].astype(str).str.lower() == alt_name
+                ]
 
         if matches.empty:
             raise PlayerNotFoundError(f"No player found with identifier '{player_id}'.")

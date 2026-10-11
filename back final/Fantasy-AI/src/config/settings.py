@@ -815,6 +815,9 @@ class PredictionSettings:
     scoring_model: str = field(
         default_factory=lambda: _env_str("FANTASY_AI_SCORING_MODEL", "multi_objective")
     )
+    target_gameweek: int | None = field(
+        default_factory=lambda: _env_int("FANTASY_AI_TARGET_GAMEWEEK", None)
+    )
 
 
 @dataclass(frozen=True)

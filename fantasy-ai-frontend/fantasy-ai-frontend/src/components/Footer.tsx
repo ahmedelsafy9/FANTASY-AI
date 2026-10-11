@@ -1,38 +1,34 @@
 import { Link } from "react-router-dom";
-import { Zap } from "lucide-react";
+import { WizardBrandMark } from "@/components/brand/WizardBrandMark";
 
 const LINKS = [
   { label: "Overview", to: "/" },
-  { label: "Squad Builder", to: "/squad" },
   { label: "Player Analytics", to: "/players" },
   { label: "Match Predictions", to: "/match-predictions" },
+  { label: "Squad Builder", to: "/squad" },
   { label: "Captain Hub", to: "/captain" },
+  { label: "AI Assistant", to: "/assistant" },
 ];
 
 export function Footer() {
   return (
-    <footer className="border-t border-[#E8E3ED] bg-white pb-20 md:pb-0">
+    <footer className="border-t border-border bg-ivory-surface pb-20 md:pb-0">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-6 px-4 py-8 sm:flex-row sm:justify-between lg:px-8">
         {/* Brand */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#452477] text-[#B9DDF5] shadow-sm">
-            <Zap size={15} />
-          </div>
-          <span className="font-display text-sm font-black text-[#19171D]">
-            Fantasy<span className="text-[#7041C5]">.AI</span>
-          </span>
-          <span className="rounded-full bg-[#EEE7FA] px-2 py-0.5 text-[9px] font-black uppercase text-[#452477]">
-            EPL Edition
+        <div className="flex items-center gap-3">
+          <WizardBrandMark size="sm" showWordmark={true} />
+          <span className="rounded-full bg-gold-light border border-gold-border px-2 py-0.5 text-[9px] font-black uppercase text-gold-dark">
+            Premier League Intelligence
           </span>
         </div>
 
-        {/* Nav */}
+        {/* Navigation Links */}
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           {LINKS.map((link) => (
             <Link
               key={link.to}
               to={link.to}
-              className="text-xs font-bold text-[#6F6A76] transition-colors hover:text-[#7041C5]"
+              className="text-xs font-bold text-ink-secondary transition-colors hover:text-gold-dark"
             >
               {link.label}
             </Link>
@@ -40,8 +36,8 @@ export function Footer() {
         </nav>
 
         {/* Copyright */}
-        <p className="text-xs font-bold text-[#6F6A76]">
-          &copy; {new Date().getFullYear()} FANTASY-AI Analytics
+        <p className="text-xs font-bold text-ink-secondary">
+          &copy; {new Date().getFullYear()} Fantasy Wizard. Tactical FPL Analytics.
         </p>
       </div>
     </footer>

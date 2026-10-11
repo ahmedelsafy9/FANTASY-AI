@@ -10,19 +10,39 @@ interface ExpectedPointsProps {
 }
 
 const SIZE_MAP = {
-  sm: { number: "text-lg", label: "text-[9px]", suffix: "text-xs" },
-  md: { number: "text-2xl", label: "text-[10px]", suffix: "text-sm" },
-  lg: { number: "text-4xl sm:text-5xl", label: "text-[11px]", suffix: "text-base" },
-  xl: { number: "text-5xl sm:text-7xl", label: "text-xs", suffix: "text-lg" },
+  sm: {
+    container: "px-2 py-1",
+    number: "text-base font-black",
+    label: "text-[8px]",
+    unit: "text-[10px]",
+  },
+  md: {
+    container: "px-3 py-1.5",
+    number: "text-2xl font-black",
+    label: "text-[9px]",
+    unit: "text-xs",
+  },
+  lg: {
+    container: "px-4 py-2.5",
+    number: "text-4xl sm:text-5xl font-black",
+    label: "text-[10px]",
+    unit: "text-sm",
+  },
+  xl: {
+    container: "px-6 py-4",
+    number: "text-5xl sm:text-7xl font-black",
+    label: "text-xs",
+    unit: "text-base",
+  },
 };
 
 const TOOLTIP_TEXT =
-  "What we expect this player to score next Gameweek based on our analysis. This is a prediction, not a guarantee.";
+  "Projected points for the upcoming Gameweek derived from ML form, minute likelihood, and opponent difficulty. Whole number display.";
 
 /**
  * Prominent expected points display.
- * Shows "Expected: X.X pts" — the most important prediction number.
- * Uses warm amber tones to indicate prediction status.
+ * Displays predicted-point values strictly as whole numbers (rounded for display).
+ * Never mutates the underlying data.
  */
 export function ExpectedPoints({
   points,
@@ -30,36 +50,45 @@ export function ExpectedPoints({
   className,
   showLabel = true,
 }: ExpectedPointsProps) {
-  const value = typeof points === "number" ? points : null;
-  const formatted = formatExpectedPointsNumber(points);
-  const sizes = SIZE_MAP[size];
+  const value = typeof points === "number" && !Number.isNaN(points) ? points : null;
+  const wholeNumber = formatExpectedPointsNumber(value);
+  const dims = SIZE_MAP[size];
+
+  const isElite = value !== null && Math.round(value) >= 7;
 
   const content = (
-    <div className={cn("flex flex-col", className)}>
+    <div
+      className={cn(
+        "flex flex-col items-end text-right rounded-xl transition-transform",
+        className,
+      )}
+    >
       {showLabel && (
         <span
           className={cn(
-            "font-bold uppercase tracking-wider text-[#6F6A76]",
-            sizes.label,
+            "font-black uppercase tracking-wider",
+            isElite ? "text-gold-muted" : "text-ink-secondary",
+            dims.label,
           )}
         >
-          Expected
+          Predicted
         </span>
       )}
       <div className="flex items-baseline gap-1">
         <span
           className={cn(
-            "numeral font-black leading-none",
-            value !== null && value >= 7 ? "text-[#B58A18]" : "text-[#452477]",
-            sizes.number,
+            "numeral leading-none",
+            isElite ? "text-gradient-gold drop-shadow-xs" : "text-stadium-deep",
+            dims.number,
           )}
         >
-          {formatted}
+          {wholeNumber}
         </span>
         <span
           className={cn(
-            "font-semibold text-[#6F6A76]",
-            sizes.suffix,
+            "font-bold uppercase tracking-wider",
+            isElite ? "text-gold-muted" : "text-ink-secondary",
+            dims.unit,
           )}
         >
           pts
@@ -68,9 +97,5 @@ export function ExpectedPoints({
     </div>
   );
 
-  if (showLabel) {
-    return <Tooltip content={TOOLTIP_TEXT}>{content}</Tooltip>;
-  }
-
-  return content;
+  return <Tooltip content={TOOLTIP_TEXT}>{content}</Tooltip>;
 }

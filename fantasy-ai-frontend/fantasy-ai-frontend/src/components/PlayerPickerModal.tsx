@@ -41,13 +41,13 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "value", label: "Best Value (xPts / £m)" },
 ];
 
-function getAITag(
+function getWizardTag(
   pts: number | null | undefined,
 ): { label: string; tone: string } | null {
   if (pts === null || pts === undefined) return null;
-  if (pts >= 7.5) return { label: "AI PICK", tone: "purple" };
-  if (pts >= 6.0) return { label: "STRONG", tone: "mustard" };
-  if (pts >= 4.5) return { label: "GOOD", tone: "baby" };
+  if (pts >= 7.5) return { label: "WIZARD PICK", tone: "gold" };
+  if (pts >= 6.0) return { label: "STRONG", tone: "forest" };
+  if (pts >= 4.5) return { label: "GOOD", tone: "ivory" };
   return null;
 }
 
@@ -192,19 +192,19 @@ export function PlayerPickerModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 12 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 flex h-[90vh] max-h-[820px] w-full max-w-3xl flex-col overflow-hidden rounded-chunky-xl border border-[#CBD5E1] bg-white text-[#0F172A] shadow-2xl"
+          className="relative z-10 flex h-[90vh] max-h-[820px] w-full max-w-3xl flex-col overflow-hidden rounded-chunky-xl border border-gold-metallic/30 bg-ivory-surface text-ink-primary shadow-2xl"
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-[#E8E3ED] bg-[#452477] px-5 py-4 text-white">
+          <div className="flex items-center justify-between border-b border-gold-metallic/25 bg-gradient-to-r from-stadium-deep via-stadium-dark to-[#06140F] px-5 py-4 text-ivory-surface">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#7041C5] text-white font-black">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stadium-forest text-gold-metallic font-black border border-gold-metallic/30">
                 {replacingPlayer ? <RefreshCw size={16} /> : <Plus size={18} />}
               </div>
               <div>
-                <h2 className="font-display text-base sm:text-lg font-black text-white leading-tight">
+                <h2 className="font-display text-base sm:text-lg font-black text-ivory-surface leading-tight">
                   {title}
                 </h2>
-                <p className="text-[11px] font-medium text-slate-200">
+                <p className="text-[11px] font-medium text-ivory-warm/75">
                   {replacingPlayer
                     ? `Currently in squad for £${getPlayerPrice(replacingPlayer).toFixed(1)}m. Choose replacement.`
                     : "Select a player to add to your squad."}
@@ -214,8 +214,8 @@ export function PlayerPickerModal({
 
             <div className="flex items-center gap-3">
               {/* Budget Badge */}
-              <div className="rounded-lg bg-white/10 px-3 py-1 text-right text-xs font-black text-[#B9DDF5] border border-white/10 hidden sm:block">
-                <span className="text-[10px] font-bold text-slate-200 block uppercase">
+              <div className="rounded-lg bg-white/10 px-3 py-1 text-right text-xs font-black text-gold-metallic border border-gold-metallic/20 hidden sm:block">
+                <span className="text-[10px] font-bold text-ivory-warm/70 block uppercase">
                   Remaining Budget
                 </span>
                 <span>
@@ -240,9 +240,9 @@ export function PlayerPickerModal({
           </div>
 
           {/* Filters Bar */}
-          <div className="flex flex-col gap-2.5 border-b border-[#E8E3ED] bg-[#F8F7FA] p-3 sm:p-4">
+          <div className="flex flex-col gap-2.5 border-b border-ivory-warm bg-ivory-warm/30 p-3 sm:p-4">
             {/* Position Tabs */}
-            <div className="flex items-center gap-1 overflow-x-auto rounded-chunky border border-[#E8E3ED] bg-white p-1 shadow-xs">
+            <div className="flex items-center gap-1 overflow-x-auto rounded-chunky border border-ivory-warm bg-white p-1 shadow-xs">
               {POSITION_TABS.map((tab) => {
                 const isActive = posTab === tab.id;
                 return (
@@ -253,8 +253,8 @@ export function PlayerPickerModal({
                     className={cn(
                       "flex-1 rounded-xl px-3 py-1.5 text-center text-xs font-black transition-all cursor-pointer whitespace-nowrap",
                       isActive
-                        ? "bg-[#7041C5] text-white shadow-sm"
-                        : "text-[#6F6A76] hover:bg-[#EEE7FA] hover:text-[#452477]",
+                        ? "bg-stadium-deep text-gold-metallic shadow-sm border border-gold-metallic/30"
+                        : "text-ink-secondary hover:bg-ivory-warm hover:text-ink-primary",
                     )}
                   >
                     {tab.label}
@@ -269,20 +269,20 @@ export function PlayerPickerModal({
               <div className="relative flex-1 min-w-[180px]">
                 <Search
                   size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-secondary"
                 />
                 <input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search player or club…"
-                  className="w-full rounded-xl border border-[#CBD5E1] bg-white py-2 pl-9 pr-3 text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:border-[#7041C5] focus:outline-none focus:ring-1 focus:ring-[#7041C5] shadow-xs"
+                  className="w-full rounded-xl border border-ivory-warm bg-white py-2 pl-9 pr-3 text-xs font-bold text-ink-primary placeholder:text-ink-secondary/60 focus:border-gold-metallic focus:outline-none focus:ring-1 focus:ring-gold-metallic shadow-xs"
                 />
                 {query && (
                   <button
                     type="button"
                     onClick={() => setQuery("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-secondary hover:text-ink-primary"
                   >
                     <X size={12} />
                   </button>
@@ -295,13 +295,13 @@ export function PlayerPickerModal({
                   type="button"
                   onClick={() => setShowTeamMenu((o) => !o)}
                   onBlur={() => setTimeout(() => setShowTeamMenu(false), 150)}
-                  className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2 text-xs font-black text-slate-900 shadow-xs hover:border-slate-400 cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-xl border border-ivory-warm bg-white px-3 py-2 text-xs font-black text-ink-primary shadow-xs hover:border-gold-metallic transition-colors cursor-pointer"
                 >
-                  <span className="text-slate-500 font-bold">Club:</span>
+                  <span className="text-ink-secondary font-bold">Club:</span>
                   <span className="font-black max-w-[90px] truncate">
                     {teamFilter === "all" ? "All" : teamFilter}
                   </span>
-                  <ChevronDown size={12} className="text-slate-500" />
+                  <ChevronDown size={12} className="text-ink-secondary" />
                 </button>
                 <AnimatePresence>
                   {showTeamMenu && (
@@ -309,7 +309,7 @@ export function PlayerPickerModal({
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
-                      className="absolute right-0 top-full z-30 mt-1 max-h-56 w-48 overflow-y-auto rounded-chunky border border-[#E2E8F0] bg-white p-1 shadow-card"
+                      className="absolute right-0 top-full z-30 mt-1 max-h-56 w-48 overflow-y-auto rounded-chunky border border-ivory-warm bg-white p-1 shadow-card"
                     >
                       {teamOptions.map((opt) => (
                         <li key={opt.value}>
@@ -322,8 +322,8 @@ export function PlayerPickerModal({
                             className={cn(
                               "block w-full rounded-lg px-3 py-1.5 text-left text-xs font-black transition-colors cursor-pointer",
                               teamFilter === opt.value
-                                ? "bg-[#EEE7FA] text-[#452477]"
-                                : "text-slate-700 hover:bg-slate-100",
+                                ? "bg-gold-metallic/15 text-stadium-dark"
+                                : "text-ink-primary hover:bg-ivory-warm/40",
                             )}
                           >
                             {opt.label}
@@ -341,13 +341,13 @@ export function PlayerPickerModal({
                   type="button"
                   onClick={() => setShowSortMenu((o) => !o)}
                   onBlur={() => setTimeout(() => setShowSortMenu(false), 150)}
-                  className="flex items-center gap-1.5 rounded-xl border border-[#CBD5E1] bg-white px-3 py-2 text-xs font-black text-slate-900 shadow-xs hover:border-slate-400 cursor-pointer"
+                  className="flex items-center gap-1.5 rounded-xl border border-ivory-warm bg-white px-3 py-2 text-xs font-black text-ink-primary shadow-xs hover:border-gold-metallic transition-colors cursor-pointer"
                 >
-                  <ArrowUpDown size={12} className="text-slate-500" />
+                  <ArrowUpDown size={12} className="text-ink-secondary" />
                   <span className="font-black max-w-[110px] truncate">
                     {SORT_OPTIONS.find((o) => o.value === sortKey)?.label ?? "Sort"}
                   </span>
-                  <ChevronDown size={12} className="text-slate-500" />
+                  <ChevronDown size={12} className="text-ink-secondary" />
                 </button>
                 <AnimatePresence>
                   {showSortMenu && (
@@ -355,7 +355,7 @@ export function PlayerPickerModal({
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
-                      className="absolute right-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-chunky border border-[#E8E3ED] bg-white p-1 shadow-card"
+                      className="absolute right-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-chunky border border-ivory-warm bg-white p-1 shadow-card"
                     >
                       {SORT_OPTIONS.map((opt) => (
                         <li key={opt.value}>
@@ -368,8 +368,8 @@ export function PlayerPickerModal({
                             className={cn(
                               "block w-full rounded-lg px-3 py-1.5 text-left text-xs font-black transition-colors cursor-pointer",
                               sortKey === opt.value
-                                ? "bg-[#EEE7FA] text-[#452477]"
-                                : "text-slate-700 hover:bg-slate-100",
+                                ? "bg-gold-metallic/15 text-stadium-dark"
+                                : "text-ink-primary hover:bg-ivory-warm/40",
                             )}
                           >
                             {opt.label}
@@ -434,7 +434,7 @@ export function PlayerPickerModal({
                   const isCurrentReplaceTarget =
                     replacingPlayer && getPlayerId(replacingPlayer) === getPlayerId(p);
 
-                  const aiTag = getAITag(p.predicted_total_points);
+                  const wizardTag = getWizardTag(p.predicted_total_points);
                   const pos = normalizePosition(p.position);
                   const posLabel = pos === "GKP" ? "GK" : pos;
 
@@ -442,8 +442,8 @@ export function PlayerPickerModal({
                     <li
                       key={getPlayerId(p)}
                       className={cn(
-                        "grid grid-cols-[1fr_65px_65px_100px_70px] items-center gap-2 px-4 py-2.5 transition-colors hover:bg-slate-50",
-                        inSquad && !isCurrentReplaceTarget && "bg-[#EEE7FA]/30",
+                        "grid grid-cols-[1fr_65px_65px_100px_70px] items-center gap-2 px-4 py-2.5 transition-colors hover:bg-ivory-warm/30",
+                        inSquad && !isCurrentReplaceTarget && "bg-gold-metallic/10",
                         !eligible && "opacity-45 bg-slate-50/50",
                       )}
                     >
@@ -456,22 +456,22 @@ export function PlayerPickerModal({
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 truncate">
-                            <span className="truncate text-xs font-black text-slate-900">
+                            <span className="truncate text-xs font-black text-ink-primary">
                               {p.name ?? "N/A"}
                             </span>
-                            {aiTag && (
+                            {wizardTag && (
                               <span
                                 className={cn(
                                   "shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-black uppercase leading-none hidden sm:inline-block",
-                                  aiTag.tone === "purple" &&
-                                    "bg-[#EEE7FA] text-[#452477] border border-[#D5C6F0]",
-                                  aiTag.tone === "mustard" &&
-                                    "bg-[#FDF8EC] text-[#8C680E] border border-[#E5D08E]",
-                                  aiTag.tone === "baby" &&
-                                    "bg-[#EDF6FC] text-[#246B9C] border border-[#B9DDF5]",
+                                  wizardTag.tone === "gold" &&
+                                    "bg-gold-metallic/20 text-stadium-dark border border-gold-metallic/40",
+                                  wizardTag.tone === "forest" &&
+                                    "bg-stadium-forest/15 text-stadium-forest border border-stadium-forest/30",
+                                  wizardTag.tone === "ivory" &&
+                                    "bg-ivory-warm text-ink-secondary border border-ivory-warm",
                                 )}
                               >
-                                {aiTag.label}
+                                {wizardTag.label}
                               </span>
                             )}
                           </div>
@@ -481,7 +481,7 @@ export function PlayerPickerModal({
                               logoUrl={p.team_logo_url}
                               size="sm"
                             />
-                            <span className="rounded bg-slate-200 px-1 py-0.2 text-[9px] font-black text-slate-700 uppercase">
+                            <span className="rounded bg-ivory-warm px-1 py-0.2 text-[9px] font-black text-ink-secondary uppercase">
                               {posLabel}
                             </span>
                             {!eligible && check.reason && (
@@ -495,12 +495,12 @@ export function PlayerPickerModal({
                       </div>
 
                       {/* Price */}
-                      <span className="numeral text-right text-xs font-black text-slate-800">
+                      <span className="numeral text-right text-xs font-black text-ink-primary">
                         {formatPrice(p.value)}
                       </span>
 
-                      {/* AI xPts as whole integer */}
-                      <span className="numeral text-right text-xs font-black text-[#452477] bg-[#EEE7FA] px-1.5 py-0.5 rounded border border-[#D5C6F0] justify-self-end">
+                      {/* Predicted points as whole integer */}
+                      <span className="numeral text-right text-xs font-black text-stadium-dark bg-gold-metallic/15 px-1.5 py-0.5 rounded border border-gold-metallic/30 justify-self-end">
                         {formatInt(p.predicted_total_points)} xP
                       </span>
 
@@ -527,8 +527,8 @@ export function PlayerPickerModal({
                             "flex items-center justify-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-black shadow-xs transition-all cursor-pointer whitespace-nowrap",
                             eligible
                               ? replacingPlayer
-                                ? "bg-[#452477] text-white hover:bg-[#351B5C] shadow-sm"
-                                : "bg-[#7041C5] text-white hover:bg-[#5C32A8] shadow-sm"
+                                ? "bg-stadium-deep text-gold-metallic hover:bg-stadium-forest shadow-sm"
+                                : "bg-gold-metallic text-stadium-dark hover:bg-gold-muted hover:text-white shadow-sm"
                               : "bg-slate-200 text-slate-400 cursor-not-allowed",
                           )}
                         >

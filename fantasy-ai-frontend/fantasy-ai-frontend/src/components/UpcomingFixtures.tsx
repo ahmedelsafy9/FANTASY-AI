@@ -72,10 +72,10 @@ export function UpcomingFixtures({
           return (
             <span
               key={fix.fixture_id ?? `${fix.opponent_name}-${idx}`}
-              className="inline-flex items-center gap-1 rounded-md border border-[#E8E3ED] bg-[#F8F7FA] px-2 py-0.5 font-mono text-[11px] shadow-xs"
+              className="inline-flex items-center gap-1 rounded-md border border-ivory-warm bg-ivory-surface px-2 py-0.5 font-mono text-[11px] shadow-xs"
             >
-              <span className="font-black text-[#19171D]">{code}</span>
-              <span className={isHome ? "text-[#7041C5] font-black" : "text-[#6F6A76] font-bold"}>
+              <span className="font-black text-ink-primary">{code}</span>
+              <span className={isHome ? "text-stadium-forest font-black" : "text-ink-secondary font-bold"}>
                 {isHome ? "H" : "A"}
               </span>
               <FDRBadge difficulty={fix.difficulty} size="sm" />
@@ -95,7 +95,7 @@ export function UpcomingFixtures({
           return (
             <div
               key={fix.fixture_id ?? `${fix.opponent_name}-${idx}`}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#E8E3ED] bg-white px-2.5 py-1 shadow-xs"
+              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-ivory-warm bg-white px-2.5 py-1 shadow-xs"
             >
               <TeamBadge
                 team={fix.opponent_name}
@@ -103,13 +103,13 @@ export function UpcomingFixtures({
                 size="sm"
               />
               <div className="flex flex-col">
-                <span className="font-display text-[11px] font-black leading-none text-[#19171D]">
+                <span className="font-display text-[11px] font-black leading-none text-ink-primary">
                   {code}
                 </span>
                 <span
                   className={cn(
                     "font-mono text-[9px] leading-none uppercase mt-0.5 font-black",
-                    fix.is_home ? "text-[#7041C5]" : "text-[#6F6A76]",
+                    fix.is_home ? "text-stadium-forest" : "text-ink-secondary",
                   )}
                 >
                   {fix.is_home ? "HOME" : "AWAY"}
@@ -133,14 +133,14 @@ export function UpcomingFixtures({
         return (
           <div
             key={fix.fixture_id ?? `${fix.opponent_name}-${idx}`}
-            className="flex shrink-0 min-w-[130px] flex-col gap-2 rounded-chunky-lg border border-[#E8E3ED] bg-white p-3.5 shadow-card transition-all hover:border-[#7041C5]"
+            className="flex shrink-0 min-w-[130px] flex-col gap-2 rounded-chunky-lg border border-ivory-warm bg-white p-3.5 shadow-card transition-all hover:border-gold-metallic"
           >
-            <div className="flex items-center justify-between text-[10px] font-black text-[#6F6A76]">
+            <div className="flex items-center justify-between text-[10px] font-black text-ink-secondary">
               <span>{typeof fix.event === "number" ? `GW ${fix.event}` : "GW -"}</span>
               <span
                 className={cn(
                   "font-mono font-black uppercase text-[9px]",
-                  fix.is_home ? "text-[#7041C5]" : "text-[#6F6A76]",
+                  fix.is_home ? "text-stadium-forest" : "text-ink-secondary",
                 )}
               >
                 {fix.is_home ? "HOME" : "AWAY"}

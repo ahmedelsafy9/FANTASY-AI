@@ -250,7 +250,7 @@ export default function Squad() {
               title="Auto Pick optimal AI starting XI & bench"
             >
               <Zap size={14} />
-              <span>AI Auto Pick</span>
+              <span>Wizard Auto Pick</span>
             </Button>
             <Button
               variant="secondary"
@@ -271,7 +271,7 @@ export default function Squad() {
         <div className="flex flex-wrap items-center gap-2.5 rounded-chunky-lg border border-[#E8E3ED] bg-white p-3 sm:gap-4 sm:p-3.5 shadow-sm">
           {/* Squad Count */}
           <div className="flex items-center gap-2">
-            <Users size={16} className="text-[#7041C5]" />
+            <Users size={16} className="text-gold-metallic" />
             <Badge tone={sq.isFull ? "teal" : "neutral"}>
               {sq.squad.length}/{sq.maxSize} Players
             </Badge>
@@ -319,7 +319,7 @@ export default function Squad() {
                         className={cn(
                           "block w-full rounded-lg px-3 py-1.5 text-left text-xs font-black transition-colors cursor-pointer",
                           sq.formation === f
-                            ? "bg-[#EEE7FA] text-[#452477]"
+                            ? "bg-gold-metallic/20 text-stadium-dark"
                             : "text-[#6F6A76] hover:bg-[#F8F7FA] hover:text-[#19171D]",
                         )}
                       >
@@ -386,30 +386,30 @@ export default function Squad() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mb-4 rounded-2xl border-2 border-[#7041C5] bg-[#19171D] p-3.5 text-white shadow-xl z-30"
+            className="mb-4 rounded-2xl border-2 border-gold-metallic bg-stadium-dark p-3.5 text-ivory-surface shadow-2xl z-30"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#7041C5] text-white font-black">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gold-metallic text-stadium-dark font-black">
                   <ArrowUpDown size={16} />
                 </div>
                 <div>
                   {swapSelectedPlayer ? (
                     <>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-black text-white">
+                        <span className="text-xs font-black text-ivory-surface">
                           Swap Mode: {swapSelectedPlayer.name}
                         </span>
-                        <span className="rounded bg-[#7041C5]/30 border border-[#8C60DF]/50 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#EEE7FA]">
+                        <span className="rounded bg-gold-metallic/25 border border-gold-metallic/40 px-1.5 py-0.5 text-[9px] font-black uppercase text-gold-metallic">
                           {normalizePosition(swapSelectedPlayer.position)}
                         </span>
                       </div>
-                      <p className="text-[11px] font-medium text-slate-300">
+                      <p className="text-[11px] font-medium text-ivory-warm/75">
                         Click or drag to another player to substitute.
                       </p>
                     </>
                   ) : (
-                    <span className="text-xs font-black text-white">Notice</span>
+                    <span className="text-xs font-black text-ivory-surface">Notice</span>
                   )}
                 </div>
               </div>
@@ -808,7 +808,7 @@ export default function Squad() {
                 <span
                   className={cn(
                     "numeral font-black",
-                    sq.squad.length === 15 ? "text-[#452477]" : "text-[#8C680E]",
+                    sq.squad.length === 15 ? "text-stadium-forest" : "text-[#8C680E]",
                   )}
                 >
                   {sq.squad.length}/15
@@ -819,7 +819,7 @@ export default function Squad() {
                 <span
                   className={cn(
                     "numeral font-black",
-                    sq.startingXI.length === 11 ? "text-[#452477]" : "text-[#8C680E]",
+                    sq.startingXI.length === 11 ? "text-stadium-forest" : "text-[#8C680E]",
                   )}
                 >
                   {sq.startingXI.length}/11
@@ -830,7 +830,7 @@ export default function Squad() {
                 <span
                   className={cn(
                     "font-black",
-                    sq.effectiveCaptain ? "text-[#452477]" : "text-[#8C680E]",
+                    sq.effectiveCaptain ? "text-gold-metallic" : "text-[#8C680E]",
                   )}
                 >
                   {sq.effectiveCaptain ? "Yes (C)" : "Missing"}
@@ -841,7 +841,7 @@ export default function Squad() {
                 <span
                   className={cn(
                     "font-black",
-                    sq.effectiveViceCaptain ? "text-[#452477]" : "text-[#8C680E]",
+                    sq.effectiveViceCaptain ? "text-stadium-forest" : "text-[#8C680E]",
                   )}
                 >
                   {sq.effectiveViceCaptain ? "Yes (VC)" : "Missing"}
@@ -852,7 +852,7 @@ export default function Squad() {
                 <span
                   className={cn(
                     "numeral font-black",
-                    sq.remainingBudget >= 0 ? "text-[#452477]" : "text-red-600",
+                    sq.remainingBudget >= 0 ? "text-stadium-forest" : "text-red-600",
                   )}
                 >
                   £{sq.remainingBudget.toFixed(1)}m remaining
@@ -885,7 +885,7 @@ export default function Squad() {
 
               {/* Starters list */}
               <div className="mb-3">
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#452477] block mb-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-stadium-forest block mb-1">
                   Starting XI ({sq.startingXI.length})
                 </span>
                 <div className="flex flex-col gap-1 max-h-56 overflow-y-auto">
@@ -908,12 +908,12 @@ export default function Squad() {
                             {p.name}
                           </span>
                           {isCap && (
-                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#B58A18] text-[9px] font-black text-white">
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gold-metallic text-[9px] font-black text-stadium-dark">
                               C
                             </span>
                           )}
                           {isVC && (
-                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#B9DDF5] text-[9px] font-black text-[#19171D]">
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-ivory-surface text-[9px] font-black text-stadium-dark border border-gold-metallic/40">
                               VC
                             </span>
                           )}
@@ -924,7 +924,7 @@ export default function Squad() {
                                 p.selection_type === "core"
                                   ? "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E]"
                                   : p.selection_type === "value"
-                                  ? "bg-[#EEE7FA] text-[#452477] border-[#D4C3ED]"
+                                  ? "bg-gold-metallic/15 text-stadium-dark border-gold-metallic/30"
                                   : "bg-[#F4F3F6] text-[#19171D] border-[#E8E3ED]"
                               )}
                               title={String(p.selection_reason || "")}
@@ -937,7 +937,7 @@ export default function Squad() {
                           <span className="text-[10px] font-bold text-[#6F6A76]">
                             {formatPrice(p.value)}
                           </span>
-                          <span className="numeral text-xs font-black text-[#452477] bg-[#EEE7FA] px-1.5 py-0.5 rounded">
+                          <span className="numeral text-xs font-black text-stadium-dark bg-gold-metallic/15 px-1.5 py-0.5 rounded border border-gold-metallic/30">
                             {formatInt(p.predicted_total_points)} xP
                           </span>
                         </div>

@@ -1,7 +1,7 @@
-import { Crown, ChevronRight } from "lucide-react";
+import { Crown, ChevronRight, Calendar } from "lucide-react";
 import type { MatchPrediction } from "@/types/api";
 import { TeamBadge } from "@/components/identity";
-import { Card } from "@/components/ui/primitives";
+import { OutcomeProbabilityBar } from "@/components/OutcomeProbabilityBar";
 import { cn } from "@/lib/utils";
 
 interface MatchCardProps {
@@ -10,10 +10,10 @@ interface MatchCardProps {
 }
 
 function formatKickoff(dateStr?: string | null): string {
-  if (!dateStr) return "TBD";
+  if (!dateStr) return "Fixture Date TBD";
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
+    if (Number.isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString("en-GB", {
       weekday: "short",
       day: "numeric",
@@ -27,52 +27,35 @@ function formatKickoff(dateStr?: string | null): string {
 }
 
 export function MatchCard({ match, onClick }: MatchCardProps) {
-  const hwPct = Math.round(match.home_win_probability * 100);
-  const drPct = Math.round(match.draw_probability * 100);
-  const awPct = Math.round(match.away_win_probability * 100);
-
-  // Normalization if rounding difference
-  const total = hwPct + drPct + awPct;
-  const hwWidth = total > 0 ? (hwPct / total) * 100 : 33.3;
-  const drWidth = total > 0 ? (drPct / total) * 100 : 33.3;
-  const awWidth = total > 0 ? (awPct / total) * 100 : 33.3;
-
-  const resultTone =
-    match.predicted_result === "HOME_WIN"
-      ? { label: `${match.home_team} Win`, bg: "bg-[#EEE7FA] text-[#452477] border-[#D4C3ED]" }
-      : match.predicted_result === "AWAY_WIN"
-      ? { label: `${match.away_team} Win`, bg: "bg-[#EEF7FC] text-[#1E4D6B] border-[#B9DDF5]" }
-      : { label: "Draw Predicted", bg: "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E]" };
-
   const confidenceTone =
     match.confidence_level === "HIGH"
-      ? "bg-[#EEE7FA] text-[#452477] border-[#D4C3ED]"
+      ? "bg-stadium-surface/10 text-stadium-deep border-stadium-forest/30"
       : match.confidence_level === "MODERATE"
-      ? "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E]"
-      : "bg-[#F4F3F6] text-[#6F6A76] border-[#E8E3ED]";
+      ? "bg-gold-light text-gold-dark border-gold-border"
+      : "bg-ivory-subtle text-ink-secondary border-border";
 
   return (
-    <Card
-      as="article"
-      interactive
-      className="group relative flex flex-col overflow-hidden border-[#E8E3ED] bg-white p-4 transition-all duration-200 hover:border-[#7041C5] hover:shadow-md"
+    <article
+      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-ivory-surface p-5 text-ink-primary shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-gold-border hover:shadow-card-hover cursor-pointer"
       onClick={onClick}
     >
-      {/* Top Bar: Gameweek, Kickoff & Confidence */}
-      <div className="flex items-center justify-between pb-3 text-xs border-b border-[#E8E3ED]">
+      {/* Top Bar: Gameweek, Kickoff & Model Confidence */}
+      <div className="flex items-center justify-between pb-3.5 border-b border-border/70 text-xs">
         <div className="flex items-center gap-2">
-          <span className="rounded-md bg-[#F4F3F6] px-2 py-0.5 font-mono text-[11px] font-black text-[#19171D]">
+          <span className="rounded-md bg-stadium-deep text-ivory-surface px-2.5 py-0.5 font-mono text-[11px] font-black">
             GW {match.gameweek}
           </span>
-          <span className="font-semibold text-[#6F6A76]">
+          <span className="flex items-center gap-1 font-semibold text-ink-secondary text-xs">
+            <Calendar size={13} className="text-ink-secondary" />
             {formatKickoff(match.kickoff_time)}
           </span>
         </div>
+
         <div className="flex items-center gap-1.5">
           <span
             className={cn(
               "inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide",
-              confidenceTone
+              confidenceTone,
             )}
           >
             {match.confidence_level} Confidence
@@ -80,51 +63,46 @@ export function MatchCard({ match, onClick }: MatchCardProps) {
         </div>
       </div>
 
-      {/* Main Clash Banner */}
+      {/* Main Clash Header: Equal Visual Balance */}
       <div className="py-4">
         <div className="grid grid-cols-7 items-center gap-2">
           {/* Home Team */}
           <div className="col-span-3 flex flex-col items-center text-center sm:items-start sm:text-left">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2.5 mb-1.5">
               <TeamBadge
                 team={match.home_team}
                 logoUrl={match.home_team_logo_url}
                 size="md"
               />
-              <span className="hidden font-display text-sm font-black text-[#19171D] sm:inline line-clamp-1">
+              <span className="hidden font-display text-sm sm:text-base font-black text-ink-primary sm:inline line-clamp-1">
                 {match.home_team}
               </span>
             </div>
-            <span className="font-display text-xs font-black text-[#19171D] sm:hidden truncate max-w-[80px]">
+            <span className="font-display text-xs font-black text-ink-primary sm:hidden truncate max-w-[90px]">
               {match.home_team}
             </span>
-            <div className="mt-1 inline-flex items-center gap-1 rounded bg-[#F8F7FA] px-1.5 py-0.5 text-[10px] font-bold text-[#6F6A76] border border-[#E8E3ED]">
+            <div className="inline-flex items-center gap-1 rounded-md bg-ivory-subtle px-2 py-0.5 text-[10px] font-bold text-ink-secondary border border-border">
               <span>xG</span>
-              <span className="font-mono font-black text-[#19171D]">
+              <span className="numeral font-black text-ink-primary">
                 {Math.round(match.predicted_home_goals)}
               </span>
             </div>
           </div>
 
-          {/* Predicted Scoreline & Badge */}
+          {/* Predicted Scoreline */}
           <div className="col-span-1 flex flex-col items-center justify-center text-center">
-            <div className="font-display text-lg font-black tracking-tight text-[#19171D] sm:text-xl">
+            <div className="font-display text-lg sm:text-2xl font-black tracking-tight text-stadium-deep bg-ivory-subtle px-2.5 py-1 rounded-xl border border-border shadow-inner">
               {match.predicted_scoreline}
             </div>
-            <span
-              className={cn(
-                "mt-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[9px] font-black uppercase leading-tight",
-                resultTone.bg
-              )}
-            >
-              {match.predicted_result.replace("_", " ")}
+            <span className="mt-1 font-mono text-[9px] font-bold uppercase text-ink-secondary">
+              Projected
             </span>
           </div>
 
           {/* Away Team */}
           <div className="col-span-3 flex flex-col items-center text-center sm:items-end sm:text-right">
-            <div className="flex items-center gap-2 mb-1 flex-row-reverse sm:flex-row">
-              <span className="hidden font-display text-sm font-black text-[#19171D] sm:inline line-clamp-1">
+            <div className="flex items-center gap-2.5 mb-1.5 flex-row-reverse sm:flex-row">
+              <span className="hidden font-display text-sm sm:text-base font-black text-ink-primary sm:inline line-clamp-1">
                 {match.away_team}
               </span>
               <TeamBadge
@@ -133,12 +111,12 @@ export function MatchCard({ match, onClick }: MatchCardProps) {
                 size="md"
               />
             </div>
-            <span className="font-display text-xs font-black text-[#19171D] sm:hidden truncate max-w-[80px]">
+            <span className="font-display text-xs font-black text-ink-primary sm:hidden truncate max-w-[90px]">
               {match.away_team}
             </span>
-            <div className="mt-1 inline-flex items-center gap-1 rounded bg-[#F8F7FA] px-1.5 py-0.5 text-[10px] font-bold text-[#6F6A76] border border-[#E8E3ED]">
+            <div className="inline-flex items-center gap-1 rounded-md bg-ivory-subtle px-2 py-0.5 text-[10px] font-bold text-ink-secondary border border-border">
               <span>xG</span>
-              <span className="font-mono font-black text-[#19171D]">
+              <span className="numeral font-black text-ink-primary">
                 {Math.round(match.predicted_away_goals)}
               </span>
             </div>
@@ -146,43 +124,29 @@ export function MatchCard({ match, onClick }: MatchCardProps) {
         </div>
       </div>
 
-      {/* Segmented Win/Draw/Loss Probability Bar */}
-      <div className="mt-1 space-y-1.5">
-        <div className="flex justify-between text-[11px] font-bold text-[#19171D]">
-          <span className="text-[#7041C5]">Home {hwPct}%</span>
-          <span className="text-[#8C680E]">Draw {drPct}%</span>
-          <span className="text-[#1E4D6B]">Away {awPct}%</span>
-        </div>
-        <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-[#F4F3F6] p-0.5 border border-[#E8E3ED]">
-          <div
-            style={{ width: `${hwWidth}%` }}
-            className="h-full rounded-l-full bg-[#7041C5] transition-all"
-            title={`Home Win: ${hwPct}%`}
-          />
-          <div
-            style={{ width: `${drWidth}%` }}
-            className="h-full bg-[#B58A18] transition-all"
-            title={`Draw: ${drPct}%`}
-          />
-          <div
-            style={{ width: `${awWidth}%` }}
-            className="h-full rounded-r-full bg-[#B9DDF5] transition-all"
-            title={`Away Win: ${awPct}%`}
-          />
-        </div>
+      {/* Dominant 3-Outcome Probabilities */}
+      <div className="pt-1">
+        <OutcomeProbabilityBar
+          homeTeam={match.home_team}
+          awayTeam={match.away_team}
+          homeProb={match.home_win_probability}
+          drawProb={match.draw_probability}
+          awayProb={match.away_win_probability}
+          predictedResult={match.predicted_result}
+        />
       </div>
 
-      {/* Secondary Metrics / Fantasy Impact Quick Strip */}
-      <div className="mt-3 pt-3 border-t border-[#E8E3ED] flex items-center justify-between">
+      {/* Secondary Fantasy Impact Strip */}
+      <div className="mt-4 pt-3 border-t border-border/70 flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           {match.best_captain_candidate && (
-            <div className="inline-flex items-center gap-1 rounded-md bg-[#FDF8EC] px-2 py-0.5 text-[10px] font-bold text-[#8C680E] border border-[#E5D08E]">
-              <Crown size={11} className="text-[#B58A18]" />
+            <div className="inline-flex items-center gap-1.5 rounded-md bg-gold-light px-2.5 py-1 text-[10px] font-bold text-gold-dark border border-gold-border">
+              <Crown size={12} className="text-gold-metallic" />
               <span className="truncate max-w-[120px]">
                 {match.best_captain_candidate.name}
               </span>
               {match.best_captain_candidate.expected_points && (
-                <span className="font-mono font-black text-[#8C680E]">
+                <span className="numeral font-black text-gold-dark">
                   {Math.round(match.best_captain_candidate.expected_points)} xPts
                 </span>
               )}
@@ -190,22 +154,17 @@ export function MatchCard({ match, onClick }: MatchCardProps) {
           )}
 
           {typeof match.over_2_5_probability === "number" && (
-            <span className="rounded bg-[#F8F7FA] px-1.5 py-0.5 text-[10px] font-bold text-[#6F6A76] border border-[#E8E3ED]">
-              Over 2.5 goals: {Math.round(match.over_2_5_probability * 100)}%
-            </span>
-          )}
-
-          {typeof match.btts_probability === "number" && (
-            <span className="rounded bg-[#F8F7FA] px-1.5 py-0.5 text-[10px] font-bold text-[#6F6A76] border border-[#E8E3ED]">
-              Both score: {Math.round(match.btts_probability * 100)}%
+            <span className="rounded-md bg-ivory-subtle px-2 py-0.5 text-[10px] font-bold text-ink-secondary border border-border">
+              Over 2.5: {Math.round(match.over_2_5_probability * 100)}%
             </span>
           )}
         </div>
 
-        <span className="inline-flex items-center text-xs font-bold text-[#7041C5] group-hover:translate-x-0.5 transition-transform">
-          Details <ChevronRight size={14} />
+        <span className="inline-flex items-center gap-1 text-xs font-black text-stadium-deep group-hover:text-gold-metallic group-hover:translate-x-0.5 transition-all">
+          <span>Matchday Intel</span>
+          <ChevronRight size={14} />
         </span>
       </div>
-    </Card>
+    </article>
   );
 }

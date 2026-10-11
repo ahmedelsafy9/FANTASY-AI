@@ -107,22 +107,23 @@ def resolve_authoritative_gameweek(
         next_deadline: str | None = None
         is_active = bool(current_event is not None and not current_event.get("finished", False))
 
-        if next_event is not None and next_event.get("id") is not None:
-            target_gw = int(next_event["id"])
-            next_deadline = next_event.get("deadline_time")
-        elif current_event is not None and not current_event.get("finished", False):
-            # Mid-gameweek: current GW is in progress
-            current_gw_id = int(current_event["id"])
-            target_gw = min(current_gw_id + 1, max_gw)
-            # Find next event deadline
-            ev_next = next((e for e in events if e.get("id") == target_gw), None)
-            if ev_next:
-                next_deadline = ev_next.get("deadline_time")
+        explicit_target = getattr(settings.prediction, "target_gameweek", None)
+        if explicit_target is not None:
+            target_gw = int(explicit_target)
+            ev_explicit = next((e for e in events if e.get("id") == target_gw), None)
+            if ev_explicit:
+                next_deadline = ev_explicit.get("deadline_time")
         elif latest_completed > 0:
             target_gw = min(latest_completed + 1, max_gw)
             ev_target = next((e for e in events if e.get("id") == target_gw), None)
             if ev_target:
                 next_deadline = ev_target.get("deadline_time")
+        elif next_event is not None and next_event.get("id") is not None:
+            target_gw = int(next_event["id"])
+            next_deadline = next_event.get("deadline_time")
+        elif current_event is not None and not current_event.get("finished", False):
+            target_gw = int(current_event["id"])
+            next_deadline = current_event.get("deadline_time")
         else:
             target_gw = 1
 

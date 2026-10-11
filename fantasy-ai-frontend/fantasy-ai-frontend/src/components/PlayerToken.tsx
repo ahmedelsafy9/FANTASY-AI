@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Plus, ArrowUpDown } from "lucide-react";
+import { X, ArrowUpDown } from "lucide-react";
 import type { PlayerRecord } from "@/types/api";
 import { PlayerAvatar, TeamBadge } from "@/components/identity";
 import { formatPrice, formatInt } from "@/lib/format";
@@ -61,6 +61,8 @@ export function PlayerToken({
   const pos = normalizePosition(player.position);
   const posLabel = pos === "GKP" ? "GK" : pos;
 
+  const pointsVal = player.predicted_expected_points ?? player.predicted_total_points;
+
   return (
     <div
       draggable={!isInvalidSwapTarget}
@@ -84,7 +86,7 @@ export function PlayerToken({
       className={cn(
         "group relative flex flex-col items-center gap-1 focus:outline-none cursor-grab active:cursor-grabbing select-none transition-all duration-150",
         isDragging && "opacity-40 scale-95",
-        isDragTarget && "scale-110 z-30 ring-4 ring-amber-400 rounded-2xl shadow-glow-gold",
+        isDragTarget && "scale-110 z-30 ring-4 ring-gold-metallic rounded-2xl shadow-glow-gold",
         isInvalidSwapTarget && "opacity-35 grayscale pointer-events-auto cursor-not-allowed",
         isSelected && "z-30 scale-105",
         isValidSwapTarget && "z-20",
@@ -95,10 +97,10 @@ export function PlayerToken({
       {benchLabel && (
         <span
           className={cn(
-            "mb-0.5 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm z-10",
+            "mb-0.5 rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-xs z-10",
             isFirstSub
-              ? "bg-[#7041C5] text-white border border-[#8C60DF]"
-              : "bg-[#19171D] text-white border border-[#2D2A32]",
+              ? "bg-gold-metallic text-stadium-dark border border-gold-border font-black"
+              : "bg-stadium-deep text-ivory-surface border border-stadium-forest",
           )}
         >
           {benchLabel}
@@ -112,7 +114,7 @@ export function PlayerToken({
       >
         {/* Selected Badge */}
         {isSelected && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 rounded-full bg-[#7041C5] px-2 py-0.5 text-[8px] font-black uppercase text-white shadow-md border border-white tracking-wider animate-pulse whitespace-nowrap">
+          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-30 rounded-full bg-stadium-deep px-2.5 py-0.5 text-[8px] font-black uppercase text-gold-bright shadow-lg border border-gold-border tracking-wider animate-pulse whitespace-nowrap">
             SELECTED
           </div>
         )}
@@ -123,36 +125,36 @@ export function PlayerToken({
           size="md"
           className={cn(
             "ring-2 ring-white shadow-md transition-all",
-            isSelected && "ring-[#7041C5] ring-4 shadow-xl scale-105",
-            isValidSwapTarget && "ring-[#B58A18] ring-3 shadow-glow-gold animate-pulse",
-            isCaptain && !isSelected && "ring-[#B58A18] ring-4 shadow-glow-gold",
-            isViceCaptain && !isSelected && "ring-[#B9DDF5] ring-4 shadow-glow",
-            isFirstSub && !isSelected && "ring-[#7041C5] ring-3",
-            onClick && "group-hover/avatar:ring-[#7041C5]",
+            isSelected && "ring-gold-metallic ring-4 shadow-xl scale-105",
+            isValidSwapTarget && "ring-gold-metallic ring-3 shadow-glow-gold animate-pulse",
+            isCaptain && !isSelected && "ring-gold-metallic ring-4 shadow-glow-gold",
+            isViceCaptain && !isSelected && "ring-border ring-3 shadow-sm",
+            isFirstSub && !isSelected && "ring-gold-muted ring-3",
+            onClick && "group-hover/avatar:ring-gold-metallic",
           )}
         />
 
-        {/* Captain Badge (Top-Left) */}
+        {/* Captain Badge */}
         {isCaptain && !isSelected && (
           <div
-            className="absolute -left-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-[#B58A18] text-[11px] font-black text-white shadow-md border-2 border-white animate-bounce-sm"
+            className="absolute -left-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-gold-metallic text-[11px] font-black text-stadium-dark shadow-md border-2 border-white animate-bounce-sm"
             title="Captain (2× Points)"
           >
             C
           </div>
         )}
 
-        {/* Vice Captain Badge (Top-Left if not captain) */}
+        {/* Vice Captain Badge */}
         {!isCaptain && isViceCaptain && !isSelected && (
           <div
-            className="absolute -left-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-[#B9DDF5] text-[10px] font-black text-[#19171D] shadow-md border-2 border-white"
+            className="absolute -left-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-ivory-surface text-[10px] font-black text-stadium-deep shadow-md border-2 border-stadium-forest"
             title="Vice Captain"
           >
             VC
           </div>
         )}
 
-        {/* Remove Button (Top-Right) */}
+        {/* Remove Button */}
         {onRemove && !isSelected && !isValidSwapTarget && (
           <button
             type="button"
@@ -162,7 +164,7 @@ export function PlayerToken({
             }}
             title={`Remove ${player.name ?? "player"} from squad`}
             className={cn(
-              "absolute -right-2 -top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-[#EF4444] text-white shadow-md border-2 border-white hover:bg-red-700 hover:scale-110 active:scale-90 transition-all cursor-pointer",
+              "absolute -right-2 -top-2 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white shadow-md border-2 border-white hover:bg-rose-700 hover:scale-110 active:scale-90 transition-all cursor-pointer",
               isHovered ? "opacity-100" : "opacity-0 sm:opacity-0",
             )}
           >
@@ -179,7 +181,7 @@ export function PlayerToken({
               if (onQuickSwap) onQuickSwap();
               else if (onClick) onClick();
             }}
-            className="absolute -bottom-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 rounded-full bg-[#7041C5] px-2 py-0.5 text-[9px] font-black uppercase text-white shadow-lg border border-white hover:bg-[#5D32A8] hover:scale-110 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
+            className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-0.5 rounded-full bg-gold-metallic px-2.5 py-0.5 text-[9px] font-black uppercase text-stadium-dark shadow-lg border border-white hover:bg-gold-bright hover:scale-110 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
             title="Click to swap with selected player"
           >
             <ArrowUpDown size={10} strokeWidth={3} />
@@ -200,26 +202,26 @@ export function PlayerToken({
         type="button"
         onClick={onClick}
         className={cn(
-          "mt-0.5 max-w-[100px] truncate rounded bg-white px-2 py-0.5 text-center font-display text-[11px] font-black text-[#19171D] shadow-sm border border-[#E8E3ED] transition-colors hover:bg-[#F8F7FA] cursor-pointer flex items-center justify-center gap-1",
-          isSelected && "bg-[#EEE7FA] text-[#452477] border-[#D4C3ED] font-extrabold",
-          isValidSwapTarget && "bg-[#FDF8EC] text-[#8C680E] border-[#E5D08E] font-extrabold",
+          "mt-0.5 max-w-[105px] truncate rounded-lg bg-ivory-surface px-2 py-0.5 text-center font-display text-[11px] font-black text-ink-primary shadow-xs border border-border transition-colors hover:bg-ivory-subtle cursor-pointer flex items-center justify-center gap-1",
+          isSelected && "bg-stadium-deep text-ivory-surface border-stadium-forest font-extrabold",
+          isValidSwapTarget && "bg-gold-light text-gold-dark border-gold-border font-extrabold",
         )}
       >
         <span className="truncate">{displayName}</span>
-        <span className="text-[8px] font-bold text-[#6F6A76] shrink-0">({posLabel})</span>
+        <span className="text-[8px] font-bold text-ink-secondary shrink-0">({posLabel})</span>
       </button>
 
-      {/* Stats Bar (Price + AI Points as whole integer) */}
+      {/* Stats Bar (Price + Expected Points strictly whole integer) */}
       <div
         onClick={onClick}
-        className="flex items-center gap-1.5 rounded-full border border-black/30 bg-[#19171D]/90 px-2.5 py-0.5 shadow-md hover:bg-[#19171D] transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 rounded-full border border-gold-border/30 bg-stadium-dark/95 px-2.5 py-0.5 shadow-md hover:bg-stadium-deep transition-colors cursor-pointer"
       >
-        <span className="numeral text-[9px] font-extrabold text-[#EEE7FA]">
+        <span className="numeral text-[9px] font-bold text-ivory-surface">
           {formatPrice(price)}
         </span>
-        <span className="text-[9px] text-white/40">•</span>
-        <span className="numeral text-[10px] font-black text-[#B58A18]">
-          {formatInt(player.predicted_total_points)} xP
+        <span className="text-[9px] text-white/30">•</span>
+        <span className="numeral text-[10px] font-black text-gold-bright">
+          {formatInt(pointsVal)} xP
         </span>
       </div>
     </div>
@@ -266,57 +268,32 @@ export function EmptySlot({
         e.preventDefault();
         if (onDrop) onDrop(e);
       }}
-      type="button"
-      title={`Click to select a ${label} player`}
       className={cn(
-        "group relative flex flex-col items-center justify-center gap-1 focus:outline-none cursor-pointer transition-all duration-150 select-none",
-        onClick && "hover:scale-105 active:scale-95",
+        "group relative flex flex-col items-center justify-center gap-1 transition-all duration-150 select-none cursor-pointer",
         isHighlightTarget && "scale-105 z-20",
         className,
       )}
     >
-      {/* FPL Empty Shirt Silhouette Container */}
       <div
         className={cn(
-          "relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl border-2 border-dashed border-white/70 bg-white/20 backdrop-blur-xs shadow-md transition-all group-hover:border-[#EEE7FA] group-hover:bg-[#7041C5]/30 group-hover:shadow-lg",
-          isHighlightTarget &&
-            "border-[#EEE7FA] bg-[#7041C5]/40 shadow-glow ring-2 ring-[#7041C5] animate-pulse",
+          "flex h-11 w-11 items-center justify-center rounded-full border-2 border-dashed transition-all",
+          isHighlightTarget
+            ? "border-gold-metallic bg-gold-light/40 text-gold-dark shadow-glow-gold animate-pulse scale-110"
+            : "border-white/40 bg-black/25 text-white/80 hover:border-white/80 hover:bg-black/40",
         )}
       >
-        {/* FPL Jersey Silhouette Icon */}
-        <svg
-          viewBox="0 0 64 64"
-          fill="none"
-          stroke="currentColor"
-          className="h-10 w-10 text-white/50 transition-colors group-hover:text-white/90"
-          aria-hidden="true"
-        >
-          <path
-            d="M 18 10 L 26 14 C 28 16 36 16 38 14 L 46 10 L 60 22 L 50 30 L 46 26 L 46 56 L 18 56 L 18 26 L 14 30 L 4 22 Z"
-            fill="currentColor"
-            fillOpacity="0.2"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinejoin="round"
-          />
-        </svg>
-
-        {/* Embedded + Button */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7041C5] text-white shadow-sm border border-[#8C60DF] transition-transform group-hover:scale-110 group-hover:bg-[#5D32A8]">
-            <Plus size={14} strokeWidth={3} />
-          </div>
-        </div>
+        <span className="text-[11px] font-mono font-black">{label}</span>
       </div>
 
-      {/* Position Label Pill */}
       <span
         className={cn(
-          "rounded-md bg-[#19171D]/90 px-2 py-0.5 font-display text-[10px] font-black uppercase text-white shadow-sm border border-[#2D2A32] group-hover:bg-[#7041C5] group-hover:border-[#8C60DF] transition-colors",
-          isHighlightTarget && "bg-[#7041C5] border-[#8C60DF] font-black animate-bounce",
+          "rounded-md px-2 py-0.5 text-[9px] font-mono font-black uppercase tracking-wider shadow-xs border transition-colors",
+          isHighlightTarget
+            ? "bg-gold-metallic text-stadium-dark border-gold-border animate-bounce-sm"
+            : "bg-black/40 text-white/90 border-white/20",
         )}
       >
-        {isHighlightTarget ? targetBadgeLabel : label}
+        {isHighlightTarget ? targetBadgeLabel : "+ Add"}
       </span>
     </button>
   );

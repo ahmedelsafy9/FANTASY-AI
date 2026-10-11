@@ -74,10 +74,10 @@ export function PlayerActionModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-10 w-full max-w-sm overflow-hidden rounded-chunky-xl border border-[#E8E3ED] bg-white p-0 text-[#19171D] shadow-xl"
+          className="relative z-10 w-full max-w-sm overflow-hidden rounded-chunky-xl border border-gold-metallic/30 bg-ivory-surface p-0 text-ink-primary shadow-2xl"
         >
           {/* Header Bar */}
-          <div className="relative bg-gradient-to-br from-[#452477] via-[#381B62] to-[#250F43] p-5 text-white">
+          <div className="relative bg-gradient-to-br from-stadium-deep via-stadium-dark to-[#06140F] p-5 text-ivory-surface border-b border-gold-metallic/25">
             <button
               type="button"
               onClick={onClose}
@@ -93,11 +93,11 @@ export function PlayerActionModal({
                   name={player.name}
                   photoUrl={player.photo_url}
                   size="lg"
-                  className="ring-3 ring-white/80 shadow-md"
+                  className="ring-3 ring-gold-metallic/70 shadow-md"
                 />
                 {isCaptain && (
                   <div
-                    className="absolute -left-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#B58A18] text-xs font-black text-white shadow-md border-2 border-white"
+                    className="absolute -left-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-gold-metallic text-xs font-black text-stadium-dark shadow-md border-2 border-ivory-surface"
                     title="Current Captain"
                   >
                     C
@@ -105,7 +105,7 @@ export function PlayerActionModal({
                 )}
                 {!isCaptain && isViceCaptain && (
                   <div
-                    className="absolute -left-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#B9DDF5] text-xs font-black text-[#19171D] shadow-md border-2 border-white"
+                    className="absolute -left-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-ivory-surface text-xs font-black text-stadium-dark shadow-md border-2 border-gold-metallic"
                     title="Current Vice-Captain"
                   >
                     VC
@@ -114,15 +114,15 @@ export function PlayerActionModal({
               </div>
 
               <div className="min-w-0 flex-1">
-                <h3 className="truncate font-display text-lg font-black text-white leading-tight">
+                <h3 className="truncate font-display text-lg font-black text-ivory-surface leading-tight">
                   {player.name ?? "Player"}
                 </h3>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   <TeamBadge team={player.team} logoUrl={player.team_logo_url} size="sm" />
-                  <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-black uppercase text-white">
+                  <span className="rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-black uppercase text-ivory-warm">
                     {posLabel}
                   </span>
-                  <span className="rounded bg-[#EEE7FA]/20 border border-[#EEE7FA]/30 px-1.5 py-0.5 text-[10px] font-black text-[#EEE7FA]">
+                  <span className="rounded bg-gold-metallic/20 border border-gold-metallic/35 px-1.5 py-0.5 text-[10px] font-black text-gold-metallic">
                     {isStarter ? "Starting XI" : "Substitute"}
                   </span>
                 </div>
@@ -130,28 +130,28 @@ export function PlayerActionModal({
             </div>
 
             {/* Quick stats banner */}
-            <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-white/10 p-2.5 text-center backdrop-blur-xs border border-white/10">
+            <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-white/5 p-2.5 text-center backdrop-blur-xs border border-white/10">
               <div>
-                <span className="text-[9px] font-black uppercase text-white/70 block">
+                <span className="text-[9px] font-black uppercase text-ivory-warm/70 block">
                   Price
                 </span>
-                <span className="text-xs font-black text-white numeral">
+                <span className="text-xs font-black text-ivory-surface numeral">
                   {formatPrice(player.value)}
                 </span>
               </div>
               <div>
-                <span className="text-[9px] font-black uppercase text-[#B9DDF5] block">
-                  AI xPts
+                <span className="text-[9px] font-black uppercase text-gold-metallic block">
+                  Projected
                 </span>
-                <span className="text-xs font-black text-[#B9DDF5] numeral">
-                  {formatInt(player.predicted_total_points)}
+                <span className="text-xs font-black text-gold-metallic numeral">
+                  {formatInt(player.predicted_total_points)} pts
                   {isCaptain && (
-                    <span className="text-[9px] text-white/80 ml-0.5">(2×={formatInt((player.predicted_total_points ?? 0) * 2)})</span>
+                    <span className="text-[9px] text-ivory-warm/80 ml-0.5">(2×={formatInt((player.predicted_total_points ?? 0) * 2)})</span>
                   )}
                 </span>
               </div>
               <div>
-                <span className="text-[9px] font-black uppercase text-white/70 block">
+                <span className="text-[9px] font-black uppercase text-ivory-warm/70 block">
                   Next Match
                 </span>
                 <div className="flex justify-center mt-0.5">
@@ -162,8 +162,7 @@ export function PlayerActionModal({
           </div>
 
           {/* Action List */}
-          <div className="flex flex-col gap-1.5 p-4">
-            {/* Captain & VC buttons (Starters only) */}
+          <div className="flex flex-col gap-1.5 p-4 bg-ivory-surface">
             {isStarter && (
               <div className="grid grid-cols-2 gap-2 mb-1">
                 <button
@@ -175,11 +174,11 @@ export function PlayerActionModal({
                   disabled={isCaptain}
                   className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 px-3 text-xs font-black transition-all cursor-pointer ${
                     isCaptain
-                      ? "bg-[#FDF8EC] border-[#E5D08E] text-[#8C680E] font-extrabold cursor-default opacity-80"
-                      : "bg-white border-[#E5D08E] text-[#8C680E] hover:bg-[#FDF8EC] shadow-sm"
+                      ? "bg-gold-metallic/20 border-gold-metallic text-stadium-dark font-extrabold cursor-default opacity-90"
+                      : "bg-white border-gold-metallic/50 text-stadium-forest hover:bg-gold-metallic/15 hover:border-gold-metallic shadow-sm"
                   }`}
                 >
-                  <Crown size={15} className="text-[#B58A18]" />
+                  <Crown size={15} className="text-gold-metallic" />
                   <span>{isCaptain ? "Captain (C)" : "Make Captain"}</span>
                 </button>
 
@@ -192,11 +191,11 @@ export function PlayerActionModal({
                   disabled={isViceCaptain}
                   className={`flex items-center justify-center gap-1.5 rounded-xl border py-2.5 px-3 text-xs font-black transition-all cursor-pointer ${
                     isViceCaptain
-                      ? "bg-[#EEF7FC] border-[#B9DDF5] text-[#1E4D6B] font-extrabold cursor-default opacity-80"
-                      : "bg-white border-[#B9DDF5] text-[#1E4D6B] hover:bg-[#EEF7FC] shadow-sm"
+                      ? "bg-stadium-forest/20 border-stadium-forest text-stadium-dark font-extrabold cursor-default opacity-90"
+                      : "bg-white border-stadium-forest/30 text-stadium-dark hover:bg-stadium-forest/10 shadow-sm"
                   }`}
                 >
-                  <Shield size={15} className="text-[#1E4D6B]" />
+                  <Shield size={15} className="text-stadium-forest" />
                   <span>{isViceCaptain ? "Vice-Cap (VC)" : "Make Vice-Cap"}</span>
                 </button>
               </div>
@@ -209,15 +208,15 @@ export function PlayerActionModal({
                 onStartSwap();
                 onClose();
               }}
-              className="flex w-full items-center justify-between rounded-xl border border-[#E8E3ED] bg-white p-3 text-left text-xs font-black text-[#19171D] shadow-sm transition-all hover:border-[#7041C5] hover:bg-[#EEE7FA]/30 hover:text-[#452477] cursor-pointer group"
+              className="flex w-full items-center justify-between rounded-xl border border-ivory-warm bg-white p-3 text-left text-xs font-black text-ink-primary shadow-sm transition-all hover:border-gold-metallic hover:bg-gold-metallic/5 cursor-pointer group"
             >
               <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEE7FA] text-[#452477] group-hover:bg-[#7041C5] group-hover:text-white transition-colors">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-ivory-warm text-stadium-dark group-hover:bg-gold-metallic group-hover:text-stadium-dark transition-colors">
                   <ArrowUpDown size={15} />
                 </div>
                 <div>
                   <span className="block font-black">Substitute / Swap</span>
-                  <span className="block text-[10px] font-medium text-[#6F6A76]">
+                  <span className="block text-[10px] font-medium text-ink-secondary">
                     Swap with a player on the pitch or bench
                   </span>
                 </div>
@@ -231,15 +230,15 @@ export function PlayerActionModal({
                 onReplace();
                 onClose();
               }}
-              className="flex w-full items-center justify-between rounded-xl border border-[#E8E3ED] bg-white p-3 text-left text-xs font-black text-[#19171D] shadow-sm transition-all hover:border-[#7041C5] hover:bg-[#EEE7FA]/30 hover:text-[#452477] cursor-pointer group"
+              className="flex w-full items-center justify-between rounded-xl border border-ivory-warm bg-white p-3 text-left text-xs font-black text-ink-primary shadow-sm transition-all hover:border-gold-metallic hover:bg-gold-metallic/5 cursor-pointer group"
             >
               <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#EEE7FA] text-[#452477] group-hover:bg-[#7041C5] group-hover:text-white transition-colors">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-ivory-warm text-stadium-dark group-hover:bg-gold-metallic group-hover:text-stadium-dark transition-colors">
                   <RefreshCw size={15} />
                 </div>
                 <div>
                   <span className="block font-black">Replace Player</span>
-                  <span className="block text-[10px] font-medium text-[#6F6A76]">
+                  <span className="block text-[10px] font-medium text-ink-secondary">
                     Choose a direct {posLabel} replacement
                   </span>
                 </div>
@@ -253,15 +252,15 @@ export function PlayerActionModal({
                 onViewDetails();
                 onClose();
               }}
-              className="flex w-full items-center justify-between rounded-xl border border-[#E8E3ED] bg-white p-3 text-left text-xs font-black text-[#19171D] shadow-sm transition-all hover:bg-[#F8F7FA] cursor-pointer group"
+              className="flex w-full items-center justify-between rounded-xl border border-ivory-warm bg-white p-3 text-left text-xs font-black text-ink-primary shadow-sm transition-all hover:bg-ivory-warm/40 cursor-pointer group"
             >
               <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F4F3F6] text-[#6F6A76] group-hover:bg-[#452477] group-hover:text-white transition-colors">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-ivory-warm text-ink-secondary group-hover:bg-stadium-forest group-hover:text-ivory-surface transition-colors">
                   <Info size={15} />
                 </div>
                 <div>
                   <span className="block font-black">Player Details & Analytics</span>
-                  <span className="block text-[10px] font-medium text-[#6F6A76]">
+                  <span className="block text-[10px] font-medium text-ink-secondary">
                     View form trends, fixture metrics & AI breakdown
                   </span>
                 </div>

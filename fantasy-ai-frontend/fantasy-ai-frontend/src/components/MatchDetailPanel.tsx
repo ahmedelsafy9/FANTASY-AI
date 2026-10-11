@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Crown,
   Crosshair,
@@ -9,6 +10,7 @@ import {
 import type { MatchPrediction, MatchPlayerImpact } from "@/types/api";
 import { TeamBadge, PlayerAvatar } from "@/components/identity";
 import { AdvancedToggle } from "@/components/AdvancedToggle";
+import { OutcomeProbabilityBar } from "@/components/OutcomeProbabilityBar";
 import { cn } from "@/lib/utils";
 
 interface MatchDetailPanelProps {
@@ -16,10 +18,10 @@ interface MatchDetailPanelProps {
 }
 
 function formatKickoff(dateStr?: string | null): string {
-  if (!dateStr) return "TBD";
+  if (!dateStr) return "Fixture Date TBD";
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
+    if (Number.isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString("en-GB", {
       weekday: "long",
       day: "numeric",
@@ -45,7 +47,7 @@ function PlayerImpactCard({
   badgeColor?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[#E8E3ED] bg-[#F8F7FA] p-3 transition-colors hover:border-[#7041C5] hover:bg-white">
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-ivory-surface p-3 transition-colors hover:border-gold-metallic/60 shadow-xs">
       <PlayerAvatar name={player.name} photoUrl={player.photo_url} size="md" />
       <div className="min-w-0 flex-1">
         {badgeTitle && BadgeIcon && (
@@ -53,7 +55,7 @@ function PlayerImpactCard({
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider",
-                badgeColor ?? "bg-[#FDF8EC] text-[#8C680E] border border-[#E5D08E]"
+                badgeColor ?? "bg-gold-light text-gold-dark border border-gold-border",
               )}
             >
               <BadgeIcon size={10} />
@@ -61,18 +63,18 @@ function PlayerImpactCard({
             </span>
           </div>
         )}
-        <div className="font-display text-sm font-black text-[#19171D] truncate">
+        <div className="font-display text-sm font-black text-ink-primary truncate">
           {player.name}
         </div>
-        <div className="flex items-center gap-2 text-[11px] font-bold text-[#6F6A76]">
-          <span className="rounded bg-white px-1.5 py-0.2 border border-[#E8E3ED]">
+        <div className="flex items-center gap-2 text-[11px] font-bold text-ink-secondary">
+          <span className="rounded bg-ivory-subtle px-1.5 py-0.2 border border-border">
             {player.position ?? "N/A"}
           </span>
           <span>{player.team}</span>
         </div>
       </div>
       <div className="text-right shrink-0">
-        <div className="font-mono text-sm font-black text-[#7041C5]">
+        <div className="numeral text-sm font-black text-stadium-deep">
           {player.expected_points != null ? `${Math.round(player.expected_points)} xPts` : "—"}
         </div>
       </div>
@@ -82,10 +84,6 @@ function PlayerImpactCard({
 
 export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
   if (!match) return null;
-
-  const hwPct = Math.round(match.home_win_probability * 100);
-  const drPct = Math.round(match.draw_probability * 100);
-  const awPct = Math.round(match.away_win_probability * 100);
 
   const o25Pct =
     typeof match.over_2_5_probability === "number"
@@ -115,17 +113,17 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
   const drivers = match.prediction_drivers;
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8 text-ink-primary">
       {/* Header Matchup */}
-      <div className="border-b border-[#E8E3ED] pb-5">
-        <div className="flex items-center justify-between text-xs text-[#6F6A76] mb-3">
-          <span className="rounded-md bg-[#F4F3F6] px-2.5 py-1 font-mono font-bold text-[#19171D]">
+      <div className="border-b border-border pb-5">
+        <div className="flex items-center justify-between text-xs text-ink-secondary mb-3">
+          <span className="rounded-md bg-stadium-deep text-ivory-surface px-2.5 py-1 font-mono font-bold">
             Gameweek {match.gameweek}
           </span>
           <span className="font-semibold">{formatKickoff(match.kickoff_time)}</span>
         </div>
 
-        {/* Big Teams Clash */}
+        {/* Teams Clash */}
         <div className="flex items-center justify-between gap-3 pt-2">
           <div className="flex flex-col items-center gap-1.5 flex-1 text-center">
             <TeamBadge
@@ -133,20 +131,20 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
               logoUrl={match.home_team_logo_url}
               size="lg"
             />
-            <span className="font-display text-sm font-black text-[#19171D] line-clamp-1">
+            <span className="font-display text-sm font-black text-ink-primary line-clamp-1">
               {match.home_team}
             </span>
-            <span className="rounded-full bg-[#EEE7FA] px-2 py-0.5 text-[10px] font-black text-[#452477] border border-[#D4C3ED]">
+            <span className="rounded-full bg-ivory-subtle px-2 py-0.5 text-[10px] font-black text-ink-secondary border border-border">
               Home
             </span>
           </div>
 
           <div className="flex flex-col items-center justify-center shrink-0 px-2">
-            <span className="font-mono text-2xl font-black tracking-tight text-[#19171D]">
+            <span className="font-mono text-2xl sm:text-3xl font-black tracking-tight text-stadium-deep bg-ivory-subtle px-3 py-1 rounded-xl border border-border shadow-inner">
               {match.predicted_scoreline}
             </span>
-            <span className="text-[10px] font-black uppercase text-[#6F6A76] tracking-wider mt-0.5">
-              Predicted
+            <span className="text-[10px] font-black uppercase text-ink-secondary tracking-wider mt-1">
+              Projected
             </span>
           </div>
 
@@ -156,22 +154,22 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
               logoUrl={match.away_team_logo_url}
               size="lg"
             />
-            <span className="font-display text-sm font-black text-[#19171D] line-clamp-1">
+            <span className="font-display text-sm font-black text-ink-primary line-clamp-1">
               {match.away_team}
             </span>
-            <span className="rounded-full bg-[#EEF7FC] px-2 py-0.5 text-[10px] font-black text-[#1E4D6B] border border-[#B9DDF5]">
+            <span className="rounded-full bg-ivory-subtle px-2 py-0.5 text-[10px] font-black text-ink-secondary border border-border">
               Away
             </span>
           </div>
         </div>
 
         {/* Confidence Banner */}
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-[#F8F7FA] p-2.5 border border-[#E8E3ED]">
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-ivory-subtle p-3 border border-border">
           <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-[#7041C5]" />
-            <span className="text-xs font-bold text-[#19171D]">
-              Match Confidence:{" "}
-              <strong className="text-[#452477]">{match.confidence_level}</strong>
+            <Sparkles size={16} className="text-gold-metallic" />
+            <span className="text-xs font-bold text-ink-primary">
+              Model Prediction Confidence:{" "}
+              <strong className="text-stadium-deep">{match.confidence_level}</strong>
             </span>
           </div>
         </div>
@@ -179,118 +177,51 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
 
       {/* Win/Draw/Loss Outcome Probabilities */}
       <div className="space-y-3">
-        <h4 className="text-xs font-black uppercase tracking-wider text-[#19171D] flex items-center gap-1.5">
-          <Activity size={14} className="text-[#7041C5]" />
-          Match Outcome Probabilities
+        <h4 className="text-xs font-black uppercase tracking-wider text-ink-primary flex items-center gap-1.5">
+          <Activity size={14} className="text-gold-metallic" />
+          Three-Outcome Probability Distribution
         </h4>
 
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div
-            className={cn(
-              "rounded-xl border p-3 transition-colors",
-              match.predicted_result === "HOME_WIN"
-                ? "border-[#7041C5] bg-[#EEE7FA]/50"
-                : "border-[#E8E3ED] bg-white"
-            )}
-          >
-            <div className="text-[11px] font-bold text-[#6F6A76] truncate">
-              {match.home_team} Win
-            </div>
-            <div className="font-mono text-xl font-black text-[#452477] mt-1">
-              {hwPct}%
-            </div>
-            {match.predicted_result === "HOME_WIN" && (
-              <span className="inline-block mt-1 rounded bg-[#7041C5] text-white px-1.5 py-0.2 text-[9px] font-black uppercase">
-                Favored
-              </span>
-            )}
-          </div>
-
-          <div
-            className={cn(
-              "rounded-xl border p-3 transition-colors",
-              match.predicted_result === "DRAW"
-                ? "border-[#B58A18] bg-[#FDF8EC]/50"
-                : "border-[#E8E3ED] bg-white"
-            )}
-          >
-            <div className="text-[11px] font-bold text-[#6F6A76]">Draw</div>
-            <div className="font-mono text-xl font-black text-[#8C680E] mt-1">
-              {drPct}%
-            </div>
-            {match.predicted_result === "DRAW" && (
-              <span className="inline-block mt-1 rounded bg-[#B58A18] text-white px-1.5 py-0.2 text-[9px] font-black uppercase">
-                Favored
-              </span>
-            )}
-          </div>
-
-          <div
-            className={cn(
-              "rounded-xl border p-3 transition-colors",
-              match.predicted_result === "AWAY_WIN"
-                ? "border-[#B9DDF5] bg-[#EEF7FC]/50"
-                : "border-[#E8E3ED] bg-white"
-            )}
-          >
-            <div className="text-[11px] font-bold text-[#6F6A76] truncate">
-              {match.away_team} Win
-            </div>
-            <div className="font-mono text-xl font-black text-[#1E4D6B] mt-1">
-              {awPct}%
-            </div>
-            {match.predicted_result === "AWAY_WIN" && (
-              <span className="inline-block mt-1 rounded bg-[#1E4D6B] text-white px-1.5 py-0.2 text-[9px] font-black uppercase">
-                Favored
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Segmented bar */}
-        <div className="flex h-3 w-full overflow-hidden rounded-full bg-[#F4F3F6] p-0.5 border border-[#E8E3ED]">
-          <div
-            style={{ width: `${hwPct}%` }}
-            className="h-full rounded-l-full bg-[#7041C5]"
-          />
-          <div style={{ width: `${drPct}%` }} className="h-full bg-[#B58A18]" />
-          <div
-            style={{ width: `${awPct}%` }}
-            className="h-full rounded-r-full bg-[#B9DDF5]"
-          />
-        </div>
+        <OutcomeProbabilityBar
+          homeTeam={match.home_team}
+          awayTeam={match.away_team}
+          homeProb={match.home_win_probability}
+          drawProb={match.draw_probability}
+          awayProb={match.away_win_probability}
+          predictedResult={match.predicted_result}
+        />
       </div>
 
       {/* Expected Goals & Goal Markets */}
       <div className="space-y-3">
-        <h4 className="text-xs font-black uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
-          <Crosshair size={14} className="text-[#10B981]" />
-          Expected Goals & Markets
+        <h4 className="text-xs font-black uppercase tracking-wider text-ink-primary flex items-center gap-1.5">
+          <Crosshair size={14} className="text-stadium-forest" />
+          Expected Goals & Probability Markets
         </h4>
 
         {/* xG Comparison */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-3">
-            <div className="text-[11px] font-bold text-[#64748B] truncate">
+          <div className="rounded-xl border border-border bg-ivory-surface p-3 shadow-xs">
+            <div className="text-[11px] font-bold text-ink-secondary truncate">
               {match.home_team} xG
             </div>
-            <div className="font-mono text-lg font-black text-[#0F172A] mt-0.5">
+            <div className="numeral text-lg font-black text-stadium-deep mt-0.5">
               {Math.round(match.predicted_home_goals)}
             </div>
-            <div className="text-[10px] font-semibold text-[#64748B] mt-1">
-              Expected goals generated
+            <div className="text-[10px] font-semibold text-ink-secondary mt-0.5">
+              Projected goals generated
             </div>
           </div>
 
-          <div className="rounded-xl border border-[#E2E8F0] bg-white p-3">
-            <div className="text-[11px] font-bold text-[#64748B] truncate">
+          <div className="rounded-xl border border-border bg-ivory-surface p-3 shadow-xs">
+            <div className="text-[11px] font-bold text-ink-secondary truncate">
               {match.away_team} xG
             </div>
-            <div className="font-mono text-lg font-black text-[#0F172A] mt-0.5">
+            <div className="numeral text-lg font-black text-stadium-deep mt-0.5">
               {Math.round(match.predicted_away_goals)}
             </div>
-            <div className="text-[10px] font-semibold text-[#64748B] mt-1">
-              Expected goals generated
+            <div className="text-[10px] font-semibold text-ink-secondary mt-0.5">
+              Projected goals generated
             </div>
           </div>
         </div>
@@ -298,45 +229,45 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
         {/* Goal Markets Strip */}
         <div className="grid grid-cols-2 gap-2 text-xs">
           {o25Pct != null && (
-            <div className="flex items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
-              <span className="font-bold text-[#475569]">Over 2.5 Goals</span>
-              <span className="font-mono font-black text-[#0F172A]">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-ivory-subtle p-2.5">
+              <span className="font-bold text-ink-secondary">Over 2.5 Goals</span>
+              <span className="numeral font-black text-ink-primary">
                 {o25Pct}%
               </span>
             </div>
           )}
           {u25Pct != null && (
-            <div className="flex items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
-              <span className="font-bold text-[#475569]">Under 2.5 Goals</span>
-              <span className="font-mono font-black text-[#0F172A]">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-ivory-subtle p-2.5">
+              <span className="font-bold text-ink-secondary">Under 2.5 Goals</span>
+              <span className="numeral font-black text-ink-primary">
                 {u25Pct}%
               </span>
             </div>
           )}
           {bttsPct != null && (
-            <div className="flex items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
-              <span className="font-bold text-[#475569]">Both Score (BTTS)</span>
-              <span className="font-mono font-black text-[#0F172A]">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-ivory-subtle p-2.5">
+              <span className="font-bold text-ink-secondary">Both Teams Score</span>
+              <span className="numeral font-black text-ink-primary">
                 {bttsPct}%
               </span>
             </div>
           )}
           {hCsPct != null && (
-            <div className="flex items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
-              <span className="font-bold text-[#475569] truncate">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-ivory-subtle p-2.5">
+              <span className="font-bold text-ink-secondary truncate">
                 {match.home_team} Clean Sheet
               </span>
-              <span className="font-mono font-black text-[#0F172A]">
+              <span className="numeral font-black text-ink-primary">
                 {hCsPct}%
               </span>
             </div>
           )}
           {aCsPct != null && (
-            <div className="flex items-center justify-between rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
-              <span className="font-bold text-[#475569] truncate">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-ivory-subtle p-2.5">
+              <span className="font-bold text-ink-secondary truncate">
                 {match.away_team} Clean Sheet
               </span>
-              <span className="font-mono font-black text-[#0F172A]">
+              <span className="numeral font-black text-ink-primary">
                 {aCsPct}%
               </span>
             </div>
@@ -350,41 +281,41 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
           <div className="space-y-2 pt-1">
             <div className="grid grid-cols-2 gap-2 text-xs">
               {drivers.home_attack_strength != null && (
-                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
-                  <span className="text-[10px] font-bold text-[#64748B] block truncate">
+                <div className="rounded-lg border border-border bg-ivory-surface p-2.5">
+                  <span className="text-[10px] font-bold text-ink-secondary block truncate">
                     {match.home_team} Attack
                   </span>
-                  <span className="font-mono font-black text-[#0F172A]">
+                  <span className="numeral font-black text-ink-primary">
                     {Number(drivers.home_attack_strength).toFixed(2)}
                   </span>
                 </div>
               )}
               {drivers.away_attack_strength != null && (
-                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
-                  <span className="text-[10px] font-bold text-[#64748B] block truncate">
+                <div className="rounded-lg border border-border bg-ivory-surface p-2.5">
+                  <span className="text-[10px] font-bold text-ink-secondary block truncate">
                     {match.away_team} Attack
                   </span>
-                  <span className="font-mono font-black text-[#0F172A]">
+                  <span className="numeral font-black text-ink-primary">
                     {Number(drivers.away_attack_strength).toFixed(2)}
                   </span>
                 </div>
               )}
               {drivers.home_defence_strength != null && (
-                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
-                  <span className="text-[10px] font-bold text-[#64748B] block truncate">
+                <div className="rounded-lg border border-border bg-ivory-surface p-2.5">
+                  <span className="text-[10px] font-bold text-ink-secondary block truncate">
                     {match.home_team} Defence
                   </span>
-                  <span className="font-mono font-black text-[#0F172A]">
+                  <span className="numeral font-black text-ink-primary">
                     {Number(drivers.home_defence_strength).toFixed(2)}
                   </span>
                 </div>
               )}
               {drivers.away_defence_strength != null && (
-                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2.5">
-                  <span className="text-[10px] font-bold text-[#64748B] block truncate">
+                <div className="rounded-lg border border-border bg-ivory-surface p-2.5">
+                  <span className="text-[10px] font-bold text-ink-secondary block truncate">
                     {match.away_team} Defence
                   </span>
-                  <span className="font-mono font-black text-[#0F172A]">
+                  <span className="numeral font-black text-ink-primary">
                     {Number(drivers.away_defence_strength).toFixed(2)}
                   </span>
                 </div>
@@ -395,14 +326,14 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
       )}
 
       {/* Fantasy Impact Section */}
-      <div className="space-y-4 pt-2 border-t border-[#E2E8F0]">
+      <div className="space-y-4 pt-2 border-t border-border">
         <div>
-          <h4 className="text-xs font-black uppercase tracking-wider text-[#0F172A] flex items-center gap-1.5">
-            <Award size={14} className="text-[#F59E0B]" />
-            Fantasy Picks for This Match
+          <h4 className="text-xs font-black uppercase tracking-wider text-ink-primary flex items-center gap-1.5">
+            <Award size={14} className="text-gold-metallic" />
+            Tactical Fantasy Recommendations
           </h4>
-          <p className="text-[11px] font-semibold text-[#64748B] mt-0.5">
-            Key assets to target based on expected points and match dynamics.
+          <p className="text-[11px] font-semibold text-ink-secondary mt-0.5">
+            Key assets to target for this fixture based on expected points and game state.
           </p>
         </div>
 
@@ -411,27 +342,27 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
           {match.best_captain_candidate && (
             <PlayerImpactCard
               player={match.best_captain_candidate}
-              badgeTitle="Best Captain Pick"
+              badgeTitle="Best Armband Candidate"
               badgeIcon={Crown}
-              badgeColor="bg-[#FDF8EC] text-[#8C680E] border border-[#E5D08E]"
+              badgeColor="bg-gold-light text-gold-dark border border-gold-border"
             />
           )}
 
           {match.best_attacking_option && (
             <PlayerImpactCard
               player={match.best_attacking_option}
-              badgeTitle="Top Attacking Asset"
+              badgeTitle="Top Attacking Target"
               badgeIcon={Crosshair}
-              badgeColor="bg-[#EEE7FA] text-[#452477] border border-[#D4C3ED]"
+              badgeColor="bg-ivory-subtle text-stadium-deep border border-border"
             />
           )}
 
           {match.best_defensive_option && (
             <PlayerImpactCard
               player={match.best_defensive_option}
-              badgeTitle="Top Defensive Asset"
+              badgeTitle="Top Clean Sheet Potential"
               badgeIcon={Shield}
-              badgeColor="bg-[#EEF7FC] text-[#1E4D6B] border border-[#B9DDF5]"
+              badgeColor="bg-ivory-subtle text-stadium-forest border border-border"
             />
           )}
         </div>
@@ -442,7 +373,7 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
           <div className="space-y-4 pt-2">
             {match.top_home_players && match.top_home_players.length > 0 && (
               <div className="space-y-2">
-                <div className="text-[11px] font-black uppercase tracking-wider text-[#475569]">
+                <div className="text-[11px] font-black uppercase tracking-wider text-ink-secondary">
                   Top {match.home_team} Projected Assets
                 </div>
                 <div className="space-y-1.5">
@@ -455,7 +386,7 @@ export function MatchDetailPanel({ match }: MatchDetailPanelProps) {
 
             {match.top_away_players && match.top_away_players.length > 0 && (
               <div className="space-y-2">
-                <div className="text-[11px] font-black uppercase tracking-wider text-[#475569]">
+                <div className="text-[11px] font-black uppercase tracking-wider text-ink-secondary">
                   Top {match.away_team} Projected Assets
                 </div>
                 <div className="space-y-1.5">
