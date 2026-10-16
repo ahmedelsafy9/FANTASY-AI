@@ -156,6 +156,7 @@ def test_match_prediction_empty_fixtures_handling(mock_app_state):
     """Test graceful handling when no fixtures belong to upcoming gameweek."""
     service = MatchPredictionService(mock_app_state)
     service._fixtures_cache = []
+    service._get_fixtures = lambda force_refresh=False: []
 
     response = service.predict_next_gameweek()
     assert response.count == 0

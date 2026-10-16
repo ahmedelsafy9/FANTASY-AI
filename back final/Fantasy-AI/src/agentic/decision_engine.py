@@ -512,7 +512,7 @@ class DecisionEngine:
             bullets.append(f"• **{d.get('name')}** ({d.get('team', '')}) — Ownership: {own_str} | Projected: **{pts_str} pts**")
 
         formatted = (
-            f"### Top Low-Ownership Gems for this Gameweek (<10% Ownership & High Projections)\n\n"
+            f"### Top Differential Picks & Low-Ownership Gems for this Gameweek (<10% Ownership & High Projections)\n\n"
             + "\n".join(bullets) + "\n\n"
             f"**Why These Low-Ownership Picks**:\n"
             f"• Low overall ownership ensures significant rank gains when they return.\n"

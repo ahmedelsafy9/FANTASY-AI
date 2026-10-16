@@ -58,12 +58,10 @@ def find_latest_completed_gameweek(
         if len(fin_gws) > 0:
             completed_gws.update(int(g) for g in fin_gws)
 
-    # 2. Check 'minutes' column if present (matches played produce total minutes > 0)
-    if "minutes" in valid.columns:
-        mins = pd.to_numeric(valid["minutes"], errors="coerce").fillna(0)
-        valid_with_mins = valid[mins > 0]
-        if not valid_with_mins.empty:
-            completed_gws.update(int(g) for g in valid_with_mins["_gw_int"].unique())
+    # 2. Minutes > 0 only prove that a gameweek has started, not that it
+    # is complete. Do not mark a GW complete from a single appearance.
+    # Historical engineered rows without a finished flag still fall through
+    # to the "all present GW numbers" fallback below.
 
     # 3. Check 'total_points' if present and no completed GWs found yet
     if not completed_gws and "total_points" in valid.columns:

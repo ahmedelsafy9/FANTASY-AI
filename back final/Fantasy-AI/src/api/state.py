@@ -230,7 +230,7 @@ def build_app_state(settings: Settings) -> AppState:
             elif scoring_model_type == "multi_objective":
                 try:
                     fb5_sample = pd.read_csv(feedback5_path, nrows=5)
-                    if "score_d" in fb5_sample.columns:
+                    if "score_d" in fb5_sample.columns or "predicted_fpl_rank_score" in fb5_sample.columns:
                         use_feedback5 = True
                 except Exception:
                     pass

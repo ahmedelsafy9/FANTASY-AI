@@ -1,0 +1,10 @@
+{
+  "description": "Fantasy Wizard empowers Fantasy Premier League players with premium analytics, personalized predictions, and strategic insights to enhance decision-making.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

@@ -306,21 +306,27 @@ class ChatbotTools:
             (gw_ctx.target_gameweek if gw_ctx else None)
             or self._state.predicted_gameweek
         )
+        public = gw_ctx.to_public_dict() if gw_ctx is not None else {}
         return {
             "season": (gw_ctx.season if gw_ctx else None) or self._state.season,
             "latest_completed_gameweek": (
                 (gw_ctx.latest_completed_gameweek if gw_ctx else None)
                 or self._state.latest_completed_gameweek
             ),
+            "last_completed_gameweek": public.get("last_completed_gameweek")
+            or self._state.latest_completed_gameweek,
             "predicted_gameweek": target_gw,
             "target_gameweek": target_gw,
-            "gameweek_context": gw_ctx.__dict__ if gw_ctx else None,
+            "prediction_cutoff": public.get("prediction_cutoff"),
+            "data_freshness": public.get("freshness_status"),
+            "gameweek_context": public or None,
             "gameweek_synced": getattr(self._state, "gameweek_synced", True),
             "sync_status": getattr(self._state, "sync_status", "synchronized"),
             "next_deadline": gw_ctx.next_deadline if gw_ctx else None,
             "generated_at": self._state.generated_at,
             "player_count": len(self._predictions),
             "scoring_model": self._state.scoring_model,
+            "degraded": public.get("degraded", False),
         }
 
     # ---------------------------------------------------------------

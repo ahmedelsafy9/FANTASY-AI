@@ -13,6 +13,38 @@ from src.core.exceptions import PlayerNotFoundError
 router = APIRouter(tags=["predictions"])
 
 
+def _prediction_list_metadata(app_state) -> dict:
+    """Shared gameweek / model metadata for prediction list responses."""
+    gw_ctx = getattr(app_state, "gameweek_context", None)
+    latest = getattr(app_state, "latest_completed_gameweek", None)
+    predicted = getattr(app_state, "predicted_gameweek", None)
+    cutoff = gw_ctx.prediction_cutoff if gw_ctx is not None else None
+    freshness = gw_ctx.freshness_status if gw_ctx is not None else None
+    model_version = getattr(getattr(app_state, "loaded_model", None), "model_name", None)
+    return {
+        "season": getattr(app_state, "season", None),
+        "latest_completed_gameweek": latest,
+        "last_completed_gameweek": (
+            gw_ctx.last_completed_gameweek if gw_ctx is not None else latest
+        ),
+        "predicted_gameweek": predicted,
+        "prediction_cutoff": cutoff,
+        "data_freshness": freshness,
+        "model_version": model_version,
+        "generated_at": getattr(app_state, "generated_at", None),
+        "gameweek_synced": getattr(app_state, "gameweek_synced", True),
+        "sync_status": getattr(app_state, "sync_status", "synchronized"),
+        "predicted_for_gw_note": (
+            f"Predictions generated for Gameweek {predicted} based on data through Gameweek {latest}."
+            if predicted is not None and latest is not None
+            else (
+                "predicted_for_gw reflects each player's own most recent match, so it may "
+                "differ slightly between players who have played a different number of games."
+            )
+        ),
+    }
+
+
 @router.get("/predict", response_model=PredictionListResponse)
 def predict(
     request: Request,
@@ -46,28 +78,10 @@ def predict(
         predictions = [row for row in _iter_rows(prediction_service.get_all())]
 
     app_state = request.app.state.fantasy_ai_state
-    season = getattr(app_state, "season", None)
-    latest_completed_gw = getattr(app_state, "latest_completed_gameweek", None)
-    predicted_gw = getattr(app_state, "predicted_gameweek", None)
-    generated_at = getattr(app_state, "generated_at", None)
-
     return PredictionListResponse(
         count=len(predictions),
-        season=season,
-        latest_completed_gameweek=latest_completed_gw,
-        predicted_gameweek=predicted_gw,
-        generated_at=generated_at,
-        gameweek_synced=getattr(app_state, "gameweek_synced", True),
-        sync_status=getattr(app_state, "sync_status", "synchronized"),
-        predicted_for_gw_note=(
-            f"Predictions generated for Gameweek {predicted_gw} based on data through Gameweek {latest_completed_gw}."
-            if predicted_gw is not None and latest_completed_gw is not None
-            else (
-                "predicted_for_gw reflects each player's own most recent match, so it may "
-                "differ slightly between players who have played a different number of games."
-            )
-        ),
         predictions=predictions,
+        **_prediction_list_metadata(app_state),
     )
 
 
@@ -90,26 +104,10 @@ def top_players(
     max_limit = request.app.state.fantasy_ai_state.settings.api.top_players_max_limit
     top = prediction_service.get_top(min(limit, max_limit))
     app_state = request.app.state.fantasy_ai_state
-    season = getattr(app_state, "season", None)
-    latest_completed_gw = getattr(app_state, "latest_completed_gameweek", None)
-    predicted_gw = getattr(app_state, "predicted_gameweek", None)
-    generated_at = getattr(app_state, "generated_at", None)
-
     return PredictionListResponse(
         count=len(top),
-        season=season,
-        latest_completed_gameweek=latest_completed_gw,
-        predicted_gameweek=predicted_gw,
-        generated_at=generated_at,
-        predicted_for_gw_note=(
-            f"Predictions generated for Gameweek {predicted_gw} based on data through Gameweek {latest_completed_gw}."
-            if predicted_gw is not None and latest_completed_gw is not None
-            else (
-                "predicted_for_gw reflects each player's own most recent match, so it may "
-                "differ slightly between players who have played a different number of games."
-            )
-        ),
         predictions=top,
+        **_prediction_list_metadata(app_state),
     )
 
 

@@ -33,6 +33,18 @@ class PredictionListResponse(BaseModel):
     predicted_gameweek: int | None = Field(
         default=None, description="Next Gameweek target being predicted."
     )
+    last_completed_gameweek: int | None = Field(
+        default=None, description="Alias of latest_completed_gameweek."
+    )
+    prediction_cutoff: str | None = Field(
+        default=None, description="Timestamp after which target-GW outcomes must not be used."
+    )
+    data_freshness: str | None = Field(
+        default=None, description="fresh, stale, degraded, or unknown."
+    )
+    model_version: str | None = Field(
+        default=None, description="Serving model identifier."
+    )
     generated_at: str | None = Field(
         default=None, description="Timestamp when predictions were generated."
     )
@@ -67,7 +79,11 @@ class HealthResponse(BaseModel):
     live_metadata_available: bool | None = None
     season: str | None = None
     latest_completed_gameweek: int | None = None
+    last_completed_gameweek: int | None = None
     predicted_gameweek: int | None = None
+    prediction_cutoff: str | None = None
+    data_freshness: str | None = None
+    model_version: str | None = None
 
 
 class MatchPlayerImpact(BaseModel):

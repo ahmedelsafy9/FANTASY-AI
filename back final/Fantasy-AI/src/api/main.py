@@ -202,6 +202,7 @@ def create_app() -> FastAPI:
         if state is None:
             return HealthResponse(status="not_ready")
 
+        gw_ctx = getattr(state, "gameweek_context", None)
         return HealthResponse(
             status="ok",
             model_name=state.loaded_model.model_name,
@@ -210,7 +211,13 @@ def create_app() -> FastAPI:
             live_metadata_available=state.live_metadata_available,
             season=state.season,
             latest_completed_gameweek=state.latest_completed_gameweek,
+            last_completed_gameweek=(
+                gw_ctx.last_completed_gameweek if gw_ctx is not None else state.latest_completed_gameweek
+            ),
             predicted_gameweek=state.predicted_gameweek,
+            prediction_cutoff=gw_ctx.prediction_cutoff if gw_ctx is not None else None,
+            data_freshness=gw_ctx.freshness_status if gw_ctx is not None else None,
+            model_version=state.loaded_model.model_name,
         )
 
     # ------------------------------------------------------------------
@@ -305,8 +312,10 @@ def create_app() -> FastAPI:
     dev_origins = [
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:8443",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:8443",
     ]
 
     if is_production:

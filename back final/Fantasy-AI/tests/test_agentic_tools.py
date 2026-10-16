@@ -172,6 +172,7 @@ def _make_mock_app_state(predictions=None):
     state.generated_at = "2026-10-08T12:00:00"
     state.scoring_model = "multi_objective"
     state.differential_predictions = None
+    state.gameweek_context = None
     return state
 
 

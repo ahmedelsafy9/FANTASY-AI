@@ -190,8 +190,11 @@ class ExpectedMinutesStep(FeatureStep):
         if self._kickoff_time_column in working.columns:
             kickoff = pd.to_datetime(working[self._kickoff_time_column], errors="coerce", utc=True)
             if kickoff.notna().any():
-                for col in time_cols:
-                    working[col] = np.nan
+                m7_dict: dict[Any, float] = {}
+                g7_dict: dict[Any, float] = {}
+                m14_dict: dict[Any, float] = {}
+                g14_dict: dict[Any, float] = {}
+
                 for _, idx in working.groupby(group_keys).groups.items():
                     sub_index = idx
                     order = np.argsort(kickoff.loc[sub_index].to_numpy(), kind="mergesort")
@@ -201,16 +204,23 @@ class ExpectedMinutesStep(FeatureStep):
                     n = len(times)
                     for i in range(n):
                         t = times[i]
+                        row_idx = sub_idx_sorted[i]
                         if pd.isna(t):
                             continue
-                        for days, mcol, gcol in (
-                            (7, "minutes_prev_7d", "matches_prev_7d"),
-                            (14, "minutes_prev_14d", "matches_prev_14d"),
-                        ):
-                            lower = t - np.timedelta64(days, "D")
-                            mask = (times < t) & (times >= lower)
-                            working.loc[sub_idx_sorted[i], mcol] = float(mins[mask].sum())
-                            working.loc[sub_idx_sorted[i], gcol] = float(mask.sum())
+                        lower7 = t - np.timedelta64(7, "D")
+                        mask7 = (times < t) & (times >= lower7)
+                        m7_dict[row_idx] = float(mins[mask7].sum())
+                        g7_dict[row_idx] = float(mask7.sum())
+
+                        lower14 = t - np.timedelta64(14, "D")
+                        mask14 = (times < t) & (times >= lower14)
+                        m14_dict[row_idx] = float(mins[mask14].sum())
+                        g14_dict[row_idx] = float(mask14.sum())
+
+                working["minutes_prev_7d"] = working.index.map(m7_dict)
+                working["matches_prev_7d"] = working.index.map(g7_dict)
+                working["minutes_prev_14d"] = working.index.map(m14_dict)
+                working["matches_prev_14d"] = working.index.map(g14_dict)
             else:
                 logger.warning(
                     "Kickoff time column '%s' present but unparseable; workload window "
